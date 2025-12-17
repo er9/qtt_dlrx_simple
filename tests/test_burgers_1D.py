@@ -147,7 +147,8 @@ upwind = flags.get('do_upwind', False)
 nu = 0.0 if upwind else 0.003 / max(1,Lx-7)**2 # 0.003       ## viscosity
 flux_coeff = 1.0  # 1.0 # 1.0        ## nonolinear flux coeff
 Lbox = 1.0
-run = 1
+run = 3
+## 1: cosine, 2: shock propagation, 3: rarefaction
 
 print('upwind?', upwind)
 
@@ -178,11 +179,12 @@ if order > 1:
 T = 0.25 if run == 3 else 0.5  # 0.5   # 0.01  ## for diffusion
 print('T', T)
 
-te_order = flags.get('te_order', 86)  # 81   # 86    # 74, 4
+te_order = flags.get('te_order', 86)
+## 86:  alternative projection DLR-X + Euler (upwinding if upwind=True)
+## 96:  alternative projection DLR-P + Euler
+
 dt_frac = 0.9
-# dt = 0.003    ## te 4:  < 0.01,  te 74:  < 0.02,  te 70 ok but ringing instability
-dt = 0.002  # 1 # 25
-# dt = 0.001 / 16    ## for diffusion only
+dt = 0.002
 save_every_nt = flags.get('save_every_nt', 1000) # 100 # 50  # 50   # 50 # 25000 # 1000 // 20 # // 5
 
 DMAX = None   # 16  # None # 32 # None
@@ -471,4 +473,3 @@ plt.show()
 
 
 print('done')
-

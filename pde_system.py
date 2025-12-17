@@ -775,21 +775,40 @@ class PDE_system:
                                                  solver_type=LocalSolverType.TDCross,
                                                  compress_level_2=4, **kwargs)
 
-        ### global td-dmrg / tdvp / 1-step scheme
+        ###
         elif 90 <= te_order < 100:
             order_ = int(str(te_order)[1:])
-            # if is_first_time_step:
-            #     state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
-            #                        is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
-            #     # state_t = self.split_step(dt, method_v='mac', method_f='mac', compress_level=compress_level,
-            #     #                           is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step,
-            #     #                           verbose_plot=verbose_plot, )
-            # else:
-            ## inplace = False
-            state_t = self.time_local_global(dt, te_order=order_, # do_adapt=True,
-                                             # is_first_time_step=is_first_time_step,
-                                             # is_last_time_step=is_last_time_step,
-                                             compress_level=compress_level, compress_level_2=4)
+            if is_first_time_step:
+                try:
+                    state_t = self.split_step_old(dt, method_v='mac', method_f='mac', compress_level=compress_level,
+                                                  is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step,
+                                              verbose_plot=verbose_plot, )
+                except:
+                    if order_ == 1 or order_ == 6:
+                        state_t = self.euler(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,)
+                    else:
+                        state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
+                                       is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
+            else:
+                if 90 <= te_order < 95:
+                    if order_ == 3:
+                        order_ = 223
+                    state_t = self.tdvp_new(dt, inplace=False, te_order=order_, do_adapt=True,
+                                                 is_first_time_step=is_first_time_step,
+                                                 is_last_time_step=is_last_time_step,
+                                                 direction=direction,
+                                                 compress_level=compress_level,
+                                                 solver_type=LocalSolverType.MIXED,
+                                                 compress_level_2=4)
+                else:
+                    order_ -= 5  ## 6:  order_ = 1; 5: order_ = 0; 9: order_ = 4
+                    state_t = self.time_dmrg_new(dt, inplace=False, te_order=order_, do_adapt=True,
+                                                 is_first_time_step=is_first_time_step,
+                                                 is_last_time_step=is_last_time_step,
+                                                 direction=direction,
+                                                 compress_level=compress_level,
+                                                 solver_type=LocalSolverType.MIXED,
+                                                 compress_level_2=4, **kwargs)
 
         else:
             print('te order', te_order)

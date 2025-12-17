@@ -190,7 +190,7 @@ class BlockVector_Mixed(BlockMixed, BlockVector_DMRG):
         # self.decimate(i, direction)
         new_env_orthog = super().extend_env(i, direction)
 
-        x_version = 'select'
+        x_version = 'proj'  # 'select'
         if x_version == 'proj':
             g2x = self.bra.select_tens.get(i, None)
             ## bra (g) --> bra(x)
