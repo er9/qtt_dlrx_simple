@@ -575,224 +575,224 @@ class LayoutParallelF(Layout):
         return new_mpo
 
 
-    @classmethod
-    def make_tn1D_ndim_old(cls, axes, tn1D_1d_dict, upper_ind_id='i({})', lower_ind_id='o({})', extra_ind_ids=(),
-                           site_tag_id='T({})'):
-        """ combine 1-D MPSs or MPOs into a K-dimensional MPS
-            for MPS, MPS needs to be defined for all dimensions.
-        """
-        Ls = tuple([ax_.L for ax_ in axes])
-        ndim = len(axes)
-        Lmax = max(Ls)
-        ind_ids = (upper_ind_id, lower_ind_id) + extra_ind_ids
-
-        if ndim == 1:
-            return tn1D_1d_dict[next(iter(tn1D_1d_dict))]
-
-        new_tn = super().make_tn1D_ndim(axes, tn1D_1d_dict, upper_ind_id, lower_ind_id, extra_ind_ids,
-                                        site_tag_id)
-        # new_tn.drop_tags([f'dim_{ax}' for ax in axes])
-        new_exponent = new_tn.exponent
-
-        pos = 0
-        for ax in axes:
-            for ix in range(ax.L):
-                tn_tens = new_tn.select_tensors([f'dim_{ax}', site_tag_id.format(ix)], which='all')[0]
-                tn_tens.reindex({**{upper_ind_id.format(ix) + f',{ax}': upper_ind_id.format(pos),
-                                        lower_ind_id.format(ix) + f',{ax}': lower_ind_id.format(pos),},
-                                     **{extra_id.format(ix) + f',{ax}': extra_id.format(pos) for extra_id in extra_ind_ids}
-                                    }, inplace=True)
-                tn_tens.drop_tags()
-                tn_tens.add_tag(site_tag_id.format(pos))
-
-                pos += 1
-
-        ## contract dims together
-        if Lmax == 1:
-            new_tens = new_tn.contract(site_tag_id.format(0), inplace=True)
-            ## in this case, new_tens return is a Tensor bc full TN is contracted
-            new_tn = qtn.TensorNetwork([new_tens])
-            new_tn.exponent = new_exponent
-        else:
-
-            final_inds = {ax: cls.get_inds_in_axis(axes, ax, ax_ind=ix) for (ix, ax) in enumerate(axes)}
-
-            from gate import Gate, apply_gates
-
-            tot_L = np.sum([ax.L for ax in axes])
-            iden_tn = qtn.MPO_identity(tot_L)
-
-            swap_mat = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).reshape((2,2,2,2))
-
-            def apply_swap(tn_, start_ind, dest_ind):
-
-                print('start ind', start_ind, 'dest ind', dest_ind)
-
-                if start_ind == dest_ind:
-                    return tn_
-
-                assert(start_ind > dest_ind), f'start ind should be less than dest ind {start_ind}, {dest_ind}'
-
-                swaps = []
-                for ix in range(start_ind, dest_ind + 1, -1):
-                    swaps += [Gate((ix, ix - 1), swap_mat)]
-
-                helper.canonize(tn_, i = start_ind)
-                tn_ = apply_gates(tn_, swaps, )
-                return tn_
-
-            tmp_start = 0
-            for i in range(Lmax):
-                ax_lens = [ax.L for ax in axes]
-                ax_count = 0
-                for ix, ax in enumerate(axes):
-                    try:
-                        ind2 = final_inds[ax][i]
-                        ind1 = tmp_start + np.sum([max(0, xl - i) for xl in ax_lens[:ix]], dtype=int)
-
-                        iden_tn = apply_swap(iden_tn, ind1, ind2)
-                        ax_count += 1
-                    except IndexError:
-                        pass
-
-                tmp_start += ax_count
-
-            ## apply swap gates to each leg
-            helper.compress(iden_tn)
-            print('iden tn', iden_tn.max_bond())
-            iden_tn.distribute_exponent()
-            id_upper = iden_tn.upper_ind_id
-            id_lower = iden_tn.lower_ind_id
-            rand_upper = 'U{}' # qtn.rand_uuid() + '{}'
-            rand_lower = 'L{}' # qtn.rand_uuid() + '{}'
-            # rand_extra = [qtn.rand_uuid() + '{}' for _ in range(len(extra_ind_ids))]
-
-            for leg in range(len(extra_ind_ids) + 2):
-
-                iden1 = iden_tn.copy()
-                iden1.mangle_inner_()
-
-                # print('new tn', new_tn)
-
-                prev_tens = []
-                tens_list = []
-                left_inds = []
-                for ix in range(tot_L):
-                    # print('new tn', new_tn.select_tensors([site_tag_id.format(ix)]))
-                    # tens_tn1D = new_tn[ix]
-                    tens_tn1D = new_tn.select_tensors([site_tag_id.format(ix)])[0]
-                    tens_u = iden1[ix]
-
-                    # tens_tn1D.reindex({**{upper_ind_id.format(ix): rand_upper.format(ix),
-                    #                       lower_ind_id.format(ix): rand_lower.format(ix),},
-                    #                    **{extra_id.format(ix): rand_ex.format(ix)
-                    #                       for extra_id, rand_ex in zip(extra_ind_ids, rand_extra)}},
-                    #                    inplace=True)
-
-                    if leg == 0:
-                        tens_tn1D.reindex({upper_ind_id.format(ix): rand_upper.format(ix)}, inplace=True)
-                        tens_u.reindex({id_upper.format(ix): upper_ind_id.format(ix),
-                                        id_lower.format(ix): rand_upper.format(ix),},
-                                       inplace=True)
-                    elif leg == 1:
-                        tens_tn1D.reindex({lower_ind_id.format(ix): rand_lower.format(ix)}, inplace=True)
-                        tens_u.reindex({id_upper.format(ix): lower_ind_id.format(ix),
-                                        id_lower.format(ix): rand_lower.format(ix),},
-                                       inplace=True)
-                    elif leg > 2:
-                        extra_ind_id = extra_ind_ids[leg-2]
-                        rand_extra = 'X{}'
-                        tens_tn1D.reindex({extra_ind_id.format(ix): rand_extra.format(ix)}, inplace=True)
-                        tens_u.reindex({id_upper.format(ix): extra_ind_id.format(ix),
-                                        id_lower.format(ix): rand_extra.format(ix)}, inplace=True)
-
-                    new_tens = qtn.tensor_contract(tens_tn1D, tens_u, *prev_tens)
-
-                    left_inds += [upper_ind_id.format(ix), lower_ind_id.format(ix),
-                                  *[ex_id.format(ix) for ex_id in extra_ind_ids]]
-                    TL, TR = qtn.tensor_split(new_tens, left_inds=left_inds, cutoff=CUTOFF, cutoff_mode=CUTOFF_MODE)
-                    TL.drop_tags()
-                    TR.drop_tags()
-                    TL.add_tag(site_tag_id.format(ix))
-
-                    print('ix', ix, new_tens.shape, TR.shape)
-                    tens_list += [TL]
-                    prev_tens = [TR]
-                    left_inds = [next(iter(qtn.bonds(TL, TR)))]
-
-                new_tn = qtn.TensorNetwork(tens_list)
-
-            new_tn.fuse_multibonds(inplace=True)
-            new_tn.exponent = new_exponent
-
-            # ### after contraction, do QR and then contract R with the next set of tensors
-            # ### kind of like in zipup algorithm
-            # left_inds = []
-            # for i in range(Lmax):
-            #     new_tn.contract(site_tag_id.format(i), inplace=True)
-            #
-            #     if i < Lmax - 1:
-            #         tens = new_tn.select_tensors(site_tag_id.format(i))[0]
-            #         for ax in axes:
-            #             ax_str = ',' + str(ax)
-            #             left_inds += [upper_ind_id.format(i) + ax_str, lower_ind_id.format(i) + ax_str] \
-            #                          + [ind.format(i) + ax_str for ind in extra_ind_ids]
-            #         bond_ind = qtn.rand_uuid()
-            #         tensL, tensR = qtn.tensor_split(tens, left_inds, absorb='right', bond_ind=bond_ind,
-            #                                         cutoff=CUTOFF, cutoff_mode=CUTOFF_MODE)
-            #         tens.modify(data=tensL.data, inds=tensL.inds, tags=(site_tag_id.format(i),))
-            #         tensR.modify(tags=(site_tag_id.format(i + 1)))
-            #         new_tn.add(tensR)
-            #         left_inds = [bond_ind]
-            #
-            # new_tn.fuse_multibonds(inplace=True)
-
-        # ## split tensors
-        # new_ind = 0
-        # tens_list = []
-        # for i in range(Lmax):
-        #     tens = new_tn.select_tensors(site_tag_id.format(i))[0].copy()
-        #     active_axes = [ax_ for ax_ in axes if ax_.L > i]
-        #
-        #     for ax in active_axes[:-1]:
-        #
-        #         inds = ind_ids
-        #         # if ax in tn1D_1d_dict:    # is general tensor
-        #         #     inds = ind_ids
-        #         # else:                       # is identity MPO
-        #         #     inds = (upper_ind_id, lower_ind_id)
-        #
-        #         left_bond = () if len(tens_list) == 0 else tuple(tens.bonds(tens_list[-1]))
-        #         tensL, tens = tens.split(left_inds=left_bond + tuple([iid.format(i) + f',{ax}' for iid in inds]),
-        #                                  absorb='right', ltags=f'dim_{ax}',
-        #                                  cutoff=1.0E-30, cutoff_mode='rsum2')
-        #
-        #         if ax in tn1D_1d_dict:  # is general tensor
-        #             inds = ind_ids
-        #         else:  # is identity MPO
-        #             inds = (upper_ind_id, lower_ind_id)
-        #         tensL.retag({site_tag_id.format(i): site_tag_id.format(new_ind)}, inplace=True)
-        #         tensL.reindex({iid.format(i) + f',{ax}': iid.format(new_ind) for iid in inds}, inplace=True)
-        #         tens_list += [tensL.copy()]
-        #         new_ind += 1
-        #
-        #     tens.add_tag(f'dim_{active_axes[-1]}')
-        #     if active_axes[-1] in tn1D_1d_dict:  # is general tensor
-        #         inds = ind_ids
-        #     else:  # is identity MPO
-        #         inds = (upper_ind_id, lower_ind_id)
-        #     tens.retag({site_tag_id.format(i): site_tag_id.format(new_ind)}, inplace=True)
-        #     tens.reindex({iid.format(i) + f',{active_axes[-1]}': iid.format(new_ind) for iid in inds}, inplace=True)
-        #     tens_list += [tens.copy()]
-        #     new_ind += 1
-
-        # new_tn = qtn.TensorNetwork(tens_list)
-        # new_tn.exponent = new_exponent
-        # new_tn.view_as(qtn.TensorNetwork1D, inplace=True, L=new_tn.num_tensors, site_tag_id=site_tag_id)
-        new_tn.view_as(MatrixProductTensor, inplace=True, L=new_tn.num_tensors, cyclic=False,
-                       site_tag_id=site_tag_id, upper_ind_id=upper_ind_id, lower_ind_id=lower_ind_id,
-                       extra_ind_ids=extra_ind_ids)
-        return new_tn
+    # @classmethod
+    # def make_tn1D_ndim_old(cls, axes, tn1D_1d_dict, upper_ind_id='i({})', lower_ind_id='o({})', extra_ind_ids=(),
+    #                        site_tag_id='T({})'):
+    #     """ combine 1-D MPSs or MPOs into a K-dimensional MPS
+    #         for MPS, MPS needs to be defined for all dimensions.
+    #     """
+    #     Ls = tuple([ax_.L for ax_ in axes])
+    #     ndim = len(axes)
+    #     Lmax = max(Ls)
+    #     ind_ids = (upper_ind_id, lower_ind_id) + extra_ind_ids
+    #
+    #     if ndim == 1:
+    #         return tn1D_1d_dict[next(iter(tn1D_1d_dict))]
+    #
+    #     new_tn = super().make_tn1D_ndim(axes, tn1D_1d_dict, upper_ind_id, lower_ind_id, extra_ind_ids,
+    #                                     site_tag_id)
+    #     # new_tn.drop_tags([f'dim_{ax}' for ax in axes])
+    #     new_exponent = new_tn.exponent
+    #
+    #     pos = 0
+    #     for ax in axes:
+    #         for ix in range(ax.L):
+    #             tn_tens = new_tn.select_tensors([f'dim_{ax}', site_tag_id.format(ix)], which='all')[0]
+    #             tn_tens.reindex({**{upper_ind_id.format(ix) + f',{ax}': upper_ind_id.format(pos),
+    #                                     lower_ind_id.format(ix) + f',{ax}': lower_ind_id.format(pos),},
+    #                                  **{extra_id.format(ix) + f',{ax}': extra_id.format(pos) for extra_id in extra_ind_ids}
+    #                                 }, inplace=True)
+    #             tn_tens.drop_tags()
+    #             tn_tens.add_tag(site_tag_id.format(pos))
+    #
+    #             pos += 1
+    #
+    #     ## contract dims together
+    #     if Lmax == 1:
+    #         new_tens = new_tn.contract(site_tag_id.format(0), inplace=True)
+    #         ## in this case, new_tens return is a Tensor bc full TN is contracted
+    #         new_tn = qtn.TensorNetwork([new_tens])
+    #         new_tn.exponent = new_exponent
+    #     else:
+    #
+    #         final_inds = {ax: cls.get_inds_in_axis(axes, ax, ax_ind=ix) for (ix, ax) in enumerate(axes)}
+    #
+    #         from gate import Gate, apply_gates
+    #
+    #         tot_L = np.sum([ax.L for ax in axes])
+    #         iden_tn = qtn.MPO_identity(tot_L)
+    #
+    #         swap_mat = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).reshape((2,2,2,2))
+    #
+    #         def apply_swap(tn_, start_ind, dest_ind):
+    #
+    #             print('start ind', start_ind, 'dest ind', dest_ind)
+    #
+    #             if start_ind == dest_ind:
+    #                 return tn_
+    #
+    #             assert(start_ind > dest_ind), f'start ind should be less than dest ind {start_ind}, {dest_ind}'
+    #
+    #             swaps = []
+    #             for ix in range(start_ind, dest_ind + 1, -1):
+    #                 swaps += [Gate((ix, ix - 1), swap_mat)]
+    #
+    #             helper.canonize(tn_, i = start_ind)
+    #             tn_ = apply_gates(tn_, swaps, )
+    #             return tn_
+    #
+    #         tmp_start = 0
+    #         for i in range(Lmax):
+    #             ax_lens = [ax.L for ax in axes]
+    #             ax_count = 0
+    #             for ix, ax in enumerate(axes):
+    #                 try:
+    #                     ind2 = final_inds[ax][i]
+    #                     ind1 = tmp_start + np.sum([max(0, xl - i) for xl in ax_lens[:ix]], dtype=int)
+    #
+    #                     iden_tn = apply_swap(iden_tn, ind1, ind2)
+    #                     ax_count += 1
+    #                 except IndexError:
+    #                     pass
+    #
+    #             tmp_start += ax_count
+    #
+    #         ## apply swap gates to each leg
+    #         helper.compress(iden_tn)
+    #         print('iden tn', iden_tn.max_bond())
+    #         iden_tn.distribute_exponent()
+    #         id_upper = iden_tn.upper_ind_id
+    #         id_lower = iden_tn.lower_ind_id
+    #         rand_upper = 'U{}' # qtn.rand_uuid() + '{}'
+    #         rand_lower = 'L{}' # qtn.rand_uuid() + '{}'
+    #         # rand_extra = [qtn.rand_uuid() + '{}' for _ in range(len(extra_ind_ids))]
+    #
+    #         for leg in range(len(extra_ind_ids) + 2):
+    #
+    #             iden1 = iden_tn.copy()
+    #             iden1.mangle_inner_()
+    #
+    #             # print('new tn', new_tn)
+    #
+    #             prev_tens = []
+    #             tens_list = []
+    #             left_inds = []
+    #             for ix in range(tot_L):
+    #                 # print('new tn', new_tn.select_tensors([site_tag_id.format(ix)]))
+    #                 # tens_tn1D = new_tn[ix]
+    #                 tens_tn1D = new_tn.select_tensors([site_tag_id.format(ix)])[0]
+    #                 tens_u = iden1[ix]
+    #
+    #                 # tens_tn1D.reindex({**{upper_ind_id.format(ix): rand_upper.format(ix),
+    #                 #                       lower_ind_id.format(ix): rand_lower.format(ix),},
+    #                 #                    **{extra_id.format(ix): rand_ex.format(ix)
+    #                 #                       for extra_id, rand_ex in zip(extra_ind_ids, rand_extra)}},
+    #                 #                    inplace=True)
+    #
+    #                 if leg == 0:
+    #                     tens_tn1D.reindex({upper_ind_id.format(ix): rand_upper.format(ix)}, inplace=True)
+    #                     tens_u.reindex({id_upper.format(ix): upper_ind_id.format(ix),
+    #                                     id_lower.format(ix): rand_upper.format(ix),},
+    #                                    inplace=True)
+    #                 elif leg == 1:
+    #                     tens_tn1D.reindex({lower_ind_id.format(ix): rand_lower.format(ix)}, inplace=True)
+    #                     tens_u.reindex({id_upper.format(ix): lower_ind_id.format(ix),
+    #                                     id_lower.format(ix): rand_lower.format(ix),},
+    #                                    inplace=True)
+    #                 elif leg > 2:
+    #                     extra_ind_id = extra_ind_ids[leg-2]
+    #                     rand_extra = 'X{}'
+    #                     tens_tn1D.reindex({extra_ind_id.format(ix): rand_extra.format(ix)}, inplace=True)
+    #                     tens_u.reindex({id_upper.format(ix): extra_ind_id.format(ix),
+    #                                     id_lower.format(ix): rand_extra.format(ix)}, inplace=True)
+    #
+    #                 new_tens = qtn.tensor_contract(tens_tn1D, tens_u, *prev_tens)
+    #
+    #                 left_inds += [upper_ind_id.format(ix), lower_ind_id.format(ix),
+    #                               *[ex_id.format(ix) for ex_id in extra_ind_ids]]
+    #                 TL, TR = qtn.tensor_split(new_tens, left_inds=left_inds, cutoff=CUTOFF, cutoff_mode=CUTOFF_MODE)
+    #                 TL.drop_tags()
+    #                 TR.drop_tags()
+    #                 TL.add_tag(site_tag_id.format(ix))
+    #
+    #                 print('ix', ix, new_tens.shape, TR.shape)
+    #                 tens_list += [TL]
+    #                 prev_tens = [TR]
+    #                 left_inds = [next(iter(qtn.bonds(TL, TR)))]
+    #
+    #             new_tn = qtn.TensorNetwork(tens_list)
+    #
+    #         new_tn.fuse_multibonds(inplace=True)
+    #         new_tn.exponent = new_exponent
+    #
+    #         # ### after contraction, do QR and then contract R with the next set of tensors
+    #         # ### kind of like in zipup algorithm
+    #         # left_inds = []
+    #         # for i in range(Lmax):
+    #         #     new_tn.contract(site_tag_id.format(i), inplace=True)
+    #         #
+    #         #     if i < Lmax - 1:
+    #         #         tens = new_tn.select_tensors(site_tag_id.format(i))[0]
+    #         #         for ax in axes:
+    #         #             ax_str = ',' + str(ax)
+    #         #             left_inds += [upper_ind_id.format(i) + ax_str, lower_ind_id.format(i) + ax_str] \
+    #         #                          + [ind.format(i) + ax_str for ind in extra_ind_ids]
+    #         #         bond_ind = qtn.rand_uuid()
+    #         #         tensL, tensR = qtn.tensor_split(tens, left_inds, absorb='right', bond_ind=bond_ind,
+    #         #                                         cutoff=CUTOFF, cutoff_mode=CUTOFF_MODE)
+    #         #         tens.modify(data=tensL.data, inds=tensL.inds, tags=(site_tag_id.format(i),))
+    #         #         tensR.modify(tags=(site_tag_id.format(i + 1)))
+    #         #         new_tn.add(tensR)
+    #         #         left_inds = [bond_ind]
+    #         #
+    #         # new_tn.fuse_multibonds(inplace=True)
+    #
+    #     # ## split tensors
+    #     # new_ind = 0
+    #     # tens_list = []
+    #     # for i in range(Lmax):
+    #     #     tens = new_tn.select_tensors(site_tag_id.format(i))[0].copy()
+    #     #     active_axes = [ax_ for ax_ in axes if ax_.L > i]
+    #     #
+    #     #     for ax in active_axes[:-1]:
+    #     #
+    #     #         inds = ind_ids
+    #     #         # if ax in tn1D_1d_dict:    # is general tensor
+    #     #         #     inds = ind_ids
+    #     #         # else:                       # is identity MPO
+    #     #         #     inds = (upper_ind_id, lower_ind_id)
+    #     #
+    #     #         left_bond = () if len(tens_list) == 0 else tuple(tens.bonds(tens_list[-1]))
+    #     #         tensL, tens = tens.split(left_inds=left_bond + tuple([iid.format(i) + f',{ax}' for iid in inds]),
+    #     #                                  absorb='right', ltags=f'dim_{ax}',
+    #     #                                  cutoff=1.0E-30, cutoff_mode='rsum2')
+    #     #
+    #     #         if ax in tn1D_1d_dict:  # is general tensor
+    #     #             inds = ind_ids
+    #     #         else:  # is identity MPO
+    #     #             inds = (upper_ind_id, lower_ind_id)
+    #     #         tensL.retag({site_tag_id.format(i): site_tag_id.format(new_ind)}, inplace=True)
+    #     #         tensL.reindex({iid.format(i) + f',{ax}': iid.format(new_ind) for iid in inds}, inplace=True)
+    #     #         tens_list += [tensL.copy()]
+    #     #         new_ind += 1
+    #     #
+    #     #     tens.add_tag(f'dim_{active_axes[-1]}')
+    #     #     if active_axes[-1] in tn1D_1d_dict:  # is general tensor
+    #     #         inds = ind_ids
+    #     #     else:  # is identity MPO
+    #     #         inds = (upper_ind_id, lower_ind_id)
+    #     #     tens.retag({site_tag_id.format(i): site_tag_id.format(new_ind)}, inplace=True)
+    #     #     tens.reindex({iid.format(i) + f',{active_axes[-1]}': iid.format(new_ind) for iid in inds}, inplace=True)
+    #     #     tens_list += [tens.copy()]
+    #     #     new_ind += 1
+    #
+    #     # new_tn = qtn.TensorNetwork(tens_list)
+    #     # new_tn.exponent = new_exponent
+    #     # new_tn.view_as(qtn.TensorNetwork1D, inplace=True, L=new_tn.num_tensors, site_tag_id=site_tag_id)
+    #     new_tn.view_as(MatrixProductTensor, inplace=True, L=new_tn.num_tensors, cyclic=False,
+    #                    site_tag_id=site_tag_id, upper_ind_id=upper_ind_id, lower_ind_id=lower_ind_id,
+    #                    extra_ind_ids=extra_ind_ids)
+    #     return new_tn
 
     @classmethod
     def make_tn1D_ndim(cls, axes, tn1D_1d_dict, upper_ind_id='i({})', lower_ind_id='o({})', extra_ind_ids=(),
