@@ -97,7 +97,18 @@ class TDCross(TimeIntegrator, CrossEvaluator):
             # self.upwind_func = None
             # self.upwind_deriv_func = None
 
-
+        # self.soln = None
+        # deriv_mps = None
+        # for m in self.linear_operators:
+        #     tmp = helper_quimb.apply(m, self.init_ket)
+        #     if deriv_mps is None:
+        #         deriv_mps = tmp
+        #     else:
+        #         deriv_mps = helper_quimb.add_MPS(tmp, deriv_mps)
+        #
+        # helper_quimb.scalar_multiply(deriv_mps, dt, inplace=True)
+        #
+        # self.soln = helper_quimb.add_MPS(self.init_ket, deriv_mps)
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
@@ -236,9 +247,6 @@ class TDCross(TimeIntegrator, CrossEvaluator):
         else:
             ket_x0 = site_tens
         # exit()
-        #
-        self.num_evals += ket_x0.size
-        # print('self.num_evals', self.num_evals, ket_x0.size)
 
         ## ket exponent already removed
         # print('EULER ket x', ket_x.norm())
@@ -253,6 +261,21 @@ class TDCross(TimeIntegrator, CrossEvaluator):
 
         # helper_cross.plot_submat(self.self_term.ket, left_site_pos, 1, tot_site,
         #                          select_inds=self.self_term.bra.select_inds)
+        #
+        # # deriv_mps = self.init_ket
+        # deriv_mps = None
+        # for m in self.linear_operators:
+        #     tmp = helper_quimb.apply(m, self.init_ket)
+        #     if deriv_mps is None:
+        #         deriv_mps = tmp
+        #     else:
+        #         deriv_mps = helper_quimb.add_MPS(tmp, deriv_mps)
+        #
+        # helper_quimb.scalar_multiply(deriv_mps, dt, inplace=True)
+        #
+        # helper_cross.plot_submat(self.self_term.ket, left_site_pos, 1, deriv,
+        #                          select_inds=self.self_term.bra.select_inds,
+        #                          ref_kets=[deriv_mps])
 
         # print('euler tot site', tot_site.norm())
         tot_site.modify(apply=lambda x: x * 10 ** self.out.exponent)  ## include exponent for input into bra
@@ -372,7 +395,7 @@ class TDCross(TimeIntegrator, CrossEvaluator):
         if site_tens is None:
             ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
         else:
-            # ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites, site_tens=site_tens).copy()
+            # ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
             # print('ket x - site_tens', helper_quimb.add_tensors(ket_x * -1, site_tens).norm())
             # pdb.set_trace()
             ket_x = site_tens
@@ -422,7 +445,7 @@ class TDCross(TimeIntegrator, CrossEvaluator):
         if self.verbose:
             print('call deriv upwind func')
 
-        # self.num_evals += len(selectors)
+        self.num_evals += len(selectors)
 
         out_x = self.upwind_deriv_func(dt, self.init_ket, ket_x, selectors, upwind_submats,
                                        left_site_pos=left_site_pos, nsites=nsites, select_inds=self.out.select_inds,
@@ -447,42 +470,58 @@ class TDCross(TimeIntegrator, CrossEvaluator):
     def local_rk4(self, left_site_pos: int, nsites: int, return_intermediates=False, dt: Numeric = None,
                   time: Numeric = None, site_tens=None) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
-        print('local RK4', self.time)
+        # print('local RK4', self.time)
         dt = self.dt if dt is None else dt
 
-        return self.local_rk(4, left_site_pos, nsites, return_intermediates=return_intermediates,
-                             dt=dt, time=time, site_tens=site_tens)
+
+        ## out and psi33 are the same thing, but psi33 is scaled
+        if return_intermediates:
+            out, rk_states = self.local_rk(4, left_site_pos, nsites, return_intermediates=return_intermediates,
+                                           dt=dt, time=time, site_tens=site_tens)
+
+            # print('target all states')   ## assume returning intermediate stages
+            # return out, (*rk_states, out)
+
+            s0, k1, k2, k3, k4, out = rk_states      ## initial x, stage 1, stage 2, stage 3
+
+            ## tot_denmat:  1/3 * rho(psi03) + 1/6 * rho(psi13) + 1/6 * rho(psi23) + 1/3 * rho(psi33)
+            ## include weights here
+            psi03 = s0.copy()
+            # psi03.modify(apply=lambda x: x * np.sqrt(1. / 3))
+            psi13 = s0.copy()
+            psi13.modify(apply=lambda x: x + dt * (1. / 162 * (31 * k1.data + 14 * k2.data + 14 * k3.data - 5 * k4.data)))
+            # psi13.modify(apply=lambda x: x * np.sqrt(1. / 6))
+            psi23 = s0.copy()
+            psi23.modify(apply=lambda x: x + dt * (1. / 81 * (16 * k1.data + 20 * k2.data + 20 * k3.data - 2 * k4.data)))
+            # psi23.modify(apply=lambda x: x * np.sqrt(1. / 6))
+            psi33 = s0.copy()
+            psi33.modify(apply=lambda x: x + dt * (1. / 6 * (k1.data + 2 * k2.data + 2 * k3.data + k4.data)))
+            # psi33.modify(apply=lambda x: x * np.sqrt(1. / 3))
+
+            ########## return output and intermediate stages #########
+            ## different from DMRG, final output is the first target
+            ## bc we're usually working on self.out; init ket is kept untouched.
+
+            print('(X) classic TD-DMRG')
+            return out, (psi03, psi13, psi23, psi33)
+
+            # print('only 0, dt target')
+            # return out, (out, psi03)
+        else:
+            out = super().local_rk(4, left_site_pos, nsites, return_intermediates=False, dt=dt, time=time,
+                                   site_tens=site_tens)
+            return out
+
 
 
     def local_rk(self, te_order: int, left_site_pos: int, nsites: int, return_intermediates=False, dt: Numeric = None,
                   time: Numeric = None, site_tens=None) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
-        print('local RK()', te_order, self.time)
+        # print('local RK()', te_order, self.time)
         dt = self.dt if dt is None else dt
         if return_intermediates:
             out, rk_states = super().local_rk(te_order, left_site_pos, nsites, return_intermediates=True, dt=dt, time=time,
                                                site_tens=site_tens)
-
-            # k0, = rk_states
-
-            # s0, k1, k2, k3, k4 = rk_states      ## initial x, stage 1, stage 2, stage 3
-            # s0 = rk_states[0]
-
-            ## tot_denmat:  1/3 * rho(psi03) + 1/6 * rho(psi13) + 1/6 * rho(psi23) + 1/3 * rho(psi33)
-            ## include weights here
-            # psi03 = s0.copy()
-            # psi03.modify(apply=lambda x: x * np.sqrt(1. / 3))
-            # psi13 = s0.copy()
-            # psi13.modify(apply=lambda x: x + dt * (1. / 162 * (31 * k1.data + 14 * k2.data + 14 * k3.data - 5 * k4.data)))
-            # psi13.modify(apply=lambda x: x * np.sqrt(1. / 6))
-            # psi23 = s0.copy()
-            # psi23.modify(apply=lambda x: x + dt * (1. / 81 * (16 * k1.data + 20 * k2.data + 20 * k3.data - 2 * k4.data)))
-            # psi23.modify(apply=lambda x: x * np.sqrt(1. / 6))
-            # psi33 = s0.copy()
-            # psi33.modify(apply=lambda x: x + dt * (1. / 6 * (k1.data + 2 * k2.data + 2 * k3.data + k4.data)))
-            # psi33.modify(apply=lambda x: x * np.sqrt(1. / 3))
-
-            ## out and psi33 are the same thing, but psi33 is scaled
 
             ########## return output and intermediate stages #########
             ## different from DMRG, final output is the first target
@@ -792,59 +831,35 @@ class TDCross(TimeIntegrator, CrossEvaluator):
         """ update ket, bra with new_site
             i: int of mps site
         """
-        # print('TE cross update 1')
+        print('TE cross update 1')
         # exit()
+        #
+        # helper_cross.plot_submat(self.out, i, 1, self.out[i],
+        #                          select_inds=self.out.select_inds,
+        #                          ref_kets=[self.init_ket], plt_title='b4 update1')
+        #
+
 
         at_end = (i == 0) if direction == SweepDirection.LEFT else (i == self.L - 1)
 
         # ### new version 03/01: target intermediate kets separately
         # print('self.out', self.out)
         # print('update site i', i, at_end, site_i)   ## first site is original (un-time evolved) site
-
-        # helper_cross.plot_submat(self.out, i, 1, site_i[-1], plt_title='update 1site')
+        print('site i', len(site_i), site_i[0].shape)
         helper_cross.update_ket(self.out, site_i, i, 1, direction=direction, max_bond=self.max_bond, cutoff=self.cutoff,
                                 decimate_only=(not at_end))
         # print('out[i]', i, self.out[i])
-
-        # helper_cross.plot_submat(self.out, i+direction, 1, self.out[i +direction], plt_title='updateD 1site')
 
         for term in self.terms:
             if term is not None:
                 term.update_intermediate_kets(i, 1, direction)
 
-        # for term in self.terms:
-        #     if term.num_tiers > 1:      ## there should be no intermediate tiers now
-        #         # print('vec block', term.vec_block.bra is term.get_intermediate_ket(1))
-        #         # print('vec block', term.vec_block.bra is term.get_intermediate_ket(0))
-        #         # print('op block', term.op_blocks[0][0].ket is term.get_intermediate_ket(0))
-        #         # print('op block', term.op_blocks[0][0].bra is term.get_intermediate_ket(1))
-        #         # print('op block', term.op_blocks[0][0].bra is self.out)
-        #         for si in range(term.num_tiers - 1):
-        #             ket = term.get_intermediate_ket(si)
-        #             inter_site = term.intermediate_sites[si]
-        #             # print('term intermediate sites', term.intermediate_sites)
-        #             # print('inter site', inter_site)
-        #             # print('i', i)
-        #             # term.check_func(ket)
-        #
-        #             # ### plot intermediate ket = f**2
-        #             # ket_mpo = helper_quimb.mps_to_diag_mpo(self.init_ket.copy())
-        #             # ref2 = helper_quimb.apply(ket_mpo, self.init_ket.copy(), compress=True)
-        #             # helper_cross.plot_submat(ket, i, 1, inter_site[0], ref_kets=[ket, ref2], plt_title='before int update')
-        #
-        #             # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
-        #             # helper_cross.update_1site(ket, i, inter_site, direction, decimate_only=True,
-        #             #                           select_inds=self.out.select_inds[i], )
-        #             # helper_cross.update_ket(ket, [ket[i], *inter_site], i, 1, direction=direction,
-        #             # helper_cross.update_ket(ket, [*inter_site, ket[i]], i, 1, direction=direction,
-        #             helper_cross.update_ket(ket, inter_site, i, 1, direction=direction,
-        #                                     max_bond=self.max_bond, cutoff=self.cutoff,
-        #                                     decimate_only=(not at_end) )
-        #
-        #             ## since it's update with self.out.select_inds, ket should have the same rank as self.out
-        #         # kets = [term.get_intermediate_ket(i) for i in range(term.num_tiers - 1)]
-        #         # tensors = [term.intermediate_sites[i] for i in range(term.num_tiers - 1)]
-        #         # helper_cross.update_kets(kets, tensors, i, 1, direction=direction)
+        # if not at_end:
+        #     print('self.out', self.out.exponent)
+        #     helper_cross.plot_submat(self.out, i + direction, 1, self.out[i + direction],
+        #                              select_inds=self.out.select_inds,
+        #                              ref_kets=[self.out, self.init_ket], plt_title='update1')
+
 
         # #######################
         # ### update + canonicalize only self.ket = self.out = term.bra
@@ -892,15 +907,73 @@ class TDCross(TimeIntegrator, CrossEvaluator):
 
             # for term in self.terms:
             #     term.canonize_ket_tens(i, 1, direction, max_bond=None)
-            for term in self.nonlinear_terms:
-                print('intermediate kets', term._intermediate_kets)
-                print('ket', term.ket is self.out, term.bra is self.out)
 
             self.update_blocks(i, direction)
+
+            if self.verbose_plot:
+                tmp_gtn = self.grid.make_gridTN(self.out)
+                lefts, rights = tmp_gtn.get_bases(i + direction)
+                for l in [*lefts[:5], *rights[:5]]:
+                    ldata = l.get_data()
+                    if ldata.ndim == 1:
+                        plt.figure()
+                        plt.plot(np.real(ldata))
+                        plt.plot(np.imag(ldata))
+                    elif ldata.ndim == 2:
+                        plt.figure()
+                        plt.imshow(np.real(ldata))
+                        plt.colorbar()
+                        plt.figure()
+                        plt.imshow(np.imag(ldata))
+                        plt.colorbar()
+                    else:
+                        raise NotImplementedError
+                    plt.title(f'basis fct {i + direction}')
+                    plt.show()
+
 
         # print('updated ket', i, self.ket.cur_orthog, self.out.cur_orthog )
         # helper_cross.check_orthog(self.ket)
         # helper_cross.check_orthog(self.out)
+
+        ## CHECK ORTHOG
+        ind1 = i if at_end else i + direction
+        print('site i check orthog', ind1)
+        is_orthog = helper_cross.check_center_orthog(self.out, ind1)
+        print('is orthog', is_orthog)
+
+        tmp1, tmp2 = helper_cross.check_orthog(self.out)
+
+        # print('indL', tmp1, 'indR', tmp2)
+        # print('self.out shape', self.out[ind1].shape)
+        # tmp = self.out.copy()
+        # tmp[ind1].modify(data=tmp[ind1].data + np.random.random(tmp[ind1].shape))
+        # tmp[ind1].modify(data=tmp[ind1].data + 1)
+        # # tmp[ind1].modify(data=tmp[ind1].data * 1.5)
+        # helper_cross.check_center_orthog(tmp, ind1)
+        #
+        # tmp = self.out.copy()
+        # # tmp[ind1].modify(data=tmp[ind1].data + np.random.random(tmp[ind1].shape))
+        # tmp[ind1].modify(data=tmp[ind1].data * 1.5)
+        # helper_cross.check_center_orthog(tmp, ind1)
+        # pdb.set_trace()
+
+
+        # if at_end:
+        #     pdb.set_trace()
+        if not is_orthog and not at_end:
+            raise ValueError
+        # if tmp1 != tmp2:
+        #     raise ValueError
+
+        #
+        # ## also a way to check orthog
+        # # print('at end?', at_end)
+        # # print('self.term', self.self_term.cur_orthog, ind1)
+        # # chk_site = self.self_term.get_evaluated_site(ind1, 1)
+        # # orig_site = self.out[ind1]
+        # # print('diff proj site', (chk_site + orig_site * -1).norm())
+
 
         return
 
@@ -1131,7 +1204,10 @@ class TDVPCross(TDCross, TDVP_DMRG):
 
         new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
                                                                     # max_bond=self.max_bond, cutoff=self.cutoff,
-                                                                    bond_ind=x_ind+'_tmp', return_inds=True)
+                                                                    bond_ind=x_ind+'_tmp', return_inds=True,
+                                                                    expand_u=False)
+
+        # print('new Q', new_Q, 'new R', new_R, 'direciton', direction)
 
         if direction == SweepDirection.LEFT:
             bond_reindex_dict = {x_ind: x_ind + '_L', x_ind + '_tmp': x_ind + '_R'}
@@ -1145,14 +1221,14 @@ class TDVPCross(TDCross, TDVP_DMRG):
 
         tens2 = self.out[i + direction]
         self.next_Q = tens2.reindex(bond_reindex_dict, inplace=False)
-        new_tens2 = qtn.tensor_contract(new_R, self.next_Q)
+        new_tens2 = qtn.tensor_contract(new_R, self.next_Q.copy())
         new_tens2 = new_tens2.transpose_like(tens2, inplace=True)
-        # tens2.modify(data=new_tens2.data)
+        tens2.modify(data=new_tens2.data)   ## for plot_submat
 
         ## canonicalize intermediate kets (to specific inds)
         for term in self.terms:
             if term.num_tiers > 1:      ## there should be no intermediate kets
-                print('term inter', term)
+                # print('term inter', term)
                 for si in range(term.num_tiers - 1):
                     ket = term.get_intermediate_ket(si)
                     inter_site = term.intermediate_sites[si]
@@ -1173,12 +1249,38 @@ class TDVPCross(TDCross, TDVP_DMRG):
         self.update_blocks(i, direction=direction)
 
         ## back-propagation of R ##
-        # print('back propagation of R', i, direction, new_R)
+        # print('back propagation of R', i, direction) #, new_R)
         back_i = i if direction == SweepDirection.RIGHT else i - 1
+
+        # print('diff', helper_quimb.distance(self.out, copy_out))
+        # ## updated newR before backwards time prop should match self.out
+        # helper_cross.plot_submat(self.out, back_i, 0, new_R, plt_title=f'pre bond {back_i}', ref_kets=[self.out])
+
+        # tmp1, tmp2 = helper_cross.check_orthog(self.out)
+        # if tmp1 != tmp2:
+        #     raise ValueError
+
         new_R, err = self._bond_time_evolution(new_R, back_i, -self.dt)     ## bond between bond j, j + 1
         next_site = qtn.tensor_contract(new_R, self.next_Q.copy())
         next_site.transpose_like(self.out[i + direction], inplace=True)
         self.out[i + direction].modify(data=next_site.data)
+
+        # print('diff', helper_quimb.distance(self.out, copy_out))
+        # ## updated newR before backwards time prop should match self.out, and should be close to original
+        # helper_cross.plot_submat(self.out, back_i, 0, new_R, plt_title=f'after bond {back_i}',
+        #                          ref_kets=[self.out])
+
+        ## CHECK ORTHOG
+        print("tdvp 1 site")
+        tmp1, tmp2 = helper_cross.check_orthog(self.out)
+        ind1 = i if at_end else i + direction
+        is_orthog = helper_cross.check_center_orthog(self.out, ind1)
+        print('is orthog', is_orthog)
+        # if at_end:
+        #     pdb.set_trace()
+        if tmp1 != tmp2 or not is_orthog:
+            raise ValueError
+
         self.out._cur_orthog = i + direction
         return
 
@@ -1196,79 +1298,236 @@ class TDVPCross(TDCross, TDVP_DMRG):
         if isinstance(site_i, (tuple, list)):
             site_i = helper_tn.sum_tens(site_i)
 
+        helper_cross.update_ket(self.out, site_i, i, 2, direction=direction, max_bond=self.max_bond, cutoff=self.cutoff)
 
-        phys_inds = [self.out.site_ind(i)]
-        x_ind = self.out.bond(i, i + direction)
-        right_inds = [self.out.site_ind(i + direction)]
-        if not at_end:
-            right_inds += [self.out.bond(i + direction, i + direction * 2)]
+        ## CHECK ORTHOG
+        print("tdvp 2 site (1)")
+        tmp1, tmp2 = helper_cross.check_orthog(self.out)
+        is_orthog = helper_cross.check_center_orthog(self.out, i + direction)
+        print('is orthog', is_orthog, 'tmp 1, tmp2', tmp1, tmp2)
+        # if at_end:
+        #     pdb.set_trace()
+        if tmp1 != tmp2 or not is_orthog:
+            raise ValueError
 
-        new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
-                                                                    max_bond=self.max_bond, cutoff=self.cutoff,
-                                                                    bond_ind=x_ind + '_tmp', return_inds=True)
+        new_R = self.out[i + direction]
 
-        # left_inds = [ind for ind in self.out[i].inds if ind != x_ind]
-        # q, r = qtn.tensor_split(site_i, left_inds, absorb='right', max_bond=self.max_bond,
-        #                         cutoff=(CUTOFF if self.cutoff is None else self.cutoff),
-        #                         bond_ind=x_ind)
-
-        # helper_dmrg.update_1site(self.ket, i, site_i, direction, max_bond=self.max_bond)
-        new_Q.transpose_like(self.out[i], inplace=True)
-        self.out[i].modify(data=new_Q.data)
-        self.out.select_inds[i] = inds_r
-        new_R.transpose_like(self.out[i + direction], inplace=True)
-        new_R.modify(inds=self.out[i + direction].inds)
-        self.out[i + direction].modify(data=new_R.data)
+        # phys_inds = [self.out.site_ind(i)]
+        # x_ind = self.out.bond(i, i + direction)
+        # right_inds = [self.out.site_ind(i + direction)]
+        # if not at_end:
+        #     right_inds += [self.out.bond(i + direction, i + direction * 2)]
+        #
+        # new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
+        #                                                             max_bond=self.max_bond, cutoff=self.cutoff,
+        #                                                             bond_ind=x_ind + '_tmp', return_inds=True)
+        #
+        #
+        # # helper_dmrg.update_1site(self.ket, i, site_i, direction, max_bond=self.max_bond)
+        # new_Q.transpose_like(self.out[i], inplace=True)
+        # self.out[i].modify(data=new_Q.data)
+        # self.out.select_inds[i] = inds_r
+        # new_R.transpose_like(self.out[i + direction], inplace=True)
+        # new_R.modify(inds=self.out[i + direction].inds)
+        # self.out[i + direction].modify(data=new_R.data)
 
         ## canonicalize intermediate kets (do each individually)
-        # for term in self.terms:
-        #     # print('term.out', term.bra is self.out)    ## True
-        #     # pdb.set_trace()
-        #     if term.num_tiers > 1:
-        #         kets = [term.get_intermediate_ket(i) for i in range(term.num_tiers - 1)]
-        #         tensors = [term.intermediate_sites[i] for i in range(term.num_tiers - 1)]
-        #         helper_cross.update_kets(kets, tensors, i, 1, direction=direction)
         for term in self.terms:
             if term.num_tiers > 1:
                 for si in range(term.num_tiers - 1):
                     ket = term.get_intermediate_ket(si)
                     inter_site = term.intermediate_sites[si]
                     # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
-                    # helper_cross.update_1site(ket, i, inter_site, direction,
-                    #                           select_inds=self.out.select_inds[i], decimate_only=True)
-                    helper_cross.update_ket(ket, inter_site, i, 2, direction=direction,
-                                            max_bond=self.max_bond, cutoff=self.cutoff)
+                    helper_cross.update_1site(ket, i, inter_site, direction,
+                                              select_inds=self.out.select_inds[i], decimate_only=True)
 
         ## extend environments to include newly canonical site i
         if not at_end:
-            for term in self.nonlinear_terms:
-                print('term', term.ket is self.out, term.bra is self.out)
-                print('block', self.out is term.vec_block.ket, self.out is term.vec_block.bra)
-                if len(term.op_blocks) > 0:
-                    for block in term.op_blocks[0]:
-                        print('block', self.out is block.ket, self.out is block.bra )
             self.update_blocks(i, direction=direction)
+        #
+        # for term in self.terms:
+        #     print('term', term.ket is self.out, term.bra is self.out)
+        #     print('block', self.out is term.vec_block.ket, self.out is term.vec_block.bra)
+        #     if len(term.op_blocks) > 0:
+        #         for block in term.op_blocks[0]:
+        #             print('block', self.out is block.ket, self.out is block.bra)
+        #
 
         if not at_end:
             ## back-propagation of R
+            # print('back propagation of R', i, direction) #, new_R)
             # r.transpose_like(self.ket[i + direction], inplace=True)
             # self.ket[i + direction].modify(data=r.data)
             next_site, err = self._site_time_evolution(new_R, i + direction, -self.dt)
-            # next_site = qtn.tensor_contract(new_q, self.ket[i + direction])
+            next_site.transpose_like(self.out[i + direction], inplace=True)
+            self.out[i + direction].modify(data=next_site.data)
         else:
-            next_site = new_R
-        next_site.transpose_like(self.out[i + direction], inplace=True)
-        # print("next site", next_site)
-        self.out[i + direction].modify(data=next_site.data)
+            pass
+
+        ## CHECK ORTHOG
+        print("tdvp 2 site (2)", i)
+        tmp1, tmp2 = helper_cross.check_orthog(self.out)
+        is_orthog = helper_cross.check_center_orthog(self.out, i + direction)
+        # if at_end:
+        #     pdb.set_trace()
+        if tmp1 != tmp2 or not is_orthog:
+            raise ValueError
+
         self.out._cur_orthog = i + direction
         # print('updated out', self.out)
 
-        # self.out[i].modify(data=self.init_ket[i].data, inds=self.init_ket[i].inds)
-        # self.out[i + direction].modify(data=self.init_ket[i + direction].data,
-        #                                inds=self.init_ket[i + direction].inds)
-        # self.out._cur_orthog = i + direction
-
         return
+
+    # def _update_1site(self, i: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection', filter_bases=False,
+    #                   grid=None, ax_deriv_configs=None):
+    #     """ update ket, bra with new_site
+    #         i: int of mps site
+    #         canonicalize and then back-propagate "bond" (if not at end)
+    #     """
+    #     if self.verbose:
+    #         print('new TDVP Cross update 1 site', i, direction)
+    #
+    #     at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
+    #     if at_end:
+    #         super()._update_1site(i, site_i, direction)
+    #         return
+    #
+    #     if isinstance(site_i, (tuple, list)):
+    #         site_i = helper_tn.sum_tens(site_i)     ## all other sites are the same (and in canonical form)
+    #
+    #     x_ind = self.out.bond(i, i + direction)
+    #     left_inds = [ind for ind in self.out[i].inds if ind != x_ind]
+    #     phys_inds = [self.out.site_ind(i)]
+    #     right_inds = [x_ind]
+    #
+    #     new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
+    #                                                                 # max_bond=self.max_bond, cutoff=self.cutoff,
+    #                                                                 bond_ind=x_ind+'_tmp', return_inds=True)
+    #
+    #     if direction == SweepDirection.LEFT:
+    #         bond_reindex_dict = {x_ind: x_ind + '_L', x_ind + '_tmp': x_ind + '_R'}
+    #     else:  # direction is to the right
+    #         bond_reindex_dict = {x_ind: x_ind + '_R', x_ind + '_tmp': x_ind + '_L'}
+    #     new_R.reindex(bond_reindex_dict, inplace=True)
+    #
+    #     new_Q.transpose_like(self.out[i], inplace=True)
+    #     self.out[i].modify(data=new_Q.data)
+    #     self.out.select_inds[i] = inds_r
+    #
+    #     tens2 = self.out[i + direction]
+    #     self.next_Q = tens2.reindex(bond_reindex_dict, inplace=False)
+    #     new_tens2 = qtn.tensor_contract(new_R, self.next_Q)
+    #     new_tens2 = new_tens2.transpose_like(tens2, inplace=True)
+    #     # tens2.modify(data=new_tens2.data)
+    #
+    #     ## canonicalize intermediate kets (to specific inds)
+    #     for term in self.terms:
+    #         if term.num_tiers > 1:      ## there should be no intermediate kets
+    #             print('term inter', term)
+    #             for si in range(term.num_tiers - 1):
+    #                 ket = term.get_intermediate_ket(si)
+    #                 inter_site = term.intermediate_sites[si]
+    #                 # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
+    #                 helper_cross.update_1site(ket, i, inter_site, direction,
+    #                                           select_inds=self.out.select_inds[i], decimate_only=True)
+    #
+    #     # for term in self.terms:
+    #     #     # print('term.out', term.bra is self.out)    ## True
+    #     #     # pdb.set_trace()
+    #     #     if term.num_tiers > 1:
+    #     #         kets = [term.get_intermediate_ket(i) for i in range(term.num_tiers - 1)]
+    #     #         tensors = [term.intermediate_sites[i] for i in range(term.num_tiers - 1)]
+    #     #         helper_cross.update_kets(kets, tensors, i, 1, direction=direction)
+    #
+    #     self.update_blocks(i, direction=direction)
+    #
+    #     ## back-propagation of R ##
+    #     # print('back propagation of R', i, direction) #, new_R)
+    #     back_i = i if direction == SweepDirection.RIGHT else i - 1
+    #     new_R, err = self._bond_time_evolution(new_R, back_i, -self.dt)     ## bond between bond j, j + 1
+    #     next_site = qtn.tensor_contract(new_R, self.next_Q.copy())
+    #     next_site.transpose_like(self.out[i + direction], inplace=True)
+    #     self.out[i + direction].modify(data=next_site.data)
+    #     self.out._cur_orthog = i + direction
+    #     return
+
+
+    # def _update_2site(self, i: int, site_i: 'qtn.Tensor', direction: 'SweepDirection'):
+    #     """ update ket, bra with new_site
+    #         i: mps_site
+    #     """
+    #     if self.verbose:
+    #         print('new TDVP Cross update 2 site', i, direction)
+    #
+    #     ## canonicalize and then back-propagate "site" (if not at end)
+    #     at_end = (i == 1 if direction == SweepDirection.LEFT else i == self.L - 2)
+    #
+    #     if isinstance(site_i, (tuple, list)):
+    #         site_i = helper_tn.sum_tens(site_i)
+    #
+    #     phys_inds = [self.out.site_ind(i)]
+    #     x_ind = self.out.bond(i, i + direction)
+    #     right_inds = [self.out.site_ind(i + direction)]
+    #     if not at_end:
+    #         right_inds += [self.out.bond(i + direction, i + direction * 2)]
+    #
+    #     new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
+    #                                                                 max_bond=self.max_bond, cutoff=self.cutoff,
+    #                                                                 bond_ind=x_ind + '_tmp', return_inds=True)
+    #
+    #
+    #     # helper_dmrg.update_1site(self.ket, i, site_i, direction, max_bond=self.max_bond)
+    #     new_Q.transpose_like(self.out[i], inplace=True)
+    #     self.out[i].modify(data=new_Q.data)
+    #     self.out.select_inds[i] = inds_r
+    #     new_R.transpose_like(self.out[i + direction], inplace=True)
+    #     new_R.modify(inds=self.out[i + direction].inds)
+    #     self.out[i + direction].modify(data=new_R.data)
+    #
+    #     ## canonicalize intermediate kets (do each individually)
+    #     for term in self.terms:
+    #         if term.num_tiers > 1:
+    #             for si in range(term.num_tiers - 1):
+    #                 ket = term.get_intermediate_ket(si)
+    #                 inter_site = term.intermediate_sites[si]
+    #                 # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
+    #                 helper_cross.update_1site(ket, i, inter_site, direction,
+    #                                           select_inds=self.out.select_inds[i], decimate_only=True)
+    #
+    #     ## extend environments to include newly canonical site i
+    #     if not at_end:
+    #         self.update_blocks(i, direction=direction)
+    #     #
+    #     # for term in self.terms:
+    #     #     print('term', term.ket is self.out, term.bra is self.out)
+    #     #     print('block', self.out is term.vec_block.ket, self.out is term.vec_block.bra)
+    #     #     if len(term.op_blocks) > 0:
+    #     #         for block in term.op_blocks[0]:
+    #     #             print('block', self.out is block.ket, self.out is block.bra)
+    #     #
+    #
+    #     if not at_end:
+    #         ## back-propagation of R
+    #         # print('back propagation of R', i, direction) #, new_R)
+    #         # r.transpose_like(self.ket[i + direction], inplace=True)
+    #         # self.ket[i + direction].modify(data=r.data)
+    #         next_site, err = self._site_time_evolution(new_R, i + direction, -self.dt)
+    #         # next_site = qtn.tensor_contract(new_q, self.ket[i + direction])
+    #     else:
+    #         next_site = new_R
+    #     next_site.transpose_like(self.out[i + direction], inplace=True)
+    #     # print("next site", next_site)
+    #     self.out[i + direction].modify(data=next_site.data)
+    #     self.out._cur_orthog = i + direction
+    #     # print('updated out', self.out)
+    #
+    #     # self.out[i].modify(data=self.init_ket[i].data, inds=self.init_ket[i].inds)
+    #     # self.out[i + direction].modify(data=self.init_ket[i + direction].data,
+    #     #                                inds=self.init_ket[i + direction].inds)
+    #     # self.out._cur_orthog = i + direction
+    #
+    #     return
+
 
     # def local_lax_wendroff_so(self, left_site_pos: int, nsites: int, return_intermediates=False,
     #                        dt: Numeric = None, time: Numeric = None, site_tens: 'qtn.Tensor' = None

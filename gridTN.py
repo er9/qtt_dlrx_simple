@@ -54,7 +54,6 @@ class GridTN:
         self.canon_site = None  # None: not canonical; otherwise indexes site canonicalized around
         self.is_constant = False
         self.constant_axes = []
-        self.info = {}
 
     def __repr__(self):
         return str(self.__class__) + ' ' + str(self.data)
@@ -66,7 +65,7 @@ class GridTN:
     def exponent(self):
         return self.data.exponent
 
-    def mangle_inner(self, inplace=True, append=None):
+    def mangle_inner(self, inplace=True):
         raise NotImplementedError
 
     def _get_data(self) -> 'TNType':
@@ -308,16 +307,6 @@ class GridTN:
                  pad_data=False) -> np.ndarray:
         raise NotImplementedError
 
-    def get_realspace_data(self, ax_order=None, ax_select: Optional[dict[int]] = None, pad_data=False):
-        data = self.get_data(ax_order=ax_order, ax_select=ax_select, pad_data=pad_data)
-        if ax_select is not None:
-            ax_list = [ax for ax in self.grid.axes if ax not in ax_select]
-        else:
-            ax_list = list(self.grid.axes)
-        for ix, ax in enumerate(ax_list):
-            data = ax.basis.get_realspace_1D(data, ix)
-        return data
-
     def get_squeezed_data(self) -> tuple[np.ndarray, 'Grid']:
         data = self.get_data(ax_select={ax: ax.get_constant_ind() for ax in self.constant_axes})
         data_gr = self.grid.get_subgrid([ax for ax in self.grid.axes if ax not in self.constant_axes])
@@ -327,7 +316,7 @@ class GridTN:
     ## MPS/MPX functions ##
     #######################
 
-    def apply(self, other: 'GridTN', inplace=False, zipup=True, use_mg=False, compress=False, compress_opts=None,
+    def apply(self, other: 'GridTN', inplace=False, zipup=False, use_mg=False, compress=False, compress_opts=None,
               add_cc=False, **kwargs) -> 'GridTN':
         """ Apply grid_mpo to self, assuming they exist on the same grid
             compress [int]:  determines compression parameters from compression level
@@ -590,45 +579,6 @@ class GridTN:
         # add_cc used to be True; probably for real Fourier basis??
         return grid_mpx1
 
-
-    def elemental_multiply_cross(self, gtn_mps2: 'GridTN', inplace=False, zipup=False,
-                                 compress=False, compress_opts: 'CompressionConfiguration'=None,
-                                 sub_compress_opts=None, add_cc=False) -> 'GridTN':
-        ### changed add_cc default from True to False
-
-        if self.data is None:
-            return self if inplace else self.create_like(new_data=None)
-
-        if gtn_mps2 is None or gtn_mps2.data is None:
-            if inplace:
-                self.data = None
-                return self
-            else:
-                return self.create_like(new_data=None)
-
-        assert (isinstance(self.data, qtn.MatrixProductState)), 'self needs to be an MPS'
-        assert (isinstance(gtn_mps2.data, qtn.MatrixProductState)), 'other needs to be an MPS'
-
-        ## DMRG/Cross-DMRG solver
-        from local_solvers.local_cross_eval import Term_Cross, local_cross_evaluator
-        from local_solvers import helper_tn
-
-        compress_opts_dict = compress_opts.get_compress_opts(1) if compress else {}
-        max_bond = compress_opts.get('max_bond', None)
-        cutoff = compress_opts.get('cutoff', CUTOFF)
-        term1c = Term_Cross(self.data.copy())
-        term2c = Term_Cross(gtn_mps2.data.copy())
-
-        func_mps = local_cross_evaluator([term1c, term2c],
-                                         max_bond=max_bond, cutoff=cutoff, nsites=1,
-                                         combine_terms_func=helper_tn.prod_tens)
-
-        grid_mpx1 = self if inplace else self.copy()
-        grid_mpx1.data = func_mps
-        return grid_mpx1
-
-
-
     def xmultiply(self, x_axes: Sequence['Axis'], x_power: int = 1, offsets: dict[Any, Numeric] = 0.0,
                   scales: dict[Any, Numeric] = 1.0, inplace=False, zipup=False, compress_type=CompressType.SVD,
                   compress=False, compress_opts=None) -> 'GridTN1D':
@@ -649,7 +599,11 @@ class GridTN:
 
     def take_qft(self, qft_axes=None, inverse=False, inplace=False, compress=True, compress_opts=None):
         qft_axes = self.grid.axes if qft_axes is None else qft_axes
-        qft_ops = {ax: ax.get_qft_mpo(inverse=inverse) for ax in qft_axes}
+        # qft_ops = {ax: ax.get_qft_mpo_v2(inverse=inverse) for ax in qft_axes}
+        if inverse:
+            qft_ops = {ax: ax.get_inverse_qft_mpo() for ax in qft_axes}
+        else:
+            qft_ops = {ax: ax.get_qft_mpo() for ax in qft_axes}
         qft_mpo = self.grid.make_mpo_ndim(qft_ops)
         out = self.apply(qft_mpo, inplace=inplace, zipup=True, compress=compress, compress_opts=compress_opts)
         return out
@@ -695,7 +649,7 @@ class GridTN:
         out = self.apply(avg_mpo, inplace=inplace, zipup=True, compress=compress, compress_opts=compress_opts)
         return out
 
-    def add_dissipation(self, strength: Numeric, deriv_order: int=2, inplace=False,
+    def add_dissipation(self, strength: Numeric, deriv_order: int=2, deriv_axes=None, inplace=False,
                         compress=True, compress_opts:dict = None, verbose_plot=False):
         """
         Euler time step of dissipation:  f = f + eta d^m/dx^m f = (1 + eta d^m/dx^m) f
@@ -707,37 +661,53 @@ class GridTN:
             order = 3 (m=6): f_j + eta (f_{j+3} - 6 f_{j+2} + 15 f_{j+1} - 20 f_{j} + 15 f_{j-1} - 6 f_{j-2} + f_{j+3}
             i.e. mth derivative with 2nd order finite difference stencil
         """
-        assert(strength <= 1 / deriv_order ** 2), f'smoothing strength {strength} is too large'  # see p.114 in Durran
+        if verbose_plot:
+            old = self.copy()
+
+        dissip_f = self.get_dissipation(strength, deriv_order, deriv_axes=deriv_axes, compress=False)
+        out = self.add(dissip_f, inplace=inplace, compress=compress, compress_opts=compress_opts)
+
+        if verbose_plot:
+            if old.data is not None:
+                print('dissip diff', old.distance(out) / old.frobenius_norm())
+
+                diff_data = dissip_f.get_data()  # old.add(out.scalar_multiply(-1)).get_data()
+                plt.figure()
+                # plt.imshow(np.log10(np.abs(diff_data)))
+                plt.imshow(diff_data)
+                plt.colorbar()
+                plt.title('dissipation diff')
+                plt.show()
+
+        return out
+
+    def get_dissipation(self, strength: Numeric, deriv_order: int=2, deriv_axes=None,
+                        compress=True, compress_opts:dict = None):
+        """
+        Euler time step of dissipation:  f = f + eta d^m/dx^m f = (1 + eta d^m/dx^m) f
+        for stability, assumes that the strength is small: eta << dt/dx^2
+        strength: strength of dissipation (eta)
+        deriv_order: order of derviative. e.g. order=1 --> m=2
+            order = 1 (m=2): f_j + eta (f_{j+1} - 2 f_{j} + 1 f_{j-1})
+            order = 2 (m=4): f_j + eta (-f_{j+2} + 4 f_{j+1} - 6f_j + 4f_{j-1} - f_{j-2})
+            order = 3 (m=6): f_j + eta (f_{j+3} - 6 f_{j+2} + 15 f_{j+1} - 20 f_{j} + 15 f_{j-1} - 6 f_{j-2} + f_{j+3}
+            i.e. mth derivative with 2nd order finite difference stencil
+        """
+        # assert(strength <= 1 / deriv_order ** 2), f'smoothing strength {strength} is too large'  # see p.114 in Durran
         assert(deriv_order % 2 == 0), f'deriv_order must be even, not {deriv_order}'
 
         ax_deriv_configs = {k: v.copy() for k,v in self.ax_deriv_configs.items()}
         for k, v in ax_deriv_configs.items():
             v.update(order=1, fd_type=FDType.CENTER)
 
-        # old = self.copy()
-        dissip_f = self.take_mth_laplacian(deriv_order, ax_deriv_configs=ax_deriv_configs, remove_dx2=True)
-        dissip_f = dissip_f.scalar_multiply(strength, inplace=True)
-        # out1 = self.add(dissip_f, inplace=inplace, compress=compress) # , compress_opts=compress_opts)
-        out = self.add(dissip_f, inplace=inplace, compress=compress, compress_opts=compress_opts)
-        # if old.data is not None:
-        #     print('dissip diff', old.distance(out) / old.frobenius_norm())
-        # if old.data is not None and verbose_plot:
-        #     diff_data = old.add(out.scalar_multiply(-1)).get_data()
-        #     plt.figure()
-        #     # plt.imshow(np.log10(np.abs(diff_data)))
-        #     plt.imshow(diff_data)
-        #     plt.colorbar()
-        #     plt.title('dissipation diff')
-        #
-        #     diff_data = old.add(out1.scalar_multiply(-1)).get_data()
-        #     plt.figure()
-        #     # plt.imshow(np.log10(np.abs(diff_data)))
-        #     plt.imshow(diff_data)
-        #     plt.colorbar()
-        #     plt.title('dissipation diff 1')
-        #     plt.show()
+        if deriv_order % 4 == 0:
+            strength = strength * -1
 
-        return out
+        dissip_f = self.take_mth_laplacian(deriv_order, deriv_axes=deriv_axes, ax_deriv_configs=ax_deriv_configs,
+                                           remove_dx2=True, compress=compress, compress_opts=compress_opts)
+        dissip_f = dissip_f.scalar_multiply(strength, inplace=True)
+
+        return dissip_f
 
 
     def average_neighbor(self, avg_axes=None, spread:int = 1, inplace=False, compress=True, compress_opts=None, mu=0.5):
@@ -811,6 +781,11 @@ class GridTN:
     def compress_rdm(self, inplace=True, verbose=False, compress_opts=None, sub_compress_opts=None, direction=1,
                      open_end=False, left_env=None, right_env=None, back_compress=True,
                      **kwargs):
+        raise NotImplementedError
+
+    def get_bases(self, i: int):
+        """ get the basis functions of the mps assuming the orthogonality center is at site i
+        """
         raise NotImplementedError
 
     def contract(self):

@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 from abc import ABC
 
@@ -37,15 +39,6 @@ def local_cross_evaluator(terms: Sequence['Term_Cross'],
     solver = CrossEvaluator(init_guess, terms, combine_terms_func=combine_terms_func,
                             direction=direction, max_bond=max_bond, cutoff=cutoff)
     solver.solve(nsites)
-
-    # plt.figure()
-    # plt.plot(helper_quimb.to_dense(solver.terms[0].ket).reshape(-1),
-    #          label='ket')
-    # plt.plot(helper_quimb.to_dense(solver.out).reshape(-1),
-    #          label='out')
-    # plt.legend()
-    # plt.show()
-
 
     # out_gtn = GridTN1D(ref_x.grid, solver.ket)
     # return out_gtn
@@ -569,6 +562,9 @@ class CrossEvaluator(LocalEvaluator):
         for term in self.terms:
             if term is not None:
                 term.update_intermediate_kets(i, 2, direction=direction)
+
+        # self.term_class().check_func(self.out)    ## not satisified
+        # helper_cross.check_center_orthog(self.out, i + direction)     ## satisfied
 
         #### original version
         # inds_r, inds_c = helper_cross.update_2site(self.out, left_site_pos, site_i, direction, max_bond=self.max_bond,)

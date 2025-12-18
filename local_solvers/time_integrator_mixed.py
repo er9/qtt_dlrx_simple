@@ -49,8 +49,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         # print('upwind mpo list', upwind_mpo_list)
         # exit()
 
-        self.version = 'X'  # 'G'   ## for Galerkin projector
-        self.num_evals = 0
+        self.version = 'X'  # 'X'  # 'G'   ## for Galerkin projector
 
         if copy_obj is not None:
             super().__init__(ket_state, None, copy_obj=copy_obj)
@@ -156,17 +155,6 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         term_sources = [LocalTerm(source, bra=ket_state, cur_orthog=cur_orthog, **compress_opts) for source in self.sources]
         self.source_terms = term_sources
 
-        # nonlinear_terms = self.nonlinear_terms
-        nl_terms = []
-        for nl in self.nonlinear_terms:
-            nl_term = nl.copy(ket_copy=ket_state, bra_copy=ket_state)
-            nl_term.max_bond = self.max_bond
-            nl_term.cutoff = self.cutoff
-            # ket_mpo = helper_quimb.mps_to_diag_mpo(ket_state.copy())
-            # ref2 = helper_quimb.apply_zipup(ket_mpo, ket_state.copy(), compress=True)
-            # nl_term.init_intermediate_ket = ref2
-            nl_terms += [nl_term]
-        self.nonlinear_terms = nl_terms
         nonlinear_terms = self.nonlinear_terms
 
         ###### extra terms ######
@@ -249,9 +237,6 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         else:
             ket_x0 = site_tens
         # exit()
-
-        print('euler left site pos add num evals', left_site_pos)
-        self.num_evals += ket_x0.size
 
         ## ket exponent already removed
         # print('EULER ket x', ket_x.norm())
@@ -398,7 +383,6 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
 
         # site_tens = None  ## was uncommented... seems ok with burgers tho?
         if site_tens is None:
-            print('self', self.self_term)
             ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
         else:
             # ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
@@ -415,18 +399,10 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         else:
             inds = []
             if left_site_pos > 0:
-                if self.version == 'G':
-                    inds += [self.out.bond(left_site_pos, left_site_pos - 1)]
-                elif self.version == 'X':
-                    inds += [self.out.bond(left_site_pos, left_site_pos - 1) + '_x']
-
+                inds += [self.out.bond(left_site_pos, left_site_pos - 1)]
             inds += [self.out.site_ind(left_site_pos + i) for i in range(nsites)]
-
             if left_site_pos + nsites < self.out.L:
-                if self.version == 'G':
-                    inds += [self.out.bond(left_site_pos + nsites - 1, left_site_pos + nsites)]
-                elif self.version == 'X':
-                    inds += [self.out.bond(left_site_pos + nsites - 1, left_site_pos + nsites) + '_x']
+                inds += [self.out.bond(left_site_pos + nsites - 1, left_site_pos + nsites)]
 
         ket_x = ket_x.transpose(*inds, inplace=True)
 
@@ -458,6 +434,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
 
         if self.verbose:
             print('call deriv upwind func')
+
+        self.num_evals += len(selectors)
 
         out_x = self.upwind_deriv_func(dt, self.init_ket, ket_x, selectors, upwind_submats,
                                        left_site_pos=left_site_pos, nsites=nsites, select_inds=self.out.select_inds,
@@ -589,10 +567,10 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             if term is not None:
                 term.update_intermediate_kets(i, 1, direction)
 
-        # # #######################
+        # #######################
         # distance = helper_quimb.distance(self.init_ket, self.out)
         # print('distance', helper_quimb.distance(self.init_ket, self.out))
-        # if distance > 1.0e-10 and not at_end:
+        # if distance > 1.0e-14 and not at_end:
         #     plt.figure()
         #     plt.plot(np.real(helper_quimb.to_dense(self.init_ket).reshape(-1)))
         #     plt.plot(np.real(helper_quimb.to_dense(self.out).reshape(-1)),'--')
@@ -642,9 +620,9 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         ind1 = i if at_end else i + direction
         print('site i check orthog', ind1)
 
-        tmp1, tmp2 = helper_mixed.check_orthog(self.out)
-        if tmp1 != tmp2:
-            raise ValueError
+        # tmp1, tmp2 = helper_mixed.check_orthog(self.out)
+        # if tmp1 != tmp2:
+        #     raise ValueError
 
         #
         # ## also a way to check orthog
@@ -825,34 +803,12 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
         else:
             super()._set_local_solve_func(te_order)
 
-    # def _site_solve(self, left_site_pos: int, nsites: int, site_tens: 'qtn.Tensor' = None, return_intermediates=False
-    #                 ) -> tuple[Sequence[qtn.Tensor], Numeric]:
-    #
-    #     print("TDVP SITE SOLVE", left_site_pos, nsites, self.te_order_target)
-    #     self._set_local_solve_func(self.te_order_target)
-    #     # self._set_local_solve_func(TimeIntegMethod.RK4)
-    #     # if self.te_order_target in [223, 226, 0]:
-    #     #     self._set_local_solve_func(self.te_order_target)
-    #     # else:
-    #     #     ## force RK4 (pass if want to use self.te_order_target or self.te_order_final
-    #     #     self._set_local_solve_func(TimeIntegMethod.RK4)
-    #     #     # print('self.te_order target', self.te_order_target)
-    #     #     # self._set_local_solve_func(self.te_order_target)
-    #     out, err = super()._site_solve(left_site_pos, nsites, site_tens=site_tens, return_intermediates=False)
-    #     return out, err
-    #
-    #
+
     def _bond_solve(self, left_site_pos: int, site_tens: 'qtn.Tensor' = None, return_intermediates=False
                     ) -> tuple[Sequence[qtn.Tensor], Numeric]:
 
         print("TDVP MIXED BOND SOLVE", left_site_pos, self.te_order_target)
-        # self._set_local_solve_func(self.te_order_target)
-        # self._set_local_solve_func(TimeIntegMethod.RK4)
-        # if self.te_order_target in [223, 226, 0]:
-        #     self._set_local_solve_func(self.te_order_target)
-        # else:
-        #     self._set_local_solve_func(TimeIntegMethod.RK4)
-        #     # self._set_local_solve_func(self.te_order_target)
+
         out, err = super(TDMixed, self)._bond_solve(left_site_pos, site_tens=site_tens,
                                                     return_intermediates=False)
         return out, err
@@ -920,6 +876,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
         self.out.select_inds[ind1] = sel_inds
         self.out.select_tens[ind1] = TR
         self.out.select_tens_inv[ind1] = TR_inv
+        self.out._cur_orthog = ind1 + direction
 
         ####
 
@@ -988,24 +945,6 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
 
         new_R = self.out[i + direction]
 
-        # phys_inds = [self.out.site_ind(i)]
-        # x_ind = self.out.bond(i, i + direction)
-        # right_inds = [self.out.site_ind(i + direction)]
-        # if not at_end:
-        #     right_inds += [self.out.bond(i + direction, i + direction * 2)]
-        #
-        # new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
-        #                                                             max_bond=self.max_bond, cutoff=self.cutoff,
-        #                                                             bond_ind=x_ind + '_tmp', return_inds=True)
-        #
-        #
-        # # helper_dmrg.update_1site(self.ket, i, site_i, direction, max_bond=self.max_bond)
-        # new_Q.transpose_like(self.out[i], inplace=True)
-        # self.out[i].modify(data=new_Q.data)
-        # self.out.select_inds[i] = inds_r
-        # new_R.transpose_like(self.out[i + direction], inplace=True)
-        # new_R.modify(inds=self.out[i + direction].inds)
-        # self.out[i + direction].modify(data=new_R.data)
 
         ## canonicalize intermediate kets (do each individually)
         for term in self.terms:
@@ -1015,14 +954,6 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
         ## extend environments to include newly canonical site i
         if not at_end:
             self.update_blocks(i, direction=direction)
-        #
-        # for term in self.terms:
-        #     print('term', term.ket is self.out, term.bra is self.out)
-        #     print('block', self.out is term.vec_block.ket, self.out is term.vec_block.bra)
-        #     if len(term.op_blocks) > 0:
-        #         for block in term.op_blocks[0]:
-        #             print('block', self.out is block.ket, self.out is block.bra)
-        #
 
         if not at_end:
             ## back-propagation of R
@@ -1050,274 +981,4 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
         # print('updated out', self.out)
 
         return
-
-    # def _update_1site(self, i: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection', filter_bases=False,
-    #                   grid=None, ax_deriv_configs=None):
-    #     """ update ket, bra with new_site
-    #         i: int of mps site
-    #         canonicalize and then back-propagate "bond" (if not at end)
-    #     """
-    #     if self.verbose:
-    #         print('new TDVP Cross update 1 site', i, direction)
-    #
-    #     at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
-    #     if at_end:
-    #         super()._update_1site(i, site_i, direction)
-    #         return
-    #
-    #     if isinstance(site_i, (tuple, list)):
-    #         site_i = helper_tn.sum_tens(site_i)     ## all other sites are the same (and in canonical form)
-    #
-    #     x_ind = self.out.bond(i, i + direction)
-    #     left_inds = [ind for ind in self.out[i].inds if ind != x_ind]
-    #     phys_inds = [self.out.site_ind(i)]
-    #     right_inds = [x_ind]
-    #
-    #     new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
-    #                                                                 # max_bond=self.max_bond, cutoff=self.cutoff,
-    #                                                                 bond_ind=x_ind+'_tmp', return_inds=True)
-    #
-    #     if direction == SweepDirection.LEFT:
-    #         bond_reindex_dict = {x_ind: x_ind + '_L', x_ind + '_tmp': x_ind + '_R'}
-    #     else:  # direction is to the right
-    #         bond_reindex_dict = {x_ind: x_ind + '_R', x_ind + '_tmp': x_ind + '_L'}
-    #     new_R.reindex(bond_reindex_dict, inplace=True)
-    #
-    #     new_Q.transpose_like(self.out[i], inplace=True)
-    #     self.out[i].modify(data=new_Q.data)
-    #     self.out.select_inds[i] = inds_r
-    #
-    #     tens2 = self.out[i + direction]
-    #     self.next_Q = tens2.reindex(bond_reindex_dict, inplace=False)
-    #     new_tens2 = qtn.tensor_contract(new_R, self.next_Q)
-    #     new_tens2 = new_tens2.transpose_like(tens2, inplace=True)
-    #     # tens2.modify(data=new_tens2.data)
-    #
-    #     ## canonicalize intermediate kets (to specific inds)
-    #     for term in self.terms:
-    #         if term.num_tiers > 1:      ## there should be no intermediate kets
-    #             print('term inter', term)
-    #             for si in range(term.num_tiers - 1):
-    #                 ket = term.get_intermediate_ket(si)
-    #                 inter_site = term.intermediate_sites[si]
-    #                 # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
-    #                 helper_cross.update_1site(ket, i, inter_site, direction,
-    #                                           select_inds=self.out.select_inds[i], decimate_only=True)
-    #
-    #     # for term in self.terms:
-    #     #     # print('term.out', term.bra is self.out)    ## True
-    #     #     # pdb.set_trace()
-    #     #     if term.num_tiers > 1:
-    #     #         kets = [term.get_intermediate_ket(i) for i in range(term.num_tiers - 1)]
-    #     #         tensors = [term.intermediate_sites[i] for i in range(term.num_tiers - 1)]
-    #     #         helper_cross.update_kets(kets, tensors, i, 1, direction=direction)
-    #
-    #     self.update_blocks(i, direction=direction)
-    #
-    #     ## back-propagation of R ##
-    #     # print('back propagation of R', i, direction) #, new_R)
-    #     back_i = i if direction == SweepDirection.RIGHT else i - 1
-    #     new_R, err = self._bond_time_evolution(new_R, back_i, -self.dt)     ## bond between bond j, j + 1
-    #     next_site = qtn.tensor_contract(new_R, self.next_Q.copy())
-    #     next_site.transpose_like(self.out[i + direction], inplace=True)
-    #     self.out[i + direction].modify(data=next_site.data)
-    #     self.out._cur_orthog = i + direction
-    #     return
-
-
-    # def _update_2site(self, i: int, site_i: 'qtn.Tensor', direction: 'SweepDirection'):
-    #     """ update ket, bra with new_site
-    #         i: mps_site
-    #     """
-    #     if self.verbose:
-    #         print('new TDVP Cross update 2 site', i, direction)
-    #
-    #     ## canonicalize and then back-propagate "site" (if not at end)
-    #     at_end = (i == 1 if direction == SweepDirection.LEFT else i == self.L - 2)
-    #
-    #     if isinstance(site_i, (tuple, list)):
-    #         site_i = helper_tn.sum_tens(site_i)
-    #
-    #     phys_inds = [self.out.site_ind(i)]
-    #     x_ind = self.out.bond(i, i + direction)
-    #     right_inds = [self.out.site_ind(i + direction)]
-    #     if not at_end:
-    #         right_inds += [self.out.bond(i + direction, i + direction * 2)]
-    #
-    #     new_Q, new_R, inds_r, inds_c = helper_cross.tensor_compress(site_i, phys_inds, right_inds,
-    #                                                                 max_bond=self.max_bond, cutoff=self.cutoff,
-    #                                                                 bond_ind=x_ind + '_tmp', return_inds=True)
-    #
-    #
-    #     # helper_dmrg.update_1site(self.ket, i, site_i, direction, max_bond=self.max_bond)
-    #     new_Q.transpose_like(self.out[i], inplace=True)
-    #     self.out[i].modify(data=new_Q.data)
-    #     self.out.select_inds[i] = inds_r
-    #     new_R.transpose_like(self.out[i + direction], inplace=True)
-    #     new_R.modify(inds=self.out[i + direction].inds)
-    #     self.out[i + direction].modify(data=new_R.data)
-    #
-    #     ## canonicalize intermediate kets (do each individually)
-    #     for term in self.terms:
-    #         if term.num_tiers > 1:
-    #             for si in range(term.num_tiers - 1):
-    #                 ket = term.get_intermediate_ket(si)
-    #                 inter_site = term.intermediate_sites[si]
-    #                 # sel_inds = self.out.select_inds[i] if direction > 0 else self.out.select_inds[i + 1]
-    #                 helper_cross.update_1site(ket, i, inter_site, direction,
-    #                                           select_inds=self.out.select_inds[i], decimate_only=True)
-    #
-    #     ## extend environments to include newly canonical site i
-    #     if not at_end:
-    #         self.update_blocks(i, direction=direction)
-    #     #
-    #     # for term in self.terms:
-    #     #     print('term', term.ket is self.out, term.bra is self.out)
-    #     #     print('block', self.out is term.vec_block.ket, self.out is term.vec_block.bra)
-    #     #     if len(term.op_blocks) > 0:
-    #     #         for block in term.op_blocks[0]:
-    #     #             print('block', self.out is block.ket, self.out is block.bra)
-    #     #
-    #
-    #     if not at_end:
-    #         ## back-propagation of R
-    #         # print('back propagation of R', i, direction) #, new_R)
-    #         # r.transpose_like(self.ket[i + direction], inplace=True)
-    #         # self.ket[i + direction].modify(data=r.data)
-    #         next_site, err = self._site_time_evolution(new_R, i + direction, -self.dt)
-    #         # next_site = qtn.tensor_contract(new_q, self.ket[i + direction])
-    #     else:
-    #         next_site = new_R
-    #     next_site.transpose_like(self.out[i + direction], inplace=True)
-    #     # print("next site", next_site)
-    #     self.out[i + direction].modify(data=next_site.data)
-    #     self.out._cur_orthog = i + direction
-    #     # print('updated out', self.out)
-    #
-    #     # self.out[i].modify(data=self.init_ket[i].data, inds=self.init_ket[i].inds)
-    #     # self.out[i + direction].modify(data=self.init_ket[i + direction].data,
-    #     #                                inds=self.init_ket[i + direction].inds)
-    #     # self.out._cur_orthog = i + direction
-    #
-    #     return
-
-
-    # def local_lax_wendroff_so(self, left_site_pos: int, nsites: int, return_intermediates=False,
-    #                        dt: Numeric = None, time: Numeric = None, site_tens: 'qtn.Tensor' = None
-    #                        ) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
-    #
-    #     return super(TDVPCross, self).local_lax_wendroff_so(left_site_pos, nsites,
-    #                                                       return_intermediates=return_intermediates,
-    #                                                       dt = dt, time=time, site_tens=site_tens,)
-
-
-
-def global_rk_cross(dt, te_order, ket_state, deriv_func, nsites: int = 1, max_bond=None, cutoff=None,
-                    time:Numeric=None):
-    """
-    state1 = state0 + deriv0(state0) * 0.5 * dt  --> sel inds x; sel inds 0 -> x
-    state2 = state0 + deriv1(state1) * 0.5 * dt  --> sel inds x; sel inds x -> x
-    state3 = state0 + deriv2(state2) * dt        --> sel inds x; sel inds x -> x
-    out = state0 + (deriv0 + deriv1 * 2 + deriv2 * 2 + deriv3(state3))/6  --> sel inds x
-    """
-
-    state0 = ket_state.copy()
-
-    print(f'global cross RK{te_order} DT', dt, 'nsites', nsites)
-
-    if te_order == 1:
-        rk_func = helper_TE.euler
-    elif te_order == 2:
-        rk_func = helper_TE.rk2
-    elif te_order == 3:
-        rk_func = helper_TE.ssprk4  # ssprk3 or ssprk4
-    elif te_order == 4:
-        rk_func = helper_TE.rk4
-    else:
-        raise ValueError
-
-    # print('nsites', nsites, 'deriv func', deriv_func)
-
-    # def deriv_func(state, time=None, **kwargs):
-    #     linop_terms = [Term_Cross(state0.copy(), operators=linear_operators, max_bond=max_bond)]
-    #     nonlin_terms = [nl_term.create_like(ket=state) for nl_term in nonlinear_terms]
-    #     deriv0 = local_cross_evaluator(linop_terms + source_terms + nonlin_terms, max_bond=max_bond, nsites=nsites)
-    #     return deriv0
-
-    if state0.L == 1:
-        def add_func(mps1, mps2, inplace=False, **kwargs):
-            out = mps1 if inplace else mps1.copy()
-            out = helper_quimb.add_MPS(out, mps2, inplace=True)
-            return out
-
-        def scale_func(mps1, val, inplace=True, **kwargs):
-            return helper_quimb.scalar_multiply(mps1, val, inplace=inplace)
-
-        def euler_func(mps1, dt, deriv0=None, time=None, **kwargs):
-            if deriv0 is None:
-                deriv0 = deriv_func(mps1, time=time)
-            if deriv0 is None:
-                return mps1.copy()
-            state1 = add_func(mps1, scale_func(deriv0, dt, inplace=False), inplace=False)
-            return state1
-    else:
-        def add_func(mps1, mps2, inplace=False, **kwargs):
-            init_guess = mps1 if inplace else mps1.copy()
-            out = local_mixed_evaluator([Term_Mixed(mps1.copy()), Term_Cross(mps2.copy())], init_guess=init_guess)
-            return out
-
-        def scale_func(mps1, val, inplace=True, **kwargs):
-            return helper_quimb.scalar_multiply(mps1, val, inplace=inplace)
-
-        def euler_func(mps1, dt, deriv0=None, **kwargs):
-            if deriv0 is None:
-                deriv0 = deriv_func(mps1)
-            deriv0 = scale_func(deriv0, dt, inplace=False)
-            if deriv0 is None:
-                return mps1.copy()
-            state1 = local_mixed_evaluator([Term_Mixed(mps1.copy()), Term_Mixed(deriv0)], max_bond=max_bond, nsites=nsites)
-            return state1
-
-    out = rk_func(state0, dt, euler_func, deriv_func, add_func, scale_func, time=time, return_intermediates=False)
-    return out
-
-
-def global_rk4_cross(dt, ket_state, linear_operators, sources=None, nonlinear_terms=None,
-                     nsites: int = 1, max_bond=None):
-    """
-    state1 = state0 + deriv0(state0) * 0.5 * dt  --> sel inds x; sel inds 0 -> x
-    state2 = state0 + deriv1(state1) * 0.5 * dt  --> sel inds x; sel inds x -> x
-    state3 = state0 + deriv2(state2) * dt        --> sel inds x; sel inds x -> x
-    out = state0 + (deriv0 + deriv1 * 2 + deriv2 * 2 + deriv3(state3))/6  --> sel inds x
-    """
-
-    nsites = 1
-    state0 = ket_state.copy()
-
-    source_terms = [Term_Cross(source, max_bond=max_bond) for source in sources] if sources is not None else []
-    nonlinear_terms = [] if nonlinear_terms is None else nonlinear_terms
-
-    def deriv_func(state, time=None, **kwargs):
-        linop_terms = [Term_Cross(state0.copy(), operators=linear_operators, max_bond=max_bond)]
-        nonlin_terms = [nl_term.create_like(ket=state) for nl_term in nonlinear_terms]
-        deriv0 = local_mixed_evaluator(linop_terms + source_terms + nonlin_terms, max_bond=max_bond, nsites=nsites)
-        return deriv0
-
-    def add_func(obj1, obj2, inplace=False, **kwargs):
-        init_guess = obj1 if inplace else obj1.copy()
-        out = local_mixed_evaluator([Term_Cross(obj1.copy()), Term_Cross(obj2.copy())], init_guess=init_guess)
-        return out
-
-    def scale_func(obj1, val, inplace=True, **kwargs):
-        return helper_quimb.scalar_multiply(obj1, val, inplace=inplace)
-
-    def euler_func(state, dt, deriv0=None, **kwargs):
-        if deriv0 is None:
-            deriv0 = deriv_func(state)
-        deriv0 = scale_func(deriv0, dt, inplace=False)
-        state1 = local_mixed_evaluator([Term_Cross(state.copy()), Term_Cross(deriv0)], max_bond=max_bond, nsites=nsites)
-        return state1
-
-    out = helper_TE.rk4(state0, dt, euler_func, deriv_func, add_func, scale_func)
-    return out
 

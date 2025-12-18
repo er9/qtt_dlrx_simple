@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from scipy import linalg as spla
 from dataclasses import dataclass
 
-import helper_quimb
 from setup_.configs import *
 
 import pickle
@@ -166,11 +165,6 @@ class Grid:
         """ is grid in Fourier space?
         """
         return all([ax.is_k() for ax in self.axes])
-
-    def is_any_k(self):
-        """ is grid in Fourier space?
-        """
-        return any([ax.is_k() for ax in self.axes])
 
     def get_coarsen_inds(self, coarsen_level):
         """ get grid positions of tensors corresponding to desired coarsen_level
@@ -1151,6 +1145,41 @@ class Grid:
             return gtn_mpo.copy()
 
 
+    def get_dissipation_mpo(self, ax, strength: Numeric, deriv_order: int=2,
+                            deriv_config: 'DerivativeConfiguration'=None):
+        """
+        Euler time step of dissipation:  f = f + eta d^m/dx^m f = (1 + eta d^m/dx^m) f
+        for stability, assumes that the strength is small: eta << dt/dx^2
+        strength: strength of dissipation (eta)
+        deriv_order: order of derviative. e.g. order=1 --> m=2
+            order = 1 (m=2): f_j + eta (f_{j+1} - 2 f_{j} + 1 f_{j-1})
+            order = 2 (m=4): f_j + eta (-f_{j+2} + 4 f_{j+1} - 6f_j + 4f_{j-1} - f_{j-2})
+            order = 3 (m=6): f_j + eta (f_{j+3} - 6 f_{j+2} + 15 f_{j+1} - 20 f_{j} + 15 f_{j-1} - 6 f_{j-2} + f_{j+3}
+            i.e. mth derivative with 2nd order finite difference stencil
+        """
+        # assert(strength <= 1 / deriv_order ** 2), f'smoothing strength {strength} is too large'  # see p.114 in Durran
+        assert(deriv_order % 2 == 0), f'deriv_order must be even, not {deriv_order}'
+
+        deriv_config = deriv_config.copy()
+        deriv_config.update(order=1, fd_type=FDType.CENTER)
+
+        dissip_mpo = self.get_mth_derivative_mpo(ax, deriv_order, deriv_config=deriv_config)
+
+        if ax.basis.type == BasisType.FOURIER:
+            dx2_coeff = (1. / np.abs(ax.xpts[0])) ** deriv_order
+        elif ax.basis.type == BasisType.SPATIAL:
+            dx2_coeff = ax.dx ** deriv_order
+        else:
+            raise NotImplementedError
+
+        if deriv_order % 4 == 0:
+            dx2_coeff *= -1  ## to subtract contributions instead of add
+
+        dissip_mpo = dissip_mpo.scalar_multiply(strength * dx2_coeff, inplace=False)
+
+        return dissip_mpo
+
+
     def get_tridiag_mpo(self, ax_tridiag_vals: dict['Axis', tuple[Numeric,Numeric,Numeric]],
                         ax_deriv_configs: dict['Axis','DerivativeConfiguration']=None,):
 
@@ -1672,31 +1701,6 @@ class Grid:
         self._mpo_inverses[(axes, config_list)] = inv_laplacian_mpo
 
         return inv_laplacian_mpo.copy()
-
-    def inverse_firstderivative_mpo(self, ax: 'Axis', boundary_conditions=None,
-                                    ax_deriv_configs: dict['Axis', 'DerivativeConfiguration'] = None,
-                                    compress_opts: dict = None) -> 'GTN_TYPE':
-        """ indefinite integral; inverse of derivative along specified axis
-        """
-        if ax_deriv_configs is None:
-            ax_deriv_configs = {}
-        dcfg = ax_deriv_configs.get(ax, None)
-        config_list = (dcfg.bc if dcfg is not None else None)
-        # config_list = tuple([ax_deriv_configs.get(ax, None).left_bc for ax in axes])
-        print('saved inverses', self._mpo_inverses.keys())
-
-        if ('ddx', ax, config_list) in self._mpo_inverses:
-            print(f'loading stored inv ddx {ax} mpo')
-            return self._mpo_inverses[('ddx', ax, config_list)].copy()
-
-        inv_mpo = ax.build_firstderivative_mpo_inverse(dcfg)
-        print('inv mpo rank', helper_quimb.inner_bond_sizes(inv_mpo))
-        out_mpo = self.make_mpo_ndim({ax: inv_mpo})
-
-        self._mpo_inverses[('ddx', ax, config_list)] = out_mpo
-
-        return out_mpo.copy()
-
 
     def get_qft_mpo(self, ft_axes=None):
         qft_mpos = {}

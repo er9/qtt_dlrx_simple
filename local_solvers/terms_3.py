@@ -1,5 +1,3 @@
-import pdb
-
 import numpy as np
 from abc import ABC
 
@@ -297,7 +295,7 @@ class Term(ABC):
 
     @property
     def bra(self) -> Optional['MPS']:
-        return self._bra if self._bra is not None else self.ket
+        return self._bra
 
     @bra.setter
     def bra(self, bra: 'MPS'):
@@ -597,6 +595,15 @@ class Term(ABC):
                 else:
                     helper_dmrg.update_2site(self._intermediate_kets[it], left_site_pos, new_ket_site, direction,
                                              max_bond=self.max_bond, cutoff=self.cutoff)
+            # elif isinstance(self, Term_Mixed):
+            #     new_ket_site = self.intermediate_sites_x[it]
+            #     if nsites == 1:
+            #         helper_mixed.update_1site(self._intermediate_kets[it], left_site_pos, new_ket_site, direction,
+            #                                  max_bond=self.max_bond, cutoff=self.cutoff)
+            #     else:
+            #         helper_mixed.update_2site(self._intermediate_kets[it], left_site_pos, new_ket_site, direction,
+            #                                  max_bond=self.max_bond, cutoff=self.cutoff)
+
             elif isinstance(self, Term_Cross):
 
                 ### select inds is bra inds
@@ -789,6 +796,7 @@ class Term(ABC):
 
         # ## incorporate vec block bra exponent into site_tens
         # site_tens.modify(apply=lambda x: x * 10 ** self.vec_block.bra.exponent)
+
 
         # print('b2k dict', b2k_dict)
         bonds_o = [k for k in b2k_dict.keys() if k is not None]
@@ -1013,7 +1021,7 @@ class Term_DMRG(Term):
         num_ops = 0 if self.operators is None else len(self.operators)
 
         ## projection of self.ket
-        bra = intermediate_kets.get(0, self.bra if num_ops == 0 else self.ket)
+        bra = intermediate_kets.get(0, self.bra) # if num_ops == 0 else self.ket)
         if self.mps_power == 1:
             if self.operator_k is None:
                 vec_block = BlockVector_DMRG(self.ket, bra, cur_orthog=self.cur_orthog)
@@ -1033,7 +1041,7 @@ class Term_DMRG(Term):
         op_blocks_all = {}
         for it in range(self.num_tiers):
             op_blocks = []
-            ket = intermediate_kets.get(it, self.bra if it > 0 else self.ket)
+            ket = intermediate_kets.get(it, self.bra) # if it > 0 else self.ket)
             bra = intermediate_kets.get(it + 1, self.bra)
 
             for op in self.operators:
@@ -1304,7 +1312,7 @@ class Term_Cross(Term):
         num_ops = 0 if self.operators is None else len(self.operators)
 
         ## projection of self.ket  (have tier for self.ket, unless no operator is applied so tier is self.bra)
-        bra = intermediate_kets.get(0, self.bra if num_ops == 0 else self.ket)
+        bra = intermediate_kets.get(0, self.bra) # if num_ops == 0 else self.ket)
         vec_block = BlockVector_Cross(self.ket, bra, cur_orthog=self.cur_orthog)
 
         # ## projection of operators
@@ -1332,7 +1340,7 @@ class Term_Cross(Term):
         op_blocks_all = {}
         for it, op in enumerate(self.operators):
             op_blocks = []
-            ket = intermediate_kets.get(it, self.bra if it > 0 else self.ket) # if it > 0 else intermediate_kets.get(it, self.ket)
+            ket = intermediate_kets.get(it, self.bra) # if it > 0 else self.ket) # if it > 0 else intermediate_kets.get(it, self.ket)
             bra = intermediate_kets.get(it + 1, self.bra)
 
             if isinstance(op, qtn.MatrixProductOperator):

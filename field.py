@@ -89,8 +89,8 @@ class Field:
         data:  dictionary containing MPSs indexed by integer denoting which component of the field
                the MPS represents (eg. 0 if MPS is representing a scalar field)
                keys:  ax.axID if a vector field OR None if a scalar field
-        boundary_conditions: nested dict. 
-                first level: dict of boundary conditions for each field component. 
+        boundary_conditions: nested dict.
+                first level: dict of boundary conditions for each field component.
                              define for all possible components
                 second level: dictionary of boundary conditions along each axis
                               periodic, antiperiodic, open (default), reflecting, zero gradient
@@ -803,7 +803,6 @@ class Field:
         # new.components = new_comps
         return new
 
-
     def add_dmrg(self, *others: 'Field', inplace=False, compress_level=0, **dmrg_opts):
         """ generate a new field whose components are the sum of self.components + other.components
             other can be Field object or Field.components (dict)
@@ -853,8 +852,6 @@ class Field:
         # new.components = new_comps
         return new
 
-
-
     def __add__(self, other):
         return self.add(other, inplace=False)
 
@@ -884,7 +881,7 @@ class Field:
                 try:
                     comp = self[compID]
                     if isinstance(comp, (float, complex)):
-                        val = np.abs(comp**2) if self.is_sqrt else comp
+                        val = np.abs(comp ** 2) if self.is_sqrt else comp
                     else:
                         val = comp.norm(is_sqrt=self.is_sqrt) if comp is not None else 0.0
                 except KeyError:
@@ -921,7 +918,7 @@ class Field:
 
     def frobenius_norm(self):
         norm_vals = self.frobenius_norms()
-        return np.sqrt(np.sum(norm_vals**2))
+        return np.sqrt(np.sum(norm_vals ** 2))
 
     ###########################
     #### make measurements ####
@@ -1011,11 +1008,11 @@ class Field:
                 if conservative:
                     raise NotImplementedError('rdm compress with conservation not implemented')
             else:
-                if norm_cutoff is None:
-                    norm_cutoff = compress_opts.get('norm_cutoff', None)
+                # if norm_cutoff is None:
+                #     norm_cutoff = compress_opts.get('norm_cutoff', None)
                 comp.compress(inplace=True, compress_type=field.compress_config.compress_type,
                               compress_opts=compress_opts, sub_compress_opts=sub_compress_opts,
-                              norm_cutoff=norm_cutoff, # ref_norm=ref_norm,
+                              norm_cutoff=norm_cutoff,  # ref_norm=ref_norm,
                               verbose=verbose, conservative=conservative,
                               )
 
@@ -1213,7 +1210,7 @@ class Field:
                 if verbose_plot:
                     ax_x, ax_y, ax_vx, ax_vy, ax_vz = out_comp_1.grid.axes
 
-                    out_data = out_comp_1.get_data(ax_select={ax_y:0, ax_vx: 0, ax_vy: 0})
+                    out_data = out_comp_1.get_data(ax_select={ax_y: 0, ax_vx: 0, ax_vy: 0})
                     if out_data is None:
                         print('em term data is None', c0)
                         continue
@@ -1224,7 +1221,7 @@ class Field:
                     plt.ylabel('x')
                     plt.colorbar()
 
-                    out_data = out_comp_1.get_data(ax_select={ax_y:0, ax_vx: 0, ax_vy: 0})
+                    out_data = out_comp_1.get_data(ax_select={ax_y: 0, ax_vx: 0, ax_vy: 0})
                     plt.figure()
                     plt.imshow(np.imag(out_data))
                     plt.title(f'cross product {c0} im')
@@ -1240,7 +1237,7 @@ class Field:
         if compress_level:
             new_field.compress(inplace=True, compress_opts=compress_opts,
                                sub_compress_opts=sub_compress_opts)
-            
+
         return new_field
 
     def get_difference(self, other, compIDs: Sequence = None, return_type='L2'):
@@ -1656,7 +1653,6 @@ class ScalarField(Field):
         """ d/dx Ax + d/dy Ay + d/dz Az
         """
         raise TypeError('divergence not defined for scalar field')
-
 
     #### measurement  ####
 

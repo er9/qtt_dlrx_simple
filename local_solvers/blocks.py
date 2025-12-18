@@ -591,11 +591,6 @@ class BlockOperator(Block, ABC):
 
         # site_inds = self.mps_inds[left_site_pos:left_site_pos + nsites]
         site_inds = list(range(left_site_pos, left_site_pos + nsites))
-
-        # helper_quimb.check_orthog(self.ket)
-        # helper_quimb.check_orthog(self.bra)
-        # print(self.envs.keys())
-
         assert(left_site_pos <= self.cur_orthog < left_site_pos + nsites), \
             'orthogonality center not within unprojected sites'
 
@@ -1045,19 +1040,6 @@ class BlockPowerKet_DMRG(BlockVector_DMRG):
         x_eff = qtn.tensor_contract(*xtens_list)
         x_eff.modify(apply=lambda data: data * 10 ** self.ket.exponent)
         x_eff.reindex({bra_bond_l: ket_bond_l, bra_bond_r: ket_bond_r}, inplace=True)
-
-        # proj_ket = self.bra.copy()
-        # x_eff.transpose_like(proj_ket[left_site_pos], inplace=True)
-        # proj_ket[left_site_pos].modify(data=x_eff.data)
-
-        # plt.figure()
-        # plt.plot(helper.to_dense(proj_ket), label='proj ket')
-        # plt.plot(helper.to_dense(self.ket), label='ket')
-        # plt.legend()
-        # plt.title('get proj ket')
-        # plt.show()
-
-
         return x_eff
 
 

@@ -63,9 +63,6 @@ class Term_Mixed(Term):
     @classmethod
     def canonize_func(cls, mps: 'MPS', orthog, cur_orthog:int =None, **kwargs):
         # helper_quimb.canonize(mps, scale=False, i=orthog, cur_orthog=cur_orthog)
-        if mps is None:
-            return None
-
         mps.canonize(orthog, cur_orthog=cur_orthog)
         if cur_orthog is None:
             mps.get_select_inds(0, orthog)
@@ -118,10 +115,8 @@ class Term_Mixed(Term):
             self.canonize_func(self.init_intermediate_ket, 0 if self.direction > 0 else self.ket.L - 1)
             intermediate_kets = {i: self.init_intermediate_ket.copy() for i in range(self.num_tiers - 1)}
 
-        num_ops = 0 if self.operators is None else len(self.operators)
-
         ## projection of self.ket
-        bra = intermediate_kets.get(0, self.bra if num_ops == 0 else self.ket)
+        bra = intermediate_kets.get(0, self.bra)
         vec_block = BlockVector_Mixed(self.ket, bra, cur_orthog=self.cur_orthog)
         # if self.mps_power == 1:
         #         vec_block = BlockVector_DMRG(self.ket, bra, cur_orthog=self.cur_orthog)
@@ -141,7 +136,7 @@ class Term_Mixed(Term):
         op_blocks_all = {}
         for it in range(self.num_tiers):
             op_blocks = []
-            ket = intermediate_kets.get(it, self.bra if it > 0 else self.ket)
+            ket = intermediate_kets.get(it, self.bra)
             bra = intermediate_kets.get(it + 1, self.bra)
 
             for op in self.operators:
@@ -150,7 +145,7 @@ class Term_Mixed(Term):
                                                      anc_env_left=None, anc_env_right=None,
                                                      cur_orthog=self.cur_orthog)]
                 elif isinstance(op, qtn.MatrixProductState):
-                    op_blocks += [BlockOperator_Mixed(ket, bra, operator=helper_quimb.mps_to_diag_mpo(op),
+                    op_blocks += [BlockDiagOperator_Mixed(ket, bra, operator=op.copy(),
                                                          anc_env_left=None, anc_env_right=None,
                                                          cur_orthog=self.cur_orthog)]
                 else:
@@ -161,6 +156,54 @@ class Term_Mixed(Term):
         self._intermediate_kets = intermediate_kets
         self.op_blocks: Sequence[BlockOperator_Mixed] = op_blocks_all
         self.vec_block: BlockVector_Mixed = vec_block
+
+    # def get_evaluated_site(self, left_site_pos: int, nsites: int, site_tens: 'qtn.Tensor' = None,
+    #                            verbose_plot=False):
+    #
+    #     site_tens_x, site_tens_g = None, None
+    #     if self.version == 'X' and site_tens is not None:
+    #         print('site tens X to G', site_tens)
+    #         site_tens_g = helper_mixed.convert_elementwise_to_basis(self.vec_block.bra, site_tens, left_site_pos, nsites)
+    #         print('site tens X to G', site_tens_g)
+    #         site_tens_x = site_tens
+    #
+    #     if self.version == 'G' and site_tens is not None:
+    #         print('site tens G to X', site_tens)
+    #         site_tens_x = helper_mixed.convert_basis_to_elementwise(self.vec_block.bra, site_tens, left_site_pos, nsites)
+    #         print('site tens G to X', site_tens_x)
+    #         site_tens_g = site_tens
+    #
+    #     print('site tens', site_tens)
+    #     print('site tens g', site_tens_g)
+    #     print('site tens x', site_tens_x)
+    #
+    #     out_g = self.get_evaluated_site_tmp(left_site_pos, nsites, site_tens_g, verbose_plot=verbose_plot, version_='G')
+    #     out_x = self.get_evaluated_site_tmp(left_site_pos, nsites, site_tens_x, verbose_plot=verbose_plot, version_='X')
+    #     # b2k_x = self.projected_bra_to_ket(left_site_pos,nsites, version_='X')
+    #     # out_x = out_x.reindex(b2k_x)
+    #     out_x2g = helper_mixed.convert_elementwise_to_basis(self.bra, out_x, left_site_pos, nsites)
+    #
+    #     inter_g = self._intermediate_sites
+    #     inter_x = self._intermediate_sites_x
+    #     print('inter g', inter_g)
+    #     print('inter x', inter_x)
+    #
+    #     for tmpx, tmpg in zip(inter_x[0], inter_g[0]):
+    #         tmp_x2g = helper_mixed.convert_elementwise_to_basis(self.vec_block.bra, tmpx, left_site_pos, nsites)
+    #         print('inter diff', (tmp_x2g - tmpg).norm())
+    #
+    #     # b2k = self.projected_bra_to_ket(left_site_pos, nsites, version_='G')
+    #     # out_g = out_g.reindex(b2k)
+    #     err = (out_x2g - out_g).norm()
+    #     print('diff term eval', err)
+    #     # if err > 1.0e-12:
+    #     pdb.set_trace()
+    #
+    #     print('self.version', self.version)
+    #     if self.version == 'G':
+    #         return out_g
+    #     else:
+    #         return out_x
 
 
     def get_evaluated_site(self, left_site_pos: int, nsites: int, site_tens: 'qtn.Tensor'=None,
@@ -228,17 +271,9 @@ class Term_Mixed(Term):
             site_tens = site_tens.reindex({ind: ind[:-1] for ind in site_tens.inds if ind[-1] == '_'})
             ## bra to ket reindex, since this isn't covered by b2kdict
         else:
-            # print('get vec block X', self)
-            # print('site tens', site_tens)
-            # print('self.num tiers', self.num_tiers)
-            # print('out and ket', self.bra is self.vec_block.ket)
-            # if site_tens is not None:
-            #     pdb.set_trace()
             site_tens, vec_targets = self.vec_block.get_projected_X(left_site_pos, nsites, return_combined=True,
                                                                     return_intermediates=True,
-                                                                    site_tens=site_tens if self.bra is self.vec_block.ket else None,
-                                                                    version_=version_)
-            print('vec block get proj X')
+                                                                    site_tens=site_tens, version_=version_)
 
         # if len(self.operators) > 0:
         #     print('got basis proj')     ## ket_ind
@@ -338,7 +373,15 @@ class Term_Mixed(Term):
 
         # print('self.eval func', self.eval_func)
         eff_ops = None if len(eff_ops) == 0 else eff_ops
+        # print('self version', self.version)
+        # print('version_', version_)
+        # for tmp in eff_ops[0]:
+        #     print('eff ops', tmp)
+        # print('site tens', site_tens)
+        # print('self.eval func', self.eval_func)
         out_site, intermediates = self.eval_func(site_tens, eff_ops, b2k_dict_x, return_intermediates=True)
+        # print('intermedaites', intermediates)
+        # print('diff intermediatees , site tens', (intermediates[0][0] - site_tens).norm())
         # out_site, intermediates = self.eval_func(site_tens_g, eff_ops, b2k_dict_x, return_intermediates=True)
 
         # self._intermediate_sites_x = intermediates
@@ -375,7 +418,6 @@ class Term_Mixed(Term):
     def get_eff_operator(self, left_site_pos: int, nsites: int, return_combined = False, transpose_bonds = None,
                          ) -> Union[dict[int,list], 'qtn.Tensor']:
         ### maybe this should return eff op for all levels combined?
-        # raise NotImplementedError
 
         if self.version == 'X':
             eff_ops = {it: [op.get_projected_XX(left_site_pos, nsites, return_combined=False) for op in ops]
@@ -386,8 +428,6 @@ class Term_Mixed(Term):
         elif self.version == 'G':
             eff_ops = {it: [op.get_projected(left_site_pos, nsites, return_combined=False) for op in ops]
                        for it, ops in self.op_blocks.items()}
-        else:
-            raise ValueError
 
         if return_combined:
             for k, ops in eff_ops.items():
@@ -397,8 +437,6 @@ class Term_Mixed(Term):
         return eff_ops
 
     def update_intermediate_kets(self, i: int, nsites: int, direction: SweepDirection,):
-
-        print('update intermediate kets')
 
         if nsites == 1 or direction == SweepDirection.RIGHT:
             left_site_pos = i
@@ -412,8 +450,6 @@ class Term_Mixed(Term):
         at_end = (left_site_pos == self.L - nsites) if direction == SweepDirection.RIGHT else (left_site_pos == 0)
 
         for it in range(self.num_tiers - 1):
-
-            # print('tier', it)
 
             # if isinstance(self, Term_DMRG) and isinstance(self.vec_block, BlockPowerKet_DMRG):
             #     new_ket_site = [self.proj_vec_eval] + [*self.proj_vec[it]]
@@ -435,48 +471,8 @@ class Term_Mixed(Term):
             #     ## i think proj_vec is included in proj_vec_targets
 
             if nsites == 1:
-
-                # for tens in new_ket_site:
-                #
-                #     tmp = self._intermediate_kets[it].copy()
-                #
-                #
-                #     ket = self.vec_block.ket
-                #     vbra = self.vec_block.bra
-                #     ket2 = helper_quimb.to_dense(ket) ** 2
-                #
-                #     tens_ = tens.reindex({ind: ind[:-2] for ind in tens.inds if ind[-1] == 'x'})
-                #     helper_cross.plot_submat(vbra, left_site_pos, 1, tens_, ref_kets=[ket, ket2])
-                #
-                #     tens_g = helper_mixed.convert_elementwise_to_basis(tmp, tens, left_site_pos, 1)
-                #     print('tens', tens_g)
-                #     tmp[left_site_pos].transpose_like(tens_g, inplace=True)
-                #     tmp[left_site_pos].modify(data = tens_g.data)
-                #     plt.figure()
-                #     plt.plot(helper_quimb.to_dense(tmp))
-                #     plt.title(f'intermediate ket {it}')
-                #     plt.show()
-
                 helper_mixed.update_1site(self._intermediate_kets[it], left_site_pos, new_ket_site, direction,
                                          max_bond=self.max_bond, cutoff=self.cutoff)
-
-                # tmp1, tmp2 = helper_mixed.check_orthog(self._intermediate_kets[it])
-                # print('intermediate orthog', tmp1, tmp2)
-                # if tmp1 != tmp2:
-                #     raise RuntimeError
-
-                # tmp = self._intermediate_kets[it].copy()
-                # ind2 = left_site_pos + direction
-                # new_site_tens = tmp[ind2]
-                # new_site_x = helper_mixed.convert_basis_to_elementwise(tmp, new_site_tens, ind2, 1)
-                # new_site_x = new_site_x.reindex({ind: ind[:-2] for ind in new_site_x.inds if ind[-1] == 'x'})
-                # helper_cross.plot_submat(tmp, ind2, 1, new_site_x)
-
-                # plt.figure()
-                # tmp = self._intermediate_kets[it].copy()
-                # plt.plot(helper_quimb.to_dense(tmp))
-                # plt.title(f'updated intermediate ket {it}')
-                # plt.show()
             else:
                 helper_mixed.update_2site(self._intermediate_kets[it], left_site_pos, new_ket_site, direction,
                                          max_bond=self.max_bond, cutoff=self.cutoff)

@@ -531,11 +531,6 @@ class Grid1D(Grid):
             if compress_type is CompressType.DMRG:
                 solver = helper_dmrg.LinearSolver(init_guess, targets=targets,
                                                   max_bond=compress_opts.get('max_bond', None))
-            elif compress_type is CompressType.MG:
-                coarseness_mps_inds = ref_gtn.grid.get_coarseness_levels()
-                solver = helper_mg.MultigridLinearSolver(init_guess, targets=targets,
-                                                         max_bond=compress_opts.get('max_bond', None),
-                                                         coarseness_mps_inds=coarseness_mps_inds)
             else:
                 raise TypeError('not valid compress type', compress_type)
 
