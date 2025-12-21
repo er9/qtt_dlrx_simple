@@ -9,6 +9,7 @@ Quickstart:
     - general operations (addition, element-wise multiplication, function evaluations, etc)
         - see test_xfunc_v3_mixed.py
 
+Note:  ensure quimb version 1.4.0 is being used!
 
 Running the code:  see any of the tests files for reference on how to run the code
     define Coordinates for the system
