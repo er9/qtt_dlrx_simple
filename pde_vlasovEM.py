@@ -2249,44 +2249,6 @@ class VlasovMaxwell(Vlasov):
         self.EM_sys.charge_density = self.compute_charge_density(compress=compress)
         return self.EM_sys.check_poisson(compress=compress)
 
-    def global_rk_cross(self, dt, te_order=3, inplace=False, time=None, background_force=True, internal_force=True,
-                        update_force=True, compress_level=1, compress_level1=0,
-                        verbose_plot=False, **kwargs) -> 'PDE_system':
-
-        # new_state = super().global_rk_cross(dt, te_order=te_order, inplace=inplace, time=time,
-        #                                     background_force=background_force, internal_force=internal_force,
-        #                                     update_force=update_force, do_update_V=self.evolve_EM,
-        #                                     compress_level=compress_level, compress_level1=compress_level1,
-        #                                     verbose_plot=verbose_plot, **kwargs)
-
-        from local_solvers.time_integrator_cross import global_rk_cross
-
-        time = self.time if time is None else time
-        dist_mpx = self.fe.component.data
-        nsites = 2
-
-        compress_opts = self.fe.compress_config.get_compress_opts(1)
-        cutoff = compress_opts.get('cutoff', None)
-        max_bond = compress_opts.get('max_bond', None)
-
-        def deriv_func(mps1, time=None, **kwargs):
-            return self.deriv_upwind_global(nsites=nsites, ket=mps1, max_bond=max_bond, cutoff=cutoff, time=time)
-
-        compress_opts = self.fe.compress_config.get_compress_opts(1)
-        cutoff = compress_opts.get('cutoff', None)
-        max_bond = compress_opts.get('max_bond', None)
-
-        print('global rk max bond', max_bond, 'cutoff', cutoff)
-        out = global_rk_cross(dt, te_order, dist_mpx, deriv_func, nsites=nsites, max_bond=max_bond,
-                              cutoff=cutoff, time=time)
-
-        # print('boltz diff', helper.distance(out, dist_mpx))
-
-        new_state = self if inplace else self.copy()
-        new_state.fe.component.data = out
-
-        return new_state
-
     def deriv_upwind_global(self, nsites=2, ket=None, time:Numeric=None, max_bond: int = None, cutoff: Numeric = None,
                             do_x_advection=True, do_v_advection=True,
                             background_force=True, internal_force=True, get_collisions=False,

@@ -4595,41 +4595,6 @@ class Boltzmann(PDE_system):
 
 
 
-    def global_rk_cross(self, dt, te_order=3, inplace=False, time=None, **kwargs) -> 'PDE_system':
-
-        from local_solvers.time_integrator_cross import global_rk_cross
-
-        time = self.time if time is None else time
-        dist_mpx = self.f.component.data
-        nsites = 2
-
-        compress_opts = self.f.compress_config.get_compress_opts(1)
-        print('compress opts', compress_opts)
-        cutoff = compress_opts.get('cutoff', None)
-        max_bond = compress_opts.get('max_bond', None)
-
-        def deriv_func(mps1, time=None, **kwargs):
-            return self.deriv_upwind_global(nsites=nsites, ket=mps1, max_bond=max_bond, cutoff=cutoff, time=time)
-
-        compress_opts = self.f.compress_config.get_compress_opts(1)
-        print('compress opts', compress_opts)
-        cutoff = compress_opts.get('cutoff', None)
-        max_bond = compress_opts.get('max_bond', None)
-
-        print('global rk max bond', max_bond, 'cutoff', cutoff)
-        out = global_rk_cross(dt, te_order, dist_mpx, deriv_func, nsites=nsites, max_bond=max_bond,
-                              cutoff=cutoff, time=time)
-
-        print('boltz diff', helper.distance(out, dist_mpx))
-
-        new_state = self if inplace else self.copy()
-        new_state.f.component.data = out
-
-
-
-        return new_state
-
-
     def deriv_upwind_global(self, nsites=2, ket=None, max_bond: int = None, cutoff: Numeric = None,
                             time=None, do_x_advection=True, do_v_advection=True,
                             background_force=True, internal_force=True, get_collisions=False,
