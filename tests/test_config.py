@@ -1,3 +1,9 @@
+"""Shared configuration helpers for the plasma/Vlasov test drivers.
+
+Provides factory functions for plasma unit/species configurations, grid axes,
+and Maxwellian distributions used to set up the Vlasov simulations. Not a
+standalone test itself.
+"""
 import os, sys, pickle, time, glob
 
 sys.path.append('../')

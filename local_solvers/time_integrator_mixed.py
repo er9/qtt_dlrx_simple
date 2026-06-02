@@ -1,3 +1,11 @@
+"""Mixed-projection time integrator for the local-solver stack.
+
+Defines :class:`TDMixed`, which combines :class:`TimeIntegrator` with
+:class:`MixedEvaluator` to advance a matrix-product state in time using the
+mixed (blended Galerkin/cross) local solve. As with the cross integrator the
+working ket and output share the same state, updated only at the final stage
+of each time step.
+"""
 import pdb
 
 import helper_quimb

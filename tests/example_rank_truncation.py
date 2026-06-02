@@ -1,3 +1,8 @@
+"""Example driver: QTT rank truncation of a separable cos(x)*sin(y) 2-D dataset.
+
+Measures the quantized-tensor-train rank and entanglement entropy of a 2-D data
+set under rank/cutoff truncation.
+"""
 import os, sys, pickle, time, glob
 sys.path.append('../')
 

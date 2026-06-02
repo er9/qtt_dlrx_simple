@@ -1,3 +1,7 @@
+"""Base class for axis quantization maps that translate between a physical grid
+index along one dimension and the per-core physical indices of a QTT/MPS, and
+that build the corresponding mapping MPOs. Concrete orderings (binary, mirror,
+and their flipped variants) subclass :class:`AxisMap`."""
 import numpy as np
 import quimb.tensor as qtn
 

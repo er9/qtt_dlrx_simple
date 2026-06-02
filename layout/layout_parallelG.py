@@ -1,3 +1,6 @@
+"""Parallel-grouped layout: like the parallel-factorized layout the dimensions
+are interleaved scale-by-scale, but the cores sharing a QTT position are
+contracted (grouped) into a single tensor; all axes must have equal length."""
 import scipy.sparse
 
 from setup_.defaults import *

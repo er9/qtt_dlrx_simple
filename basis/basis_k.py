@@ -1,3 +1,6 @@
+"""Fourier (k-space) basis: a :class:`Basis` representing fields by their Fourier
+modes, where derivatives become diagonal multipliers and products become
+convolutions."""
 from setup_.configs import *
 import numpy as np
 import quimb.tensor as qtn

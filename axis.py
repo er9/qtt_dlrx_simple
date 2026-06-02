@@ -1,3 +1,12 @@
+"""Axis: a single dimension of a QTT grid.
+
+An :class:`Axis` is a frozen (immutable) object specifying a dimension's ID, basis
+representation (spatial / Fourier / Hermite), discretization and grid points, and
+quantization map. It builds the operators acting along the dimension (finite-difference
+derivatives, multiplication by the coordinate, etc.), delegating to the chosen
+:class:`~basis.basis.Basis` and :class:`~axis_map.map.AxisMap`.
+"""
+
 import pdb
 
 import axis
@@ -786,7 +795,7 @@ class Axis:
         k_bound = np.pi / self.dx
         k_vals = np.linspace(-k_bound, k_bound, self.npts)
         ks_mps = self.map_state_to_mps(k_vals)
-        ks_mps = self.map.transform_mps(ks_mps)
+        # ks_mps = self.map.transform_mps(ks_mps)
         ks_mps = helper.mps_flip_lr(ks_mps)  ## qft flips tens order
         return ks_mps
 

@@ -1,3 +1,11 @@
+"""Vlasov equation model.
+
+:class:`Vlasov` (a :class:`~pde_system.PDE_system`) solves the collisionless kinetic
+equation ``df/dt + v.grad_x(f) + F.grad_v(f) = 0`` for one or more species on a QTT
+phase-space grid. Base class for the electromagnetic (:mod:`pde_vlasovEM`) and
+electrostatic (:mod:`pde_vlasovES`) closures.
+"""
+
 from setup_.configs import *
 import matplotlib.pyplot as plt
 import helper_quimb as helper

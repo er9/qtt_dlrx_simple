@@ -1,3 +1,12 @@
+"""Time-integrator layer of the local-solver stack.
+
+Defines the :class:`TimeIntegrator` base class and DMRG-based integrators
+(:class:`TDDMRG`, :class:`TDVP_DMRG`, :class:`TDVP_Krylov_DMRG`, and
+variants) along with the :class:`TimeIntegMethod` enum (Euler, RK2, RK4,
+...). These integrators extend the local Evaluators to advance a
+matrix-product state in time by repeatedly forming and solving the local
+projected problem for the right-hand side F(ket) and source terms.
+"""
 import pdb
 from abc import ABC
 

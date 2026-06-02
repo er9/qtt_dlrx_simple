@@ -1,3 +1,12 @@
+"""Vector and scalar field objects for QTT / tensor-network PDE state.
+
+Defines :class:`Field` (a vector field with up to ``ndim`` components, indexed by
+:class:`~coord.coord_sys.Coordinate`) and :class:`ScalarField` (a single component).
+Field components are :class:`~gridTN.GridTN` tensor networks that all live on a common
+:class:`~grid.Grid`. The module provides field-level arithmetic, differential operators,
+boundary-condition handling, and per-time-step compression.
+"""
+
 import numpy as np
 
 from setup_.configs import *
@@ -77,6 +86,15 @@ if TYPE_CHECKING:
 
 
 class Field:
+    """A vector field on a :class:`~grid.Grid`, with up to ``ndim`` components.
+
+    Components are :class:`~gridTN.GridTN` tensor networks keyed by
+    :class:`~coord.coord_sys.Coordinate` (commonly the coordinates of the grid's axes).
+    A field may carry components not present in its grid (e.g. ``Ez`` on an ``(x, y)``
+    grid); all components must live on the same grid. Supports field-level arithmetic,
+    differential operators, boundary conditions, and per-time-step compression.
+    See :class:`ScalarField` for the single-component case.
+    """
 
     def __init__(self, name: str, grid: 'Grid', data: dict['Coordinate', 'Field_Component_Type'],
                  compress_config: Optional['CompressionConfiguration'] = None,
@@ -1496,6 +1514,11 @@ SCALAR_COORD = Coordinate('_DUMMY', CoordinateType.SCALAR)
 
 
 class ScalarField(Field):
+    """A single-component :class:`Field` (a scalar field) on a :class:`~grid.Grid`.
+
+    Holds one :class:`~gridTN.GridTN` and exposes the field interface for scalar
+    quantities (e.g. a distribution function or potential).
+    """
 
     def __init__(self, name: str, grid: 'Grid', data: Optional['GridTN'] = None,
                  compress_config: Optional['CompressionConfiguration'] = None,

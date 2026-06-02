@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# Editable-install / packaging artifacts
+*.egg-link
+
+# Simulation output / checkpoints (pickled states written by the test scripts)
+tests/tmp_f/
+tests/tmp_s/
+tests/data_cross/
+
+# Environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

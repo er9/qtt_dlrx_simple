@@ -1,3 +1,11 @@
+"""Grid1D: a one-dimensional QTT grid.
+
+Concrete :class:`~grid.Grid` for a single quantized dimension. Selects the QTT
+``Layout`` (see :func:`get_layout`), maps physical states to and from matrix product
+states, and provides the 1-D differential operators consumed by
+:class:`~gridTN_1D.GridTN1D`.
+"""
+
 from scipy import linalg as spla
 
 import axis

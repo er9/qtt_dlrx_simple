@@ -1,3 +1,6 @@
+"""Generalization of quimb's 1-D tensor networks: the :class:`MatrixProductTensor`
+class extends MPS/MPO to support more than two physical indices per core, as
+needed for the QTT layouts used here."""
 from typing import Union, Optional, Sequence
 import numpy as np
 import quimb.tensor as qtn

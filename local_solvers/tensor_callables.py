@@ -1,3 +1,11 @@
+"""Site-level tensor callables for the local-solver stack.
+
+Provides the per-site operation functions -- applying an effective operator,
+adding tensors, and building polynomial/power callables -- that follow the
+``(site_tensor, effective_operators, output_to_input_inds)`` calling
+convention. Term objects use these callables to define how each term acts on
+the current site during an Evaluator sweep.
+"""
 from setup_.defaults import *
 import helper_quimb as helper
 import local_solvers.helper_tn as helper_tn

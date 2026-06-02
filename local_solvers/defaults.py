@@ -1,3 +1,9 @@
+"""Shared enums and default constants for the local-solver stack.
+
+Defines the :class:`SweepDirection` and :class:`SolveMethod` enumerations and
+the default iteration limits, convergence tolerance, and solve method used by
+the Block, Term, Evaluator, and TimeIntegrator layers.
+"""
 from enum import Enum, IntEnum
 
 

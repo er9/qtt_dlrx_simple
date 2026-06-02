@@ -1,3 +1,11 @@
+"""Global-projection time integrators for the local-solver stack.
+
+Extends :mod:`local_solvers.time_integrator` with
+:class:`TimeIntegratorGlobal` and related variants that include the full
+ket, its right-hand side F(ket), and source terms together in the projector
+(rather than projecting them separately), giving an alternative
+time-stepping scheme on top of the same Evaluator machinery.
+"""
 # from abc import ABC
 #
 # import helper_quimb

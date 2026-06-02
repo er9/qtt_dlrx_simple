@@ -1,0 +1,66 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "qtt_dlrx_simple",
+  "description": "Research code implementing quantized tensor train (QTT) data structures and interpolative dynamical low-rank approximation (DLRA) time integrators for hyperbolic PDEs, including the Vlasov, Boltzmann, Burgers, and Maxwell equations.",
+  "version": "0.1.0",
+  "dateCreated": "2025-12-17",
+  "datePublished": "2025-12-17",
+  "license": "https://spdx.org/licenses/BSD-3-Clause",
+  "codeRepository": "https://github.com/er9/qtt_dlrx_simple",
+  "programmingLanguage": {
+    "@type": "ComputerLanguage",
+    "name": "Python",
+    "version": ">=3.9"
+  },
+  "runtimePlatform": "Python 3.9",
+  "keywords": [
+    "quantized tensor trains",
+    "QTT",
+    "dynamical low-rank approximation",
+    "DLRA",
+    "tensor networks",
+    "Vlasov equation",
+    "matrix product states"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "Erika",
+      "familyName": "Ye",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Lawrence Berkeley National Laboratory"
+      }
+    },
+    {
+      "@type": "Person",
+      "givenName": "Chao",
+      "familyName": "Yang",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Lawrence Berkeley National Laboratory"
+      }
+    }
+  ],
+  "softwareRequirements": [
+    "Python >=3.9",
+    "quimb ==1.4.0",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "findiff",
+    "sympy"
+  ],
+  "referencePublication": {
+    "@type": "ScholarlyArticle",
+    "name": "Time integration of quantized tensor trains using the interpolative dynamical low-rank approximation",
+    "author": [
+      {"@type": "Person", "givenName": "Erika", "familyName": "Ye"},
+      {"@type": "Person", "givenName": "Chao", "familyName": "Yang"}
+    ],
+    "datePublished": "2025-12-17",
+    "url": "https://arxiv.org/abs/2512.15703",
+    "identifier": "arXiv:2512.15703"
+  }
+}

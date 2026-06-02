@@ -1,3 +1,5 @@
+"""Spherical coordinate system (R, THETA, PHI): a partial :class:`CoordinateSystem`
+implementation providing the radial and angular first-derivative operators."""
 import numpy as np
 from setup_.configs import *
 import helper_quimb as helper

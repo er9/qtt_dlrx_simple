@@ -1,3 +1,8 @@
+"""Example driver: QTT inverse-Laplacian operator on a 2-D radial-wave dataset.
+
+Builds a 2-D quantized-tensor-train grid, constructs the inverse-Laplacian MPO,
+and measures the QTT rank and entanglement entropy of the resulting data.
+"""
 import os, sys, pickle, time, glob
 sys.path.append('../')
 

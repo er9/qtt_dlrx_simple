@@ -1,3 +1,8 @@
+"""Driver: electromagnetic pulse on a staggered Yee cell using the Maxwell solver.
+
+Quantized-tensor-train Maxwell simulation of an EM pulse.
+Reference: http://ammar-hakim.org/sj/je/je6/je6-maxwell-solvers.html
+"""
 import os, sys, time, glob
 
 import numpy as np

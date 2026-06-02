@@ -1,3 +1,10 @@
+"""GridsComb: composite grid for the comb (tree-like) QTT layout.
+
+Concrete :class:`~grids_composite.CompositeGrid` that arranges its sub-grids as a comb,
+the geometry consumed by :class:`~gridTN_1Dcomb.GridTN1DComb`. Maps states to and from
+the comb tensor network and exposes the multidimensional operators on this layout.
+"""
+
 from setup_.configs import *
 
 import pickle

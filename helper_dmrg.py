@@ -1,3 +1,11 @@
+"""DMRG-based linear-equation solver for (non-blocked) QTT/MPS systems.
+
+Provides the DMRG and linear-solver classes together with the sweep-direction
+and environment machinery used to optimize a matrix-product state against a
+matrix-product-operator system ``Ax = b``. This module is part of the older
+monolithic solver stack; the modular ``local_solvers/`` package is the current
+implementation and this code is not fully tested.
+"""
 import numpy as np
 
 import helper_quimb

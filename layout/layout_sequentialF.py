@@ -1,3 +1,6 @@
+"""Sequential layout (the default): the cores of each dimension are placed
+contiguously and in sequence (x0,x1,...,y0,y1,...) within the QTT, with
+dimensions kept factorized."""
 import helper_quimb
 from setup_.defaults import *
 from quimb.tensor import MatrixProductState as MPS

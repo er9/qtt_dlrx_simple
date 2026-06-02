@@ -1,3 +1,9 @@
+"""Unit-style checks for 3-D Field vector calculus.
+
+Exercises vector-field construction and finite-difference vector-calculus
+operators in 3-D on a quantized-tensor-train grid, validating against findiff
+references.
+"""
 import sys
 sys.path.append('../')
 

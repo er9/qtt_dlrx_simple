@@ -1,3 +1,10 @@
+"""Explicit time-integration schemes.
+
+Generic Runge-Kutta time steppers (orders 1-4) parameterized by the state's Euler step,
+time-derivative, add, and scale callbacks, so the same integrators drive any
+:mod:`pde_system` model. Entry point: :func:`time_integration`.
+"""
+
 import scipy.linalg
 
 from setup_.configs import *

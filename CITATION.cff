@@ -1,0 +1,50 @@
+cff-version: 1.2.0
+title: >-
+  qtt_dlrx_simple: Time integration of quantized tensor trains
+  using the interpolative dynamical low-rank approximation
+message: >-
+  If you use this software, please cite both the software and the
+  associated paper (see preferred-citation).
+type: software
+authors:
+  - given-names: Erika
+    family-names: Ye
+    affiliation: Lawrence Berkeley National Laboratory
+  - given-names: Chao
+    family-names: Yang
+    affiliation: Lawrence Berkeley National Laboratory
+repository-code: 'https://github.com/er9/qtt_dlrx_simple'
+abstract: >-
+  Research code implementing quantized tensor train (QTT) data
+  structures and interpolative dynamical low-rank approximation
+  (DLRA) time integrators for hyperbolic PDEs, including the
+  Vlasov, Boltzmann, Burgers, and Maxwell equations.
+keywords:
+  - quantized tensor trains
+  - QTT
+  - dynamical low-rank approximation
+  - DLRA
+  - tensor networks
+  - Vlasov equation
+  - matrix product states
+license: BSD-3-Clause
+version: 0.1.0
+date-released: '2025-12-17'
+preferred-citation:
+  type: article
+  title: >-
+    Time integration of quantized tensor trains using the
+    interpolative dynamical low-rank approximation
+  authors:
+    - given-names: Erika
+      family-names: Ye
+      affiliation: Lawrence Berkeley National Laboratory
+    - given-names: Chao
+      family-names: Yang
+      affiliation: Lawrence Berkeley National Laboratory
+  year: 2025
+  identifiers:
+    - type: other
+      value: 'arXiv:2512.15703'
+      description: arXiv preprint identifier
+  url: 'https://arxiv.org/abs/2512.15703'

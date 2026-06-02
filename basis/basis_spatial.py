@@ -1,3 +1,6 @@
+"""Real-space (spatial) basis: the default :class:`Basis` in which field values
+are sampled directly on the grid, with derivatives built from finite-difference
+coefficients."""
 import scipy.sparse
 
 import helper_quimb

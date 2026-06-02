@@ -1,3 +1,9 @@
+"""Shared test harness for building configured Vlasov-Maxwell / Vlasov-Poisson systems.
+
+Provides helper routines (e.g. constructing the v^2 multiplication MPO and
+assembling configured :class:`VlasovMaxwell` / :class:`VlasovPoisson` systems)
+used by the Vlasov test drivers. Not a standalone test itself.
+"""
 import os, sys, pickle, time, glob
 import numpy as np
 

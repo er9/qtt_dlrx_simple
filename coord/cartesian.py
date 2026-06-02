@@ -1,3 +1,6 @@
+"""Cartesian coordinate system: the fully implemented :class:`CoordinateSystem`
+mapping X/Y/Z coordinates to grid axes and providing differential operators on
+that grid."""
 from setup_.configs import *
 
 from coord.coord_sys import Coordinate

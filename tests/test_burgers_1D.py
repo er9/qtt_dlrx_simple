@@ -1,3 +1,9 @@
+"""Driver: 1-D inviscid Burgers equation test case.
+
+Solves du/dt + u du/dx = 0 (flux form du/dt + 1/2 d/dx u**2 = 0) on a
+quantized-tensor-train grid and compares against a reference solution.
+Reference: https://zingale.github.io/comp_astro_tutorial/advection_euler/burgers/burgers-methods.html
+"""
 import os, sys, pickle, time, glob
 
 import scipy.optimize

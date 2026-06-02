@@ -1,3 +1,6 @@
+"""Mirror axis map: binary quantization combined with a two's-complement fold
+that mirrors the coarsest cell, following the QTT construction of Ripoll's QTT
+paper."""
 from functools import lru_cache
 from setup_.configs import *
 import helper_quimb as helper

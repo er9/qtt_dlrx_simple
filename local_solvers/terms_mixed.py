@@ -1,3 +1,11 @@
+"""Mixed Term layer of the local-solver stack.
+
+Defines :class:`Term_Mixed`, a :class:`Term` subclass that combines DMRG-style
+(Galerkin) and cross-style (interpolatory) projections within a single term,
+using the mixed blocks from :mod:`local_solvers.blocks_mixed`. It supports the
+dynamical low-rank "X"/"G" variants and feeds the mixed Evaluator and time
+integrator.
+"""
 import numpy as np
 from abc import ABC
 

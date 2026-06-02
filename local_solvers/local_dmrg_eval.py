@@ -1,3 +1,11 @@
+"""DMRG local evaluator for the local-solver stack.
+
+Implements :class:`DMRGEvaluator` and the :func:`local_dmrg_evaluator` entry
+point, which sweep over an MPS and update each site by summing the DMRG-style
+(full Galerkin) Term contributions via state-averaged reduced density
+matrices. This is the Evaluator-layer driver for variational/Galerkin local
+solves.
+"""
 import numpy as np
 from abc import ABC
 

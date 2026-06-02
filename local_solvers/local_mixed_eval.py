@@ -1,3 +1,11 @@
+"""Mixed-projection local evaluator for the local-solver stack.
+
+Implements :class:`MixedEvaluator` (a subclass of :class:`CrossEvaluator`)
+and the :func:`local_mixed_evaluator` entry point, which sweep over an MPS and
+update each site by combining mixed Term contributions that blend DMRG-style
+(Galerkin) and cross-style (interpolatory) projections. Supports the
+dynamical low-rank "X"/"G" variants used for the mixed solve.
+"""
 import pdb
 
 import numpy as np

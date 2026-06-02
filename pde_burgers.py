@@ -1,3 +1,10 @@
+"""Burgers equation model.
+
+Defines the Burgers PDE solvers (finite-difference and finite-volume / upwind variants)
+as :class:`~pde_system.PDE_system` subclasses on a QTT grid. The nonlinear flux makes this
+a key test case for interpolative DLR time integration with element-wise operations.
+"""
+
 from setup_.configs import *
 import matplotlib.pyplot as plt
 import helper_quimb as helper

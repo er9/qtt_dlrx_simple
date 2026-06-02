@@ -1,3 +1,9 @@
+"""Driver: QTT function approximation via DMRG and cross local solvers.
+
+Approximates a 1-D analytic function as a quantized tensor train using both the
+DMRG and cross-interpolation local evaluators and compares their accuracy
+across bond dimensions.
+"""
 import pdb
 import sys
 sys.path.append('../')

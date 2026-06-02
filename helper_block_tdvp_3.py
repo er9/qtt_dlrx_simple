@@ -1,3 +1,12 @@
+"""TDVP / projector-splitting DLR time integration for blocked equations.
+
+Provides ``block_tdvp`` and related block solvers that evolve several coupled
+matrix-product-state components in time using the time-dependent variational
+principle (projector-splitting integrator) for dynamical low-rank approximation,
+with hierarchical sweep schedules over grids of differing scales (e.g. for
+Vlasov-Maxwell). This module bridges the legacy solver stack to the modular
+``local_solvers/`` package.
+"""
 import pdb
 
 import numpy as np

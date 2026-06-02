@@ -1,3 +1,6 @@
+"""Test- and setup-helper functions, including constructors for Maxwellian
+distributions (real-space and Fourier, in one and multiple dimensions) used to
+initialize fields for QTT/DLRA test problems."""
 import pickle
 import numpy as np
 import axis_map

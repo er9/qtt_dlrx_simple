@@ -1,3 +1,12 @@
+"""GridTN: base tensor-network state paired with a grid.
+
+Parent class for tensor-network data (MPS / MPO) associated with a :class:`~grid.Grid`.
+Concrete subclasses are :class:`~gridTN_1D.GridTN1D` (1-D QTT / MPS / MPO) and the
+composite comb-layout variants in :mod:`gridTN_composite` / :mod:`gridTN_1Dcomb`.
+Provides the static creation helpers and the common tensor-network interface used by
+:mod:`field` and the PDE solvers.
+"""
+
 import pickle
 
 import helper_dmrg

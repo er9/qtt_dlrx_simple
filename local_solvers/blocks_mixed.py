@@ -1,3 +1,12 @@
+"""Mixed-projection blocks for the local-solver stack.
+
+Extends the DMRG block hierarchy from :mod:`local_solvers.blocks` with the
+:class:`BlockMixed` family used by the mixed (combined Galerkin/cross)
+projection scheme. These blocks track both full-contraction and
+index-selected environments at each site so a single sweep can combine
+DMRG-style and cross-style projections, supporting the dynamical low-rank
+"X"/"G" variants used by the mixed Term and Evaluator layers.
+"""
 import pdb
 
 import numpy as np

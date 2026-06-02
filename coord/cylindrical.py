@@ -1,3 +1,5 @@
+"""Cylindrical coordinate system (R, THETA, Z): a partial :class:`CoordinateSystem`
+implementation providing the radial/azimuthal/axial differential operators."""
 from setup_.configs import *
 import helper_quimb as helper
 from setup_.enums import CoordinateType

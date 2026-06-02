@@ -1,3 +1,7 @@
+"""Base :class:`Layout` class for multidimensional QTT layouts, providing the
+index transposition logic used to interleave or sequence per-axis cores within a
+single 1-D tensor network. Concrete layouts (sequential, parallel-factorized,
+parallel-grouped) subclass this."""
 import helper_quimb
 from setup_.defaults import *
 from basis.basis_spatial import SpatialBasis

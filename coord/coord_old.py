@@ -1,3 +1,6 @@
+"""Legacy coordinate-space implementation (superseded by :mod:`coord.coord_sys`),
+retained for reference; defines an older :class:`CoordinateSpace` API for grid
+differential operators such as gradient, laplacian, curl, and divergence."""
 from setup.enums import CoordinateType
 from gridTN import GridTN
 from axis import Axis

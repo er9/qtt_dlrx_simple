@@ -1,3 +1,6 @@
+"""Hermite basis representations: physicist Hermite polynomials and Hermite-Gaussian
+bases (including an asymmetrically weighted variant) for expanding fields along an
+axis."""
 import numpy as np
 from functools import lru_cache
 import scipy.special

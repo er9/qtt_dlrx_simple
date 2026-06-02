@@ -1,3 +1,9 @@
+"""Helper functions for semi-Lagrangian time integration.
+
+Provides utilities for computing semi-Lagrangian cell data and projection
+weights (across several spatial orders) used to advect grid quantities along
+characteristics. These routines are not used by the current test cases.
+"""
 from setup_.defaults import *
 import itertools
 import numpy as np

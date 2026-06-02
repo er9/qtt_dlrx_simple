@@ -1,3 +1,11 @@
+"""Helper functions for quimb ``Tensor`` and tensor-network objects.
+
+The utility backbone of the codebase: low-level tensor arithmetic (add / scale /
+elementwise multiply), orthogonality checks and canonicalization, singular values and
+entanglement entropy, and other operations on quimb MPS / MPO / tensor-network objects
+that the grid, field, and solver modules build on.
+"""
+
 # from setup_.configs import *
 # import numpy as np
 import scipy.sparse

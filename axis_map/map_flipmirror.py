@@ -1,3 +1,5 @@
+"""Flipped mirror axis map: the mirror quantization of :mod:`axis_map.map_mirror`
+with an additional left/right flip of the core ordering."""
 from functools import lru_cache
 import helper_quimb as helper
 from setup_.configs import *

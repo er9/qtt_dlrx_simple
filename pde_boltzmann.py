@@ -1,3 +1,11 @@
+"""Boltzmann equation model.
+
+:class:`Boltzmann` (a :class:`~pde_system.PDE_system`) advances a single-species kinetic
+distribution on a QTT phase-space grid, including the streaming and force terms and
+collision contributions. Used as a building block by the Vlasov models
+(:mod:`pde_vlasov`).
+"""
+
 import pdb
 
 import numpy as np

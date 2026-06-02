@@ -1,3 +1,12 @@
+"""Cross-interpolation local evaluator for the local-solver stack.
+
+Implements :class:`CrossEvaluator` and the :func:`local_cross_evaluator`
+entry point, which sweep over an MPS and update each site by combining the
+cross-style (index-selected, interpolatory) Term contributions via
+state-averaged reduced density matrices. This is the Evaluator-layer
+counterpart to the DMRG evaluator, specialised for cross/maxvol-based
+projections.
+"""
 import pdb
 
 import numpy as np

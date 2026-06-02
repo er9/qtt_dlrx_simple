@@ -1,3 +1,10 @@
+"""Vlasov-Poisson (electrostatic) model.
+
+:class:`VlasovPoisson` (a :class:`~pde_vlasov.Vlasov`) solves the Vlasov equation
+``df/dt + v.grad_x(f) + q/m E.grad_v(f) = 0`` with the electrostatic field obtained from
+Poisson's equation, on a QTT phase-space grid.
+"""
+
 from setup_.configs import *
 import helper_quimb as helper
 import helper_sl as helper_sl

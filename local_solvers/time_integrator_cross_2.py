@@ -1,3 +1,10 @@
+"""Cross-interpolation time integrator for the local-solver stack.
+
+Defines :class:`TDCross`, which combines :class:`TimeIntegrator` with
+:class:`CrossEvaluator` to advance a matrix-product state in time using the
+cross (interpolatory) local solve. Here the working ket and output share the
+same state, updated only at the final stage of each time step.
+"""
 import pdb
 
 import helper_quimb

@@ -1,3 +1,11 @@
+"""Vlasov-Maxwell model.
+
+:class:`VlasovMaxwell` (a :class:`~pde_vlasov.Vlasov`) couples the Vlasov equation
+``df/dt + v.grad_x(f) + q/m (E + v x B).grad_v(f) = 0`` to Maxwell's equations (via
+:mod:`pde_EM`) for the self-consistent electromagnetic fields, on a composite QTT
+phase-space grid.
+"""
+
 from setup_.configs import *
 import matplotlib.pyplot as plt
 import helper_sl as helper_sl

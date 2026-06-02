@@ -1,3 +1,10 @@
+"""DMRG solver for blocked linear systems (multiple coupled components).
+
+Provides ``BlockedLinearSolver`` and ``implicit_solver`` for solving an implicit
+system ``Ax = b`` in which ``x`` and ``b`` are composed of several coupled
+components, generalizing the single-component DMRG solver. Part of the older
+monolithic (legacy) solver stack and not fully tested.
+"""
 # import numpy as np
 # import quimb
 #

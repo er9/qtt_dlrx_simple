@@ -1,3 +1,9 @@
+"""Driver: Vlasov-Maxwell test-particle distribution in a time-dependent E field.
+
+Evolves a Vlasov-Maxwell distribution function in the presence of a prescribed
+time-dependent electric field, comparing tensor-train (DLR) and full solves.
+Reference: http://ammar-hakim.org/sj/je/je32/je32-vlasov-test-ptcl.html
+"""
 import os, sys, pickle, time, glob
 import pdb
 

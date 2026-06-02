@@ -1,3 +1,13 @@
+"""Block layer of the local-solver stack.
+
+Defines the :class:`Block` hierarchy that caches the partial (effective)
+environments contracted from the left and right of the current site during a
+sweep. Provides DMRG-style blocks (full Galerkin contractions) and cross-style
+blocks (index-selected / interpolatory contractions), together with the
+:func:`init_block` factory that builds the appropriate block for a given
+:class:`EnvironmentType`. These blocks are the lowest-level building units
+consumed by the Term and Evaluator layers.
+"""
 import numpy as np
 from abc import ABC
 

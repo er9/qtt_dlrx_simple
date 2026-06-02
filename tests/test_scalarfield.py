@@ -1,3 +1,9 @@
+"""Unit-style checks for ScalarField / Field finite-difference vector calculus.
+
+Exercises scalar-field construction and finite-difference derivative operators
+(center/forward/backward stencils) on a quantized-tensor-train grid, validating
+against findiff references for different MPS layouts.
+"""
 import sys
 sys.path.append('../')
 

@@ -1,3 +1,6 @@
+"""Parallel-factorized layout: the cores of different dimensions are interleaved
+scale-by-scale (x0,y0,z0),(x1,y1,z1),..., while the tensors of each dimension
+remain factorized (one core per dimension at each position)."""
 import re
 import functools
 from setup_.defaults import *

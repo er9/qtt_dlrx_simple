@@ -1,3 +1,6 @@
+"""Enumerations and type tags used throughout the codebase, including data types,
+QTT layout types, axis-map types, compression methods, and boundary-condition
+types."""
 from enum import Enum, IntEnum
 
 class DataType(Enum):

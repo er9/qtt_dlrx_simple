@@ -1,3 +1,12 @@
+"""Base evaluator layer of the local-solver stack.
+
+Defines :class:`LocalEvaluator`, the common base class for the DMRG, cross,
+and mixed evaluators. It orchestrates the site-by-site sweep over an MPS --
+canonicalization, collecting per-site Term contributions, combining them, and
+updating the working state -- and provides the shared machinery
+(:class:`SweepDirection`, :class:`SolveMethod`, index-matching helpers) that
+the specialised evaluators and time integrators build upon.
+"""
 import numpy as np
 from abc import ABC
 

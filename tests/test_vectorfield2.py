@@ -1,3 +1,8 @@
+"""Unit-style checks for 2-D Field vector calculus.
+
+Exercises vector-field construction and finite-difference vector-calculus
+operators in 2-D on a quantized-tensor-train grid.
+"""
 import sys
 sys.path.append('../')
 

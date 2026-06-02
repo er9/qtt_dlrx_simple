@@ -1,3 +1,10 @@
+"""Variant of :mod:`helper_dmrg` with minor algorithmic modifications.
+
+Defines ``LinearSolver2`` and ``dmrg_solve_2``, a DMRG-based linear-equation
+solver that is largely equivalent to :mod:`helper_dmrg` but incorporates small
+changes and potential fixes to the optimization. Part of the older monolithic
+(legacy) solver stack; the modular ``local_solvers/`` package is the current one.
+"""
 from helper_dmrg import *
 
 

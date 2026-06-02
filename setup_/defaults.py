@@ -1,3 +1,6 @@
+"""Global defaults and shared type aliases for the codebase: numeric/tensor-network
+type definitions, default compression cutoffs and bond dimensions, default boundary
+conditions and finite-difference settings, plus command-line input-flag parsing."""
 from typing import Union, Optional, Sequence, Any, Iterable, Type, Callable, Literal
 from setup_.enums import *
 import sys, getopt

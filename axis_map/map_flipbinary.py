@@ -1,3 +1,6 @@
+"""Flipped binary axis map: the reverse core ordering of :mod:`axis_map.map_binary`,
+quantizing grid points along one dimension fine-to-coarse (leftmost core is the
+finest scale)."""
 import numpy as np
 
 import helper_quimb as helper

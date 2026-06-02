@@ -1,3 +1,10 @@
+"""TDVP / projector-splitting DLR time integration for non-blocked QTT/MPS equations.
+
+Defines the TDVP solver classes that evolve a matrix-product state in time using
+the time-dependent variational principle (projector-splitting integrator) for
+dynamical low-rank approximation. Part of the older monolithic (legacy) solver
+stack; the modular ``local_solvers/`` package is the current implementation.
+"""
 from setup_.configs import *
 import scipy.linalg
 import helper_quimb as helper

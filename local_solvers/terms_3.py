@@ -1,3 +1,12 @@
+"""Term layer of the local-solver stack.
+
+Defines the :class:`Term` abstract base class and its concrete subclasses
+:class:`Term_DMRG` and :class:`Term_Cross`. A Term packages a ket, optional
+bra and operators (with polynomial powers and coefficients) into a single
+additive contribution to the local problem, owning the underlying Blocks and
+producing the effective per-site tensors that the Evaluator layer combines and
+solves.
+"""
 import numpy as np
 from abc import ABC
 

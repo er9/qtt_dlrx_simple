@@ -1,3 +1,11 @@
+"""Maxwell equation model.
+
+:class:`Maxwell` (a :class:`~pde_system.PDE_system`) evolves the electromagnetic fields on
+a QTT grid using the finite-volume upwind scheme of Munz et al. (2000) with hyperbolic
+divergence cleaning. Used standalone and as the field solver coupled into
+:mod:`pde_vlasovEM`.
+"""
+
 import numpy as np
 
 import helper_quimb

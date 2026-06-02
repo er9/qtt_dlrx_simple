@@ -1,3 +1,8 @@
+"""Driver: effect of tensor-network site ordering / layout on entanglement entropy.
+
+Runs a Vlasov-Poisson Landau-damping simulation and measures the entanglement
+entropy of the resulting distribution function under different MPS orderings/layouts.
+"""
 import os, sys, pickle, time, glob
 sys.path.append('../')
 

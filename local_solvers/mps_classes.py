@@ -1,3 +1,12 @@
+"""Matrix-product state and operator classes for the local-solver stack.
+
+Defines the :class:`MPS` and :class:`MPO` subclasses of quimb's
+``MatrixProductState`` / ``MatrixProductOperator`` that add bookkeeping used
+throughout the solver -- a tracked current orthogonality centre and
+per-site selected-index/selected-tensor caches for the cross-interpolation
+scheme. These are the core state objects passed between the Block, Term,
+Evaluator, and TimeIntegrator layers.
+"""
 from setup_.defaults import *
 
 class MPS(qtn.MatrixProductState):

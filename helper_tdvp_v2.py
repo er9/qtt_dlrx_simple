@@ -1,3 +1,11 @@
+"""Updated TDVP / projector-splitting DLR time integration (version 2).
+
+Defines ``TDVPSolver_v2``, an updated version of the :mod:`helper_tdvp` solver
+that adds corrections to the equation of motion (following Einkemmer's approach)
+on top of the time-dependent variational principle / projector-splitting
+integrator for dynamical low-rank approximation. Part of the older monolithic
+(legacy) solver stack.
+"""
 from helper_tdvp import _sum_eff_TNs
 from setup_.configs import *
 import scipy.linalg

@@ -1,3 +1,10 @@
+"""GridTN_Composite: tensor-network state over a composite (multi-grid) layout.
+
+Parent class for tensor-network data that spans several sub-grids, holding a list of
+per-sub-grid :class:`~gridTN.GridTN` objects on a composite grid. Specialized by
+:class:`~gridTN_1Dcomb.GridTN1DComb` for the comb (tree-like) QTT layout.
+"""
+
 from setup_.configs import *
 from gridTN import GridTN
 

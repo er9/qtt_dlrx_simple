@@ -1,3 +1,12 @@
+"""Grid: an n-dimensional grid assembled from :class:`~axis.Axis` objects.
+
+A :class:`Grid` couples an ordered tuple of axes with a layout (the geometry used to
+represent the high-dimensional tensor network) and exposes the multidimensional
+differential operators (gradient, Laplacian, cross product) and common elementwise /
+coordinate ("x") multiplications. Concrete layouts live in :mod:`grid1D` (1-D QTT) and
+:mod:`grid_comb` (comb / tree-like layout).
+"""
+
 import matplotlib.pyplot as plt
 from scipy import linalg as spla
 from dataclasses import dataclass

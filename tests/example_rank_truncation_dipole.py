@@ -1,3 +1,8 @@
+"""Example driver: QTT rank truncation of a radial-wave (dipole) 2-D dataset.
+
+Measures the quantized-tensor-train rank and entanglement entropy of a 2-D
+radial-wave data set under rank/cutoff truncation.
+"""
 import os, sys, pickle, time, glob
 sys.path.append('../')
 

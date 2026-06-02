@@ -1,3 +1,11 @@
+"""Library of Vlasov simulation test cases.
+
+Defines the :class:`VlasovTest` base class and concrete benchmark setups
+(Landau damping, ion-acoustic, whistler, Alfven, perpendicular wave,
+reconnection, Riemann EM, Orszag-Tang) that configure and run Vlasov-Poisson /
+Vlasov-Maxwell systems. Imported by the Vlasov test drivers; not a standalone
+test itself.
+"""
 import os, sys, pickle, time, glob
 
 sys.path.append('../')

@@ -1,3 +1,8 @@
+"""Abstract :class:`Basis` interface defining how derivatives and elementwise
+multiplications are performed for a given basis set on an axis. Concrete bases
+(spatial, Fourier, Hermite) subclass this and are attached to :class:`Axis`
+objects within a grid.
+"""
 from setup_.configs import *
 # from enums import *
 

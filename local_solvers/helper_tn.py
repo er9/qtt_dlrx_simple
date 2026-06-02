@@ -1,3 +1,10 @@
+"""General tensor-network leaf utilities for the local-solver stack.
+
+Collects elementary operations on quimb tensors and tensor networks --
+summing, element-wise products, and summing effective tensor networks while
+tracking floating-point exponents -- used throughout the Block, Term, and
+Evaluator layers when combining effective operators and environments.
+"""
 # from setup_.configs import *
 # import numpy as np
 import quimb

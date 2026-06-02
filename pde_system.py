@@ -1,3 +1,12 @@
+"""PDE_system: base class for QTT PDE models and their time stepping.
+
+Holds the system geometry (Cartesian / spherical / cylindrical), its scalar and vector
+:mod:`field` objects, and the spatial-grid discretization, and drives time integration
+(``next_time_step``) via the helpers in :mod:`helper_TE`, :mod:`helper_dlr`, and
+:mod:`local_solvers`. Concrete models subclass this: :mod:`pde_boltzmann`,
+:mod:`pde_burgers`, :mod:`pde_EM`, :mod:`pde_vlasov` (and its EM / ES variants).
+"""
+
 import helper_quimb
 from setup_.configs import *
 import helper_TE
@@ -364,6 +373,38 @@ class PDE_system:
                                   compress_level: int = 0, compress_level1: int = 0, compress_level2: int = 0,
                                   do_x_advection=True, do_v_advection=True, background_force=True, internal_force=True,
                                   update_force=True, verbose_plot: bool = False, **kwargs) -> 'PDE_system':
+        """Evaluate the right-hand side ``dU/dt`` of the system (abstract).
+
+        Concrete models override this to return a new :class:`PDE_system` holding the
+        time derivative of the state, used by the explicit integrators driven from
+        :meth:`next_time_step`.
+
+        Parameters
+        ----------
+        time : Numeric, optional
+            Current time (defaults to the system's stored time).
+        compress_level, compress_level1, compress_level2 : int
+            Compression levels (see :class:`~setup_.configs.CompressionConfiguration`)
+            applied at successive stages of the derivative evaluation.
+        do_x_advection, do_v_advection : bool, default True
+            Include the spatial / velocity advection terms.
+        background_force, internal_force : bool, default True
+            Include external (background) / self-consistent (internal) forces.
+        update_force : bool, default True
+            Recompute the force fields before evaluating the derivative.
+        verbose_plot : bool, default False
+            Plot intermediate quantities for debugging.
+
+        Returns
+        -------
+        PDE_system
+            A system whose fields hold ``dU/dt``.
+
+        Raises
+        ------
+        NotImplementedError
+            Always, in the base class.
+        """
         raise NotImplementedError
 
     def get_time_derivative_op(self, time=None,
@@ -390,7 +431,42 @@ class PDE_system:
                        max_iter=100, err_tol=None, direction: int = 1,
                        is_first_time_step=False, is_last_time_step=False,
                        do_postprocessing=False, process_kwargs=None, verbose_plot=False, **kwargs):
-        """ convenience fct btwn different TE methods?
+        """Advance the system by one time step ``dt``.
+
+        Dispatches to the integrator selected by ``self.te_order``: explicit
+        Runge-Kutta of order 1-4 (or their upwind ``global_rk_cross`` / interpolative
+        variants when ``self.upwind`` is set), Lax-Wendroff (order 5), or the implicit
+        schemes (backward Euler, implicit midpoint, Crank-Nicolson) for negative
+        ``te_order`` codes.
+
+        Parameters
+        ----------
+        dt : Numeric
+            Time-step size.
+        deriv0 : PDE_system, optional
+            Precomputed initial time derivative, reused to avoid recomputation.
+        inplace : bool, default False
+            Update this object in place rather than returning a new state (explicit
+            schemes only).
+        compress_level : int, default 1
+            Compression level applied during the step.
+        max_iter : int, default 100
+            Maximum iterations for the implicit solvers.
+        err_tol : Numeric, optional
+            Convergence tolerance for the implicit solvers.
+        direction : int, default 1
+            Time direction (``+1`` forward, ``-1`` backward).
+        is_first_time_step, is_last_time_step : bool, default False
+            Flags for step-dependent bookkeeping.
+        do_postprocessing : bool, default False
+            Run post-processing (with ``process_kwargs``) after the step.
+        verbose_plot : bool, default False
+            Plot intermediate quantities for debugging.
+
+        Returns
+        -------
+        PDE_system
+            The state advanced to ``time + dt``.
         """
         te_order = self.te_order
         time = self.time

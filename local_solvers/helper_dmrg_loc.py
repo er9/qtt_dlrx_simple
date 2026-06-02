@@ -1,3 +1,11 @@
+"""Local DMRG helper utilities for the local-solver stack.
+
+Provides the low-level tensor routines used by the DMRG-style local solve,
+including truncated SVD with bond-cutoff selection, singular-value cutoff
+logic, and related canonicalization/compression helpers operating on quimb
+tensors. These leaf utilities are consumed by the Block, Term, and Evaluator
+layers when assembling and solving local problems.
+"""
 import helper_quimb
 from setup_.configs import *
 import time

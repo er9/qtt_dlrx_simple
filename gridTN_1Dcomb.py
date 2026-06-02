@@ -1,3 +1,11 @@
+"""GridTN1DComb: QTT tensor network in the comb (tree-like) layout.
+
+Concrete :class:`~gridTN_composite.GridTN_Composite` over a :class:`~grid_comb.GridsComb`,
+representing a multidimensional QTT as a comb of 1-D MPS/MPO "teeth". Provides the
+comb-specific compression and the DMRG / TDVP / interpolative-DLR solver entry points for
+this layout.
+"""
+
 from setup_.configs import *
 from setup_.quimb_TN1D import MatrixProductStateUSVT as MPS_USVT
 from setup_.quimb_TN1D import MatrixProductStateTN, MatrixProductOperatorTN

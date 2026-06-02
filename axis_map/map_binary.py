@@ -1,3 +1,6 @@
+"""Default binary axis map: grid points along one dimension are quantized to a
+QTT/MPS so that the leftmost core encodes the coarsest scale and the rightmost
+core the finest (coarse-to-fine ordering)."""
 from axis_map.map import AxisMap
 
 """ mapping of grid points along 1 dimension to binary TN ordering

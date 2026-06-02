@@ -1,3 +1,6 @@
+"""Configuration classes that group together the parameters of a simulation,
+including units, species/material, compression, and derivative settings, used to
+set up QTT/DLRA runs."""
 from setup_.defaults import *
 import setup_.paths
 from setup_.enums import *
@@ -7,7 +10,23 @@ from typing import Optional
 from dataclasses import dataclass
 
 class UnitsConfiguration:
-    """ units
+    """Physical units and fundamental constants for a simulation.
+
+    All values default to 1.0 (normalized units). The speed of light ``c`` is
+    derived as ``1 / sqrt(eps0 * mu0)``.
+
+    Parameters
+    ----------
+    e : Numeric, default 1.0
+        Elementary charge.
+    eps0 : Numeric, default 1.0
+        Vacuum permittivity.
+    mu0 : Numeric, default 1.0
+        Vacuum permeability.
+    eV : Numeric, default 1.0
+        Energy unit, used in place of the Boltzmann constant ``kB``.
+    is_cgs : bool, default False
+        If True, use Gaussian (CGS) conventions for derived plasma quantities.
     """
 
     def __init__(self, e: Numeric = 1.0, eps0: Numeric = 1.0, mu0: Numeric = 1.0, eV: Numeric = 1.0, is_cgs=False):
@@ -20,7 +39,28 @@ class UnitsConfiguration:
 
 
 class SpeciesConfiguration:
-    """ species material parameters
+    """Material parameters for a single plasma species.
+
+    Beyond the stored parameters, this class exposes derived plasma quantities as
+    properties/methods (``charge``, ``plasma_frequency``/``wp``, ``vth``,
+    ``debye_length``/``lamD``, ``skin_depth``, and the field-dependent
+    ``cyclotron_frequency``, ``alfven_speed``, ``larmor_radius``, ``beta``).
+    See :class:`IonConfiguration` and :class:`ElcConfiguration` for the ion and
+    electron specializations.
+
+    Parameters
+    ----------
+    Z : Numeric, default 1.0
+        Charge number (sign included; positive for ions, negative for electrons).
+    n0 : Numeric, default 1.0
+        Reference number density.
+    mass : Numeric, default 1.0
+        Particle mass.
+    T : Numeric, default 1.0
+        Temperature (in units of ``eV``).
+    units_config : UnitsConfiguration, optional
+        Units/constants to use; a default :class:`UnitsConfiguration` is created
+        if omitted.
     """
 
     def __init__(self, Z: Numeric = 1.0, n0: Numeric = 1.0, mass: Numeric = 1.0, T: Numeric = 1.0,
@@ -172,7 +212,24 @@ class SubCompressConfigType(Enum):
 
 
 class CompressionConfiguration:
-    """ class containing compression parameters for different levels
+    """Tensor-network compression parameters, organized by "level".
+
+    Different stages of an algorithm can compress with different parameters; each
+    stage is identified by an integer ``compress_level``. Populate a level with
+    :meth:`set_compress_opts` and retrieve a quimb-compatible options dict with
+    :meth:`get_compress_opts` (or via ``config[level]``). Unset levels fall back to
+    the module defaults ``MAXBOND``, ``CUTOFF``, ``CUTOFF_MODE``.
+
+    Parameters
+    ----------
+    compress_type : CompressType, default CompressType.SVD
+        Truncation method. ``SVD`` honors ``cutoff``/``cutoff_mode``; other types
+        truncate by ``max_bond`` only.
+
+    Notes
+    -----
+    ``sub_compress_configs`` holds nested configurations (e.g. for TT compression),
+    managed via :meth:`set_sub_compress_opts` / :meth:`get_sub_compress_opts`.
     """
 
     def __init__(self, compress_type=CompressType.SVD):
@@ -202,12 +259,44 @@ class CompressionConfiguration:
 
     def set_compress_opts(self, compress_level: int, max_bond=None, cutoff_mode=CUTOFF_MODE,
                           cutoff=CUTOFF, norm_cutoff=None):
+        """Set the compression parameters for a given level.
+
+        Parameters
+        ----------
+        compress_level : int
+            Level (algorithm stage) these options apply to.
+        max_bond : int, optional
+            Maximum bond dimension; ``None`` means unbounded.
+        cutoff_mode : optional
+            Singular-value cutoff mode (e.g. relative-sum-of-squares).
+        cutoff : Numeric, default CUTOFF
+            Singular-value truncation threshold.
+        norm_cutoff : Numeric, optional
+            Norm cutoff; defaults to ``sqrt(CUTOFF)`` when not given.
+        """
         self.max_bonds[compress_level] = max_bond
         self.cutoff_modes[compress_level] = cutoff_mode
         self.cutoffs[compress_level] = cutoff
         self.norm_cutoff = norm_cutoff if norm_cutoff is not None else np.sqrt(CUTOFF)
 
     def get_compress_opts(self, compress_level: int) -> dict:
+        """Return a quimb-compatible compression options dict for ``compress_level``.
+
+        Falls back to the module defaults (``MAXBOND``, ``CUTOFF``, ``CUTOFF_MODE``)
+        for any value not explicitly set. For ``SVD`` compression the dict includes
+        ``cutoff``/``cutoff_mode`` (and midpoint options when enabled); otherwise only
+        ``max_bond``. ``norm_cutoff`` is always included.
+
+        Parameters
+        ----------
+        compress_level : int
+            Level (algorithm stage) to retrieve options for.
+
+        Returns
+        -------
+        dict
+            Keyword arguments suitable for quimb compression routines.
+        """
         max_bond = self.max_bonds.get(compress_level, MAXBOND)
         if self.compress_type == CompressType.SVD:
             cutoff = self.cutoffs.get(compress_level, CUTOFF)
@@ -328,6 +417,39 @@ class NewCompressionConfiguration:
 
 
 class DerivativeConfiguration:
+    """Boundary conditions and finite-difference scheme for one axis.
+
+    Specifies how derivatives along an axis are taken: the left/right boundary
+    conditions, the finite-difference type and order, optional symmetry offsets, and
+    boundary values. Used per-axis by :class:`~gridTN_1D.GridTN1D` and the field
+    differential operators. Helper methods :meth:`derivative_bc` and
+    :meth:`shifted_bc` derive related configurations (e.g. the BCs of ``d/dx f``).
+
+    Parameters
+    ----------
+    left_bc : BCType or str, default DEFAULT_BC
+        Boundary condition at the left end (periodic, antiperiodic, open,
+        reflecting, zero-gradient, Dirichlet, Neumann, ...).
+    right_bc : BCType or str, optional
+        Boundary condition at the right end; defaults to ``left_bc``.
+    order : int, default DEFAULT_ORDER
+        Finite-difference accuracy order.
+    fd_type : FDType or str, default DEFAULT_FDTYPE
+        Finite-difference stencil type (forward, backward, center, upwind).
+    offset : int, default 0
+        Offset of the boundary (point of symmetry) from the left end, in half
+        steps. ``0`` puts the boundary on the symmetry point; ``> 0`` places the
+        symmetry point inside the data; ``< 0`` (min ``-1``) outside it. Flipped for
+        ``right_bc``.
+    offset_r : int, optional
+        Independent offset for the right end. If equal to ``offset`` the whole grid
+        is effectively shifted; otherwise it acts as the opposite of ``offset``.
+        Defaults to ``offset``.
+    value_l, value_r : Numeric, default 0.0
+        Boundary values (e.g. for Dirichlet/Neumann conditions) at the left/right
+        ends.
+    """
+
     def __init__(self,
                  left_bc: BCType or str = DEFAULT_BC,
                  right_bc: BCType or str = None,
@@ -517,7 +639,29 @@ class DerivativeConfiguration:
 
 
 class CollisionConfiguration:
-    ### TODO: adapt to include interspecies collisions
+    """Collision-operator parameters for electrons and ions.
+
+    Builds a :class:`SpeciesCollisionConfiguration` for each of electrons and ions
+    and exposes their rates/coefficients. ``coll_type`` selects the collision model
+    (e.g. ``'LB'`` Lenard-Bernstein, ``'H2'``/``'H4'``/``'H6'`` hypocoercive models),
+    normalized to a :class:`CollisionType`.
+
+    Parameters
+    ----------
+    coll_type : str or CollisionType
+        Collision model identifier.
+    coeff_e, coeff_i : Numeric, default 1.0
+        Collision coefficients for electrons / ions.
+    rate_e, rate_i : Numeric, default 1.0
+        Base collision rates for electrons / ions.
+    v0_e, v0_i : Numeric, default 0.0
+        Reference drift velocities for electrons / ions.
+
+    Notes
+    -----
+    Interspecies collisions are not yet supported.
+    """
+
     def __init__(self, coll_type, coeff_e=1.0, coeff_i=1.0, rate_e=1.0, rate_i=1.0, v0_e=0.0, v0_i=0.0):
         # {'rate_e':coll_rate_e, 'rate_i':coll_rate_i, 'v0_e':0.0, 'v0_i':0.0}
 

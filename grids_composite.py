@@ -1,3 +1,10 @@
+"""CompositeGrid: a grid built from a group of grids.
+
+Parent class for grids that group several :class:`~grid.Grid` (or other composite-grid)
+objects, aggregating their axes. Specialized by :class:`~grid_comb.GridsComb` for the
+comb (tree-like) QTT layout.
+"""
+
 from setup_.configs import *
 
 from grid import Grid

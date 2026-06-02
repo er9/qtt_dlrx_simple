@@ -1,3 +1,7 @@
+"""Driver: 1-D electromagnetic pulse via staggered Yee-cell FDTD (Maxwell solver).
+
+Reference: http://ammar-hakim.org/sj/je/je6/je6-maxwell-solvers.html
+"""
 import os, sys, time, glob
 sys.path.append('../')
 

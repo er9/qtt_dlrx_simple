@@ -1,3 +1,12 @@
+"""GridTN1D: one-dimensional QTT tensor-network state (MPS / MPO).
+
+Concrete :class:`~gridTN.GridTN` holding a quantized matrix product state or operator on
+a :class:`~grid1D.Grid1D`. Implements the core QTT operations used by the PDE solvers:
+construction from data, compression / truncation, application of differential and
+multiplication operators, and the DMRG / TDVP / interpolative-DLR update routines (via
+:mod:`helper_dmrg`, :mod:`helper_tdvp`, and :mod:`local_solvers`).
+"""
+
 import pdb
 
 import numpy as np

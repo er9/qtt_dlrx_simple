@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtt_dlrx_simple"
+version = "0.1.0"
+description = "Quantized tensor trains with interpolative dynamical low-rank approximation time integrators for hyperbolic PDEs (Vlasov, Boltzmann, Burgers, Maxwell)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "Erika Ye" },
+    { name = "Chao Yang" },
+]
+keywords = [
+    "quantized tensor trains",
+    "QTT",
+    "dynamical low-rank approximation",
+    "DLRA",
+    "tensor networks",
+    "Vlasov equation",
+    "matrix product states",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    # quimb 1.4.0 is required: later versions change the tensor-network API
+    # used throughout this codebase.
+    "quimb==1.4.0",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "findiff",
+    "sympy",
+]
+
+[project.urls]
+"Source" = "https://github.com/er9/qtt_dlrx_simple"
+"Paper" = "https://arxiv.org/abs/2512.15703"
+
+# Flat layout: top-level modules and sub-package directories live at the repo
+# root. They are listed explicitly so an editable install (`pip install -e .`)
+# exposes them on sys.path, removing the need for `sys.path.append('../')`
+# hacks in the test scripts.
+[tool.setuptools]
+py-modules = [
+    "axis", "field", "grid", "grid1D", "gridTN", "gridTN_1D",
+    "gridTN_1Dcomb", "gridTN_composite", "grid_comb", "grids_composite",
+    "helper_TE", "helper_block_dmrg", "helper_block_tddmrg_3",
+    "helper_block_tdvp_3", "helper_dlr", "helper_dmrg", "helper_dmrg_2",
+    "helper_quimb", "helper_sl", "helper_tdvp", "helper_tdvp_v2",
+    "pde_EM", "pde_boltzmann", "pde_burgers", "pde_system", "pde_vlasov",
+    "pde_vlasovEM", "pde_vlasovES",
+]
+
+[tool.setuptools.packages.find]
+include = ["axis_map*", "basis*", "coord*", "layout*", "local_solvers*", "setup_*"]

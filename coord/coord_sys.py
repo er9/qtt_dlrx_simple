@@ -1,3 +1,7 @@
+"""Core coordinate abstractions: the :class:`Coordinate` type and the
+:class:`CoordinateSystem` base class, plus helpers to parse coordinate-system
+identifiers and dispatch to concrete systems (Cartesian, cylindrical,
+spherical)."""
 from setup_.configs import *
 
 from dataclasses import dataclass

@@ -1,3 +1,11 @@
+"""Standard (orthogonal-projector) dynamical low-rank time integration.
+
+Provides routines that evolve a low-rank tensor-network state in time by
+projecting the time derivative onto the tangent space using the standard
+orthogonal projector formulation of dynamical low-rank approximation (DLRA).
+This module is outdated and has been superseded by the interpolative-DLR
+routines.
+"""
 from setup_.configs import *
 import scipy.linalg
 import helper_quimb as helper

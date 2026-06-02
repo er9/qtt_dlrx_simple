@@ -1,3 +1,4 @@
+"""Shared matplotlib styling defaults for the test/example plots."""
 from   matplotlib.ticker import FormatStrFormatter
 from   matplotlib import pyplot as plt
 from   matplotlib import rc
