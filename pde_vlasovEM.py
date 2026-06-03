@@ -1254,16 +1254,16 @@ class VlasovMaxwell(Vlasov):
             #                      **deriv_kwargs)
             if is_first_time_step:
                 state0 = super(type(state0), state0).time_dmrg_new(dt / 2, te_order=te_order,
-                                                               inplace=True, do_adapt=do_adapt,
-                                                               compress_level=compress_level,
-                                                               compress_level_2=compress_level_2,
-                                                               advec_axes=advec_axes,
-                                                               background_force=background_force,
-                                                               internal_force=internal_force,
-                                                               solver_type=solver_type,
-                                                               direction=direction,
-                                                               update_force=True,
-                                                               do_update_V=False)
+                                                                   inplace=True, do_adapt=do_adapt,
+                                                                   compress_level=compress_level,
+                                                                   compress_level_2=compress_level_2,
+                                                                   advec_axes=advec_axes,
+                                                                   background_force=background_force,
+                                                                   internal_force=internal_force,
+                                                                   solver_type=solver_type,
+                                                                   direction=direction,
+                                                                   update_force=True,
+                                                                   do_update_V=False)
             else:
                 state0 = self.copy()
 
@@ -1302,15 +1302,15 @@ class VlasovMaxwell(Vlasov):
             print('tdmrg')
             dt_ = dt / 2 if is_last_time_step else dt
             state1 = super(type(state0), state0).time_dmrg_new(dt_, te_order=te_order,
-                                                           inplace=True, do_adapt=do_adapt,
-                                                           compress_level=compress_level,
-                                                           compress_level_2=compress_level_2,
-                                                           advec_axes=advec_axes,
-                                                           background_force=background_force,
-                                                           internal_force=internal_force,
-                                                           direction=direction,
-                                                           update_force=False,
-                                                           do_update_V=False)
+                                                               inplace=True, do_adapt=do_adapt,
+                                                               compress_level=compress_level,
+                                                               compress_level_2=compress_level_2,
+                                                               advec_axes=advec_axes,
+                                                               background_force=background_force,
+                                                               internal_force=internal_force,
+                                                               direction=direction,
+                                                               update_force=False,
+                                                               do_update_V=False)
 
         else:
 

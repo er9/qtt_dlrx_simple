@@ -926,6 +926,25 @@ class Burgers(PDE_system):
         deriv_tens.modify(data=deriv_mat.reshape(submat.shape))
         return deriv_tens
 
+    def global_rk_cross(self, dt, te_order=3, inplace=False, **kwargs) -> 'PDE_system':
+
+        from local_solvers.time_integrator_cross_2 import global_rk_cross
+
+        dist_mpx = self.f.component.data
+        compress_opts = self.f.compress_config.get_compress_opts(1)
+        cutoff = compress_opts.get('cutoff', None)
+        max_bond = compress_opts.get('max_bond', None)
+        nsites = 2
+
+        def deriv_func(mps1, time=None, **kwargs):
+            return self.deriv_upwind_global(nsites=nsites, ket=mps1, max_bond=max_bond, cutoff=cutoff, time=time)
+
+        out = global_rk_cross(dt, te_order, dist_mpx, deriv_func, nsites=nsites, max_bond=max_bond,
+                              cutoff=cutoff)
+
+        new_state = self if inplace else self.copy()
+        new_state.f.component.data = out
+        return new_state
 
     def deriv_upwind_global(self, nsites=2, ket=None, max_bond: int=None, cutoff: Numeric =None, time=None, **kwargs
                             ) -> 'qtn.MatrixProductState':

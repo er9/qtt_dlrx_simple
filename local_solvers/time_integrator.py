@@ -735,7 +735,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
 
         # print('site tens', site_tens.inds, site_tens.data)
         self.num_evals += ket_x.size
-        print('self.num evals', self.num_evals, ket_x.size)
+        # print('self.num evals', self.num_evals, ket_x.size)
 
         if deriv is None:
             deriv = self.deriv_func(left_site_pos, nsites, time=time, site_tens=site_tens)

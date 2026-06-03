@@ -11,10 +11,12 @@ import helper_quimb
 from setup_.configs import *
 import helper_TE
 import helper_dlr
+from grid1D import Grid1D
 
 if TYPE_CHECKING:
     from axis import Axis
     from gridTN import GridTN
+    from grid import Grid
     from field import Field, ScalarField
 
 """ class defining PDE system, containing info about
@@ -26,13 +28,11 @@ if TYPE_CHECKING:
       = basis functions Phi(x) [default Phi_i(x) = delta(x-x_i)]
 """
 
-
 class FieldCompressionConfiguration:
     """ class containing compression parameters for different levels
         for each field in the
     """
-
-    def __init__(self, field_configs: dict[str, CompressionConfiguration] = None):
+    def __init__(self, field_configs: dict[str, CompressionConfiguration]=None):
         if field_configs is None:
             self.field_configs = {}
         else:
@@ -67,7 +67,8 @@ class PDE_system:
                  compress_levels=None,
                  conservative=True,
                  verbose_plot=False,
-                 upwind=False
+                 upwind=False,
+                 grid: 'Grid'=None,
                  # init_compress_opts=None, te_compress_opts=None
                  ):
         """ npts:  number of discretized points along each axis
@@ -83,15 +84,16 @@ class PDE_system:
 
         self._fields: dict[Any, Optional[Field]] = {field.name: field for field in fields if field is not None}
         self.field_names = [field.name for field in fields if field is not None] \
-            if field_names is None else field_names
+                              if field_names is None else field_names
 
         ## pad system with 'None' fields as needed, prescribed by field_names
         for fn in self.field_names:
             if fn not in self._fields:  self._fields[fn] = None
 
         self.te_order = te_order
-        self.time = 0  # can use to keep track of time
-        self.dt = 0    # last/initial timestep; consumed by pde_EM (Maxwell) create_like/copy
+        self.time = 0    # can use to keep track of time
+        self.dt = 0
+        self.grid = grid
 
         self.do_normalization = normalize
         self.conservative = conservative
@@ -157,6 +159,7 @@ class PDE_system:
                                     compress_levels=self._comp_levels, conservative=self.conservative)
         # field_compress_config=self.field_compress_config)
         new_system.time = self.time
+        new_system.dt = self.dt
         new_system.verbose_plot = self.verbose_plot
         return new_system
 
@@ -473,15 +476,27 @@ class PDE_system:
 
         # mod_compress_opts = state0.get_te_compress_opts(compress).copy()
         # mod_compress_opts.update(compress_opts)
-        if te_order == 1:
-            state_t = self.euler(dt, deriv0, inplace=inplace, compress_level=compress_level, **kwargs)
-        elif te_order == 2:
-            state_t = self.rk2(dt, deriv0, compress_level=compress_level, )
-        elif te_order == 3:
-            state_t = self.rk3(dt, deriv0, compress_level=compress_level, )
-        elif te_order == 4:
-            state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot, )
-        elif te_order == 5:
+        if   te_order==1:
+            if self.upwind:
+                state_t = self.global_rk_cross(dt, 1, )
+            else:
+                state_t = self.euler(dt, deriv0, inplace=inplace, compress_level=compress_level, **kwargs )
+        elif te_order==2:
+            if self.upwind:
+                state_t = self.global_rk_cross(dt, 2, )
+            else:
+                state_t = self.rk2(dt, deriv0, compress_level=compress_level, )
+        elif te_order==3:
+            if self.upwind:
+                state_t = self.global_rk_cross(dt, 3, )
+            else:
+                state_t = self.rk3(dt, deriv0, compress_level=compress_level, )
+        elif te_order==4:
+            if  self.upwind:
+                state_t = self.global_rk_cross(dt, 4, )
+            else:
+                state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot, )
+        elif te_order==5:
             state_t = self.lax_wendroff_ndim(dt, compress_level=compress_level)
 
         ## implicit methods
@@ -790,7 +805,10 @@ class PDE_system:
                                                   is_last_time_step=is_last_time_step,
                                                   verbose_plot=verbose_plot, )
                 except:
-                    state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
+                    if order_ == 1 or order_ == 6:
+                        state_t = self.euler(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,)
+                    else:
+                        state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
                                        is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
             else:
                 if 80 <= te_order < 85:
@@ -816,21 +834,40 @@ class PDE_system:
                                                  solver_type=LocalSolverType.TDCross,
                                                  compress_level_2=4, **kwargs)
 
-        ### global td-dmrg / tdvp / 1-step scheme
+        ### MIXED cross
         elif 90 <= te_order < 100:
             order_ = int(str(te_order)[1:])
-            # if is_first_time_step:
-            #     state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
-            #                        is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
-            #     # state_t = self.split_step(dt, method_v='mac', method_f='mac', compress_level=compress_level,
-            #     #                           is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step,
-            #     #                           verbose_plot=verbose_plot, )
-            # else:
-            ## inplace = False
-            state_t = self.time_local_global(dt, te_order=order_,  # do_adapt=True,
-                                             # is_first_time_step=is_first_time_step,
-                                             # is_last_time_step=is_last_time_step,
-                                             compress_level=compress_level, compress_level_2=4)
+            if is_first_time_step:
+                try:
+                    state_t = self.split_step_old(dt, method_v='mac', method_f='mac', compress_level=compress_level,
+                                                  is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step,
+                                              verbose_plot=verbose_plot, )
+                except:
+                    if order_ == 1 or order_ == 6:
+                        state_t = self.euler(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,)
+                    else:
+                        state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot,
+                                       is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
+            else:
+                if 90 <= te_order < 95:
+                    if order_ == 3:
+                        order_ = 223
+                    state_t = self.tdvp_new(dt, inplace=False, te_order=order_, do_adapt=True,
+                                                 is_first_time_step=is_first_time_step,
+                                                 is_last_time_step=is_last_time_step,
+                                                 direction=direction,
+                                                 compress_level=compress_level,
+                                                 solver_type=LocalSolverType.MIXED,
+                                                 compress_level_2=4)
+                else:
+                    order_ -= 5  ## 6:  order_ = 1; 5: order_ = 0; 9: order_ = 4
+                    state_t = self.time_dmrg_new(dt, inplace=False, te_order=order_, do_adapt=True,
+                                                 is_first_time_step=is_first_time_step,
+                                                 is_last_time_step=is_last_time_step,
+                                                 direction=direction,
+                                                 compress_level=compress_level,
+                                                 solver_type=LocalSolverType.MIXED,
+                                                 compress_level_2=4, **kwargs)
 
         else:
             print('te order', te_order)
@@ -1394,8 +1431,7 @@ class PDE_system:
 
             print('final euler')
             new_state = state0.euler(dt / 6., deriv0=sum_deriv, inplace=True, compress_level=comp1,
-                                     compress_level1=comp2,
-                                     compress_level2=comp3)
+                                     compress_level1=comp2, compress_level2=comp3)
 
             # print('rk4 out', np.abs(new_state.sys_fe.f.integrate().component - proj_val))
             ## larger than other measurements bc measures mass error from sum_deriv
@@ -1515,8 +1551,7 @@ class PDE_system:
     #     raise NotImplementedError
 
     def backwards_euler(self, dt, time: float = None, err_tol: float = None, max_iter: int = 100,
-                        compress_level: int = 1,
-                        verbose_plot=False, **deriv_kwargs):
+                        compress_level: int = 1, verbose_plot=False, **deriv_kwargs):
         """ implicit time differentation:  dy/dt = F(y)
             y_n+1 = y_n + dt*F(y_n+1)       [n specifies time step]
             via fixed point iteration, Jacobi iteration with diagonal = I:
@@ -1630,8 +1665,7 @@ class PDE_system:
         return prev_state
 
     def crank_nicolson(self, dt, time: float = None, err_tol: float = None, max_iter: int = 100,
-                       compress_level: int = 1,
-                       verbose_plot=False, **deriv_kwargs):
+                       compress_level: int = 1, verbose_plot=False, **deriv_kwargs):
         """ implicit time differentation:  dy/dt = F(y)
             y_(n+1) = y_(n) + h/2 ( F(y_(n+1)) + F(y_(n)) )
         """

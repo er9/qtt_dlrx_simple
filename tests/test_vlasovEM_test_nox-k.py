@@ -230,11 +230,20 @@ VP_test.initialize_axes(x_lims=(0, 2 * np.pi), ve_lims=(-np.pi / dve, np.pi / dv
 
 VP_test.initialize_grid()
 
-# CUTOFF = 1.0e-12
-te_compress_i = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
-te_compress_e = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
-te_compress_E = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
-te_compress_B = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
+compress_config = CompressionConfiguration()
+compress_config.set_compress_opts(1, max_bond=DMAX, cutoff_mode=CUTOFF_MODE, cutoff=cutoff)
+compress_config.set_compress_opts(2, max_bond=DMAX, cutoff_mode=CUTOFF_MODE, cutoff=cutoff * 0.01)
+
+te_compress_i = compress_config
+te_compress_e = compress_config
+te_compress_E = compress_config
+te_compress_B = compress_config
+
+# # CUTOFF = 1.0e-12
+# te_compress_i = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
+# te_compress_e = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
+# te_compress_E = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
+# te_compress_B = VP_test.get_compression_config(DMAX=DMAX, cutoff=cutoff)
 
 print('te compress fe', te_compress_e)
 print('te compress fi', te_compress_i)
@@ -473,34 +482,22 @@ except(IOError, OSError, NameError, ValueError, FileNotFoundError):
     errs_mass = [np.nan]
 
 ### BUILD PDE
-if is_darwin:
-    em_sys = Darwin(init_E_field, None, init_B_field,  # phi=init_phi_field, psi=init_psi_field,
-                    coords_x=coords_x, matl_params=plasma_config,
-                    background_B0=B0_field, background_E0=E0_field,
-                    normalize=False)
-    em_sys.curlB0 = curlB0_field
+em_sys = Maxwell(init_E_field, init_B_field,  # phi=init_phi_field, psi=init_psi_field,
+                 coords_x=coords_x, matl_params=plasma_config,
+                 background_B0=B0_field, background_E0=E0_field,
+                 normalize=False, clean=False, is_yee=False)
+## is_yee = True gives the wrong results because of current offset.
+em_sys.curlB0 = curlB0_field
 
-    vm_sys = VlasovDarwin(init_fe_field, init_fi_field, em_sys,
-                          coords_x=coords_x, coords_ve=coords_ve, coords_vi=coords_vi,
-                          elc_params=elc_config1, ion_params=ion_config1, evolve_ion=False, evolve_EM=False,
-                          normalize=True, zipup=True, te_order=te_order, compress_levels=comp_levels, )
-else:
-    em_sys = Maxwell(init_E_field, init_B_field,  # phi=init_phi_field, psi=init_psi_field,
-                     coords_x=coords_x, matl_params=plasma_config,
-                     background_B0=B0_field, background_E0=E0_field,
-                     normalize=False, clean=False, is_yee=False)
-    ## is_yee = True gives the wrong results because of current offset.
-    em_sys.curlB0 = curlB0_field
-
-    vm_sys = VlasovMaxwell(init_fe_field, init_fi_field, em_sys,
-                           coords_x=coords_x, coords_ve=coords_ve, coords_vi=coords_vi,
-                           elc_params=elc_config1, ion_params=ion_config1, evolve_ion=False, evolve_EM=False,
-                           normalize=False,  # True,
-                           zipup=True, te_order=te_order, compress_levels=comp_levels,
-                           upwind=False,
-                           conservative=False,
-                           # conservative = (not is_sqrt)
-                           )
+vm_sys = VlasovMaxwell(init_fe_field, init_fi_field, em_sys,
+                       coords_x=coords_x, coords_ve=coords_ve, coords_vi=coords_vi,
+                       elc_params=elc_config1, ion_params=ion_config1, evolve_ion=False, evolve_EM=False,
+                       normalize=False,  # True,
+                       zipup=True, te_order=te_order, compress_levels=comp_levels,
+                       upwind=False,
+                       conservative=False,
+                       # conservative = (not is_sqrt)
+                       )
 print('initialized vm_sys')
 
 vm_sys.time = ts[-1]
@@ -607,10 +604,10 @@ while ts[-1] < T:
     # helper.pad_mpx_virtuals(vm_sys.fe.component.data, max_bond=DMAX)
     print('wall time', time.time() - walltime)
 
-    max_bond_pre += [vm_sys.fe.max_bond()]
+    max_bond_pre += [vm_sys.fe.component.info.get('internal_rank', np.nan)]
     print('saved max bond', max_bond_pre[-1])
 
-    vm_sys.fe.compress(inplace=True)
+    # vm_sys.fe.compress(inplace=True)
     max_bond_fe += [vm_sys.fe.max_bond()]
 
     norm = vm_sys.fe.norm()  # - vm_sys.fi.norm()

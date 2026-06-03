@@ -412,7 +412,7 @@ class GridTN1D(GridTN):
         return grid_mpx1, other
 
     # @profile
-    def apply(self, other, inplace=False, zipup=False, compress_type=CompressType.SVD, compress=False,
+    def apply(self, other, inplace=False, zipup=True, compress_type=CompressType.SVD, compress=False,
               compress_opts=None, add_cc=False, **kwargs) -> 'GridTN1D':
         """ Apply grid_mpo to self, assuming they exist on the same grid
             compress [int]:  determines compression parameters from compression level
@@ -2445,9 +2445,8 @@ class GridTN1D(GridTN):
 
         max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
         compress_opts = compress_config.get_compress_opts(1)
-        max_bond_2 = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
-        cutoff = compress_config.get_compress_opts(1).get('cutoff', None) if compress_config is not None else None
-        # cutoff = cutoff / 100 if cutoff is not None else None
+
+        cutoff = compress_config.get_compress_opts(2).get('cutoff', None) if compress_config is not None else None
 
         print('tdvp 1D new', 'direction', direction, 'te order', te_order)
         gtn = self if inplace else self.copy()
@@ -2458,8 +2457,6 @@ class GridTN1D(GridTN):
             mpo.data.distribute_exponent()
 
         # helper.canonize(dist_mpx, i=0, scale=False)
-        #### if one sweep...
-        # helper.canonize(dist_mpx, i=(0 if direction > 0 else dist_mpx.L - 1), scale=False)
 
         sources = [s.data for s in sources] if sources is not None else None
 
@@ -2468,8 +2465,8 @@ class GridTN1D(GridTN):
             from local_solvers.time_integrator import TDVP_DMRG as TimeInteg
 
             # max_bond, max_bond_2 = None, None
-            cutoff = cutoff * 1.0e-2 if cutoff is not None else CUTOFF
-            print('modified max bond, cutoff', max_bond, cutoff)
+            cutoff = cutoff if cutoff is not None else CUTOFF
+            print('tdvp max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2484,7 +2481,7 @@ class GridTN1D(GridTN):
 
             print('local tdvp new', solver.dt, 'per sweep')
             nsites = 2 if max_bond is None else (3 if do_adapt else 1)
-            print('do adapt', do_adapt, 'nsites', 3)
+            print('local tdvp new', solver.dt, 'per sweep', 'nsites', nsites)
 
             if False: # max_bond_2 is not None and max_bond_2 != max_bond:
                 print('w/ post compress')
@@ -2546,6 +2543,8 @@ class GridTN1D(GridTN):
             # # solver.solve(1, canonize=True, filter_bases=filter_bases)
             # gtn.data = solver.out
             print('TDVP pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
+            gtn.info['num_evals'] = solver.num_evals
+            gtn.info['internal_rank'] = solver.out.max_bond()
 
             print('compress opts', compress_opts)
             gtn.compress(inplace=True, compress_opts={**compress_config.get_compress_opts(1), 'form': 'left'},
@@ -2565,8 +2564,8 @@ class GridTN1D(GridTN):
 
             # max_bond, max_bond_2 = None, None
             # cutoff = CUTOFF   # cutoff * 1.0e-2 if cutoff is not None else CUTOFF
-            cutoff = cutoff * 1.0e-2
-            print('modified max bond, cutoff', max_bond, cutoff)
+            cutoff = cutoff if cutoff is not None else CUTOFF
+            print('tdvp-x max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2578,7 +2577,7 @@ class GridTN1D(GridTN):
             solver.upwind_deriv_func = upwind_deriv_func
 
             print('local tdvp new', solver.dt, 'per sweep')
-            nsites =  2 if max_bond is None or dist_mpx.max_bond() < max_bond else 1 # (3 if do_adapt else 1)
+            nsites = 2 if max_bond is None or dist_mpx.max_bond() < max_bond else 1 # (3 if do_adapt else 1)
             # nsites = 2 if max_bond is None else (3 if do_adapt else 1)
 
             if False: # max_bond_2 is not None and max_bond_2 != max_bond:
@@ -2672,6 +2671,9 @@ class GridTN1D(GridTN):
 
             print('TDVP-X pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
 
+            gtn.info['num_evals'] = solver.num_evals
+            gtn.info['internal_rank'] = solver.out.max_bond()
+
             # print('do x compress')
             # from local_solvers.helper_cross_2 import compress as compress_x
             # out, sel_inds = compress_x(solver.out, form='left', max_bond=max_bond,
@@ -2698,7 +2700,7 @@ class GridTN1D(GridTN):
                          compress_config: CompressionConfiguration = None, nonlinear_terms=None, sources=None,
                          solver_type=LocalSolverType.TDDMRG, conservative=False,
                          filter_bases=False, verbose_plot=False, time=None, upwind_func=None, upwind_deriv_func=None,
-                         direction = 1,
+                         direction=1,
                          **kwargs):
         print('evolve tdmrg new', 'direction', direction, 'te order', te_order)
 
@@ -2708,10 +2710,10 @@ class GridTN1D(GridTN):
                 max_bond = max_bond * 3
             else:
                 max_bond = (max_bond * max(2,te_order + 1)) if te_order != 0 else None
-        print('max bond', max_bond, te_order, compress_config.get_compress_opts(1)['max_bond'])
+        print('expanded max bond', max_bond, te_order, compress_config.get_compress_opts(1)['max_bond'])
         compress_opts = compress_config.get_compress_opts(1)
         max_bond_2 = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
-        cutoff = compress_config.get_compress_opts(1).get('cutoff', None) if compress_config is not None else None
+        cutoff = compress_config.get_compress_opts(2).get('cutoff', None) if compress_config is not None else None
 
         gtn = self if inplace else self.copy()
         dist_mpx = gtn.data  # .copy()
@@ -2720,7 +2722,7 @@ class GridTN1D(GridTN):
         for mpo in linear_mpo_list:
             mpo.data.distribute_exponent()
 
-        # helper.canonize(dist_mpx, i=(0 if direction > 0 else dist_mpx.L-1), scale=False)
+        helper.canonize(dist_mpx, i=0, scale=False)
         # print('dist mpx')
 
         sources = [s.data for s in sources] if sources is not None else None
@@ -2736,8 +2738,8 @@ class GridTN1D(GridTN):
 
             # max_bond, max_bond_2 = None if max_bond is None else max_bond * 2, None
             # max_bond, max_bond_2 = None, None
-            cutoff = cutoff * 1.0e-2 if cutoff is not None else CUTOFF
-            print('modified max bond, cutoff', max_bond, cutoff)
+            cutoff = cutoff if cutoff is not None else CUTOFF
+            print('tddmrg max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2770,8 +2772,12 @@ class GridTN1D(GridTN):
                 else:
                     solver.solve_r2l(1, canonize=True, filter_bases=filter_bases)
                 gtn.data = solver.out
-                print('tddmrg pre compress bond', solver.out.max_bond(), helper.inner_bond_sizes(solver.out))
-                # gtn.compress(inplace=True, compress_opts=compress_opts, conservative=conservative)
+
+                print('(Td-dmrg) pre compress ranks', helper.inner_bond_sizes(solver.out))
+                gtn.info['num_evals'] = solver.num_evals
+                gtn.info['internal_rank'] = solver.out.max_bond()
+
+                gtn.compress(inplace=True, compress_opts=compress_opts, conservative=conservative)
 
             # solver.solve(1, canonize=True, filter_bases=filter_bases)
             # # solver.update_ket_from_out()
@@ -2789,8 +2795,8 @@ class GridTN1D(GridTN):
                 from local_solvers.time_integrator_cross_2 import TDCross as TimeInteg
 
             max_bond, max_bond_2 = None, None
-            cutoff = cutoff * 1.0e-2 if cutoff is not None else CUTOFF
-            print('modified max bond, cutoff', max_bond, cutoff)
+            cutoff = cutoff if cutoff is not None else CUTOFF
+            print('tddmrg-x modified max bond, cutoff', max_bond, cutoff)
 
             nsites = 1
 
@@ -2804,8 +2810,7 @@ class GridTN1D(GridTN):
                                direction=direction,
                                sources=sources, nonlinear_terms=nonlinear_terms,
                                te_order_target=te_order, te_order_final=te_order,
-                               max_bond=max_bond, cutoff=cutoff,
-                               dt=dt, time=time,
+                               max_bond=max_bond, cutoff=cutoff, dt=dt, time=time,
                                grid=self.grid, verbose_plot=verbose_plot, **kwargs)
             solver.upwind_func = upwind_func
             solver.upwind_deriv_func = upwind_deriv_func
@@ -2834,6 +2839,13 @@ class GridTN1D(GridTN):
             gtn.data = solver.out  # solution
 
             print('tddmrg-x pre compress bond', solver.out.max_bond(), helper.inner_bond_sizes(solver.out))
+            gtn.info['num_evals'] = solver.num_evals
+            gtn.info['internal_rank'] = solver.out.max_bond()
+
+            print('compress opts', compress_opts)
+            gtn.compress(inplace=True, compress_opts=compress_opts, conservative=conservative)
+
+
 
             # print('do x compress')
             # from local_solvers.helper_cross_2 import compress as compress_x
