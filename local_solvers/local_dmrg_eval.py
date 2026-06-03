@@ -6,6 +6,8 @@ point, which sweep over an MPS and update each site by summing the DMRG-style
 matrices. This is the Evaluator-layer driver for variational/Galerkin local
 solves.
 """
+import pdb
+
 import numpy as np
 from abc import ABC
 
@@ -57,6 +59,13 @@ def local_dmrg_evaluator(terms: Sequence['Term_DMRG'],
     solver = DMRGEvaluator(init_guess, terms, combine_terms_func=combine_terms_func,
                             direction=direction, max_bond=max_bond, cutoff=cutoff)
     solver.solve(nsites)
+
+    # plt.figure()
+    # plt.plot(helper_quimb.to_dense(solver.terms[0].ket).reshape(-1),
+    #          label='ket')
+    # plt.plot(helper_quimb.to_dense(solver.out).reshape(-1),
+    #          label='out')
+    # plt.show()
 
     # out_gtn = GridTN1D(ref_x.grid, solver.ket)
     # return out_gtn
@@ -271,6 +280,7 @@ class DMRGEvaluator(LocalEvaluator):
         #     current_x = qtn.tensor_contract(*[self.out[i] for i in site_inds])
         # else:
         #     current_x = site_tens.copy()
+
         # current_x.modify(apply=lambda x: x * 10 ** self.ket.exponent)
         ### don't include ket exponent bc ket_exponent is removed from site_tens later
         ### current_x is used for error comparison
@@ -371,13 +381,14 @@ class DMRGEvaluator(LocalEvaluator):
         helper_dmrg.update_1site(self.out, i, site_i, direction, max_bond=self.max_bond, cutoff=self.cutoff,
                                  filter_bases=filter_bases, grid=grid, ax_deriv_configs=ax_deriv_configs)
 
-        # site_ind_id = self.ket.site_ind_id
-        # inds = [site_ind_id.format(si) for si in range(self.ket.L)]
         # plt.figure()
-        # plt.plot(helper_quimb.to_dense(self.ket, inds).data.reshape(-1),
+        # plt.plot(helper_quimb.to_dense(self.terms[0].ket).reshape(-1),
         #          label='ket')
-        # plt.plot(helper_quimb.to_dense(self.out, inds).data.reshape(-1),
+        # plt.plot(helper_quimb.to_dense(self.out).reshape(-1),
         #          label='out')
+        # plt.title(f'i {i}/{self.out.L}')
+        # plt.legend()
+        # plt.show()
 
         # print('update vecblock')
         for term in self.terms:

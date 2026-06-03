@@ -176,7 +176,10 @@ class GridTN1D(GridTN):
 
     def max_bond(self) -> int:
         if self.data is not None:
-            return self.data.max_bond()
+            if hasattr(self.data, 'max_bond'):
+                return self.data.max_bond()
+            else:
+                return 1  # scalar/constant field component has trivial bond dimension
         else:
             return np.nan
 

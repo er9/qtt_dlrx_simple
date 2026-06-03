@@ -65,7 +65,7 @@ class MPS(qtn.MatrixProductState):
         tens = self.get_tens(i)
         if tens is None:
             return None
-        bra_tens = self[i].conj()
+        bra_tens = tens.conj()  # self[i].conj()
         phys_ind = self.site_ind(i)
         bra_tens.modify(inds=[(ind if (ind == phys_ind and not reindex_phys) else ind + '_')
                               for ind in bra_tens.inds])
@@ -80,6 +80,8 @@ class MPS(qtn.MatrixProductState):
             bra._cur_orthog = where
 
     def get_select_inds(self, left_site: int, right_site: int):
+
+        from local_solvers.helper_mixed import tensor_get_submat
 
         indL, indR = left_site, right_site
         direction = 1 if indL < indR else -1
@@ -143,4 +145,4 @@ class MPS(qtn.MatrixProductState):
 MPO = qtn.MatrixProductOperator
 
 # from local_solvers.helper_cross_2 import tensor_select_rows, tensor_xr
-from local_solvers.helper_mixed import tensor_get_submat
+# from local_solvers.helper_mixed import tensor_get_submat

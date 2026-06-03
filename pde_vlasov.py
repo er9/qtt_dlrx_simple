@@ -1442,64 +1442,6 @@ class Vlasov(PDE_system):
 
 
 
-
-
-    def global_rk_cross(self, dt, te_order=3, inplace=False, time=None, background_force=True, internal_force=True,
-                        update_force=True, do_update_V=True, compress_level=1, compress_level1=0,
-                        verbose_plot=False, **kwargs) -> 'PDE_system':
-
-        state0 = self if inplace else self.copy()
-
-        if compress_level == 0:
-            comp1 = comp2 = comp3 = comp4 = comp5 = 0
-        else:
-            comp1, comp2, comp3, comp4, comp5 = self._get_compress_levels(compress_level, 5)
-
-
-        if self.sys_fe is not None:
-            if update_force:
-                force_term = state0.compute_force_term(is_ion=False, compress_level=compress_level,
-                                                     compress_level1=compress_level1, compress_level2=0,
-                                                     verbose_plot=verbose_plot, background_force=background_force,
-                                                     internal_force=internal_force)
-                state0.set_force_term(force_term, is_ion=False,
-                                      background_force=background_force, internal_force=internal_force)
-
-                # print('force compress', compress_level, compress_level1, compress_level2)
-                # self.sys_fe.set_force_term(force_term, background_force=background_force, internal_force=internal_force)
-                # self.sys_fe.force_term = force_term
-
-            state0.sys_fe = state0.sys_fe.global_rk_cross(dt, te_order=te_order, inplace=inplace, time=time,
-                                                          background_force=background_force, internal_force=internal_force,
-                                                          )
-
-        if self.sys_fi is not None and self.evolve_ion:
-            if update_force:
-                force_term = state0.compute_force_term(is_ion=True, compress_level=compress_level,
-                                                     compress_level1=compress_level1, compress_level2=0,
-                                                     verbose_plot=verbose_plot, background_force=background_force,
-                                                     internal_force=internal_force)
-                # self.sys_fi.force_term = force_term
-                state0.set_force_term(force_term, is_ion=True,
-                                      background_force=background_force, internal_force=internal_force, )
-
-            state0.sys_fi = state0.sys_fi.global_rk_cross(dt, te_order=te_order, inplace=inplace, time=time,
-                                                          background_force=background_force,
-                                                          internal_force=internal_force,
-                                                          )
-
-        state0.time = self.time + dt if self.time is not None else None
-
-        if do_update_V:
-            print('update EM sys')
-            # state0.EM_sys.current_density = state0.compute_current(compress=comp2)
-            state0.update_EM_sys(dt, inplace=True, compress=comp1, compress1=comp2)
-
-        # print('diff', state0.distances(self))
-        # pdb.set_trace()
-
-        return state0
-
     def deriv_upwind_global(self, nsites=2, ket=None, max_bond: int = None, cutoff: Numeric = None,
                             time=None, do_x_advection=True, do_v_advection=True, background_force=True,
                             internal_force=True, update_force=True, verbose_plot=False, **kwargs) -> 'Vlasov':

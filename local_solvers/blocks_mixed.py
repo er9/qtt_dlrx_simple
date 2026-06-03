@@ -50,7 +50,7 @@ class BlockMixed(BlockDMRG, ABC):
                  cur_orthog = None,
                  ):
 
-        self.version = version  ## 'G' for Galerkin method
+        self.version = flags.get('version', version)  ## 'G' for Galerkin method; override via flags['version']
 
         self.select_envs = {-1: None, ket.L: None}
         super(BlockDMRG, self).__init__(ket, bra, operator, cur_orthog=cur_orthog,
@@ -174,7 +174,7 @@ class BlockVector_Mixed(BlockMixed, BlockVector_DMRG):
             ket: MPS for ket test wavefunction
             bra: MPS for bra test wavefunction
         """
-        self.version = version  ## 'G' for Galerkin method
+        self.version = flags.get('version', version)  ## 'G' for Galerkin method; override via flags['version']
         self.select_envs = {-1: None, ket.L: None}
         super(BlockMixed, self).__init__(ket, bra, anc_env_left=anc_env_left, anc_env_right=anc_env_right, # mps_inds=mps_inds,
                                          cur_orthog=cur_orthog)
@@ -199,72 +199,71 @@ class BlockVector_Mixed(BlockMixed, BlockVector_DMRG):
         # self.decimate(i, direction)
         new_env_orthog = super().extend_env(i, direction)
 
-        #### update select_envs ####
-        ## new env is ket_and_env[select_inds],  bra_ind + '_x' // ket_ind
-        ket_tens = self.ket.get_tens(i)  # self.ket[self.mps_inds[i]]
-        site_ind = self.ket.site_ind(i)  # self.ket.site_ind_id.format(self.mps_inds[i])
+        x_version = flags.get('x_version', 'select')  #  'select' or 'proj'; override via flags['x_version']
 
-        bond_old = self.bra_horizontal_bond(i - direction, direction)
-        if bond_old is not None:     bond_old = bond_old + '_x'
-        bond_new = self.bra_horizontal_bond(i, direction) + '_x'
-        bond_ket = self.ket_horizontal_bond(i, direction)
+        if x_version == 'proj':
+            g2x = self.bra.select_tens.get(i, None)
+            ## bra (g) --> bra(x)
+            b2k = {**{ind: ind[:-2] + '__x' for ind in g2x.inds if ind[-1] == 'x'},   ## bra x
+                   **{ind: ind + '_' for ind in g2x.inds if ind[-1] != 'x'}}
+            g2x = g2x.reindex(b2k)
+            sel_env = new_env_orthog @ g2x
+            self.select_envs[i] = sel_env
 
-        # env_L, env_R = self.select_envs[i - 1], self.select_envs[i + 1]
-        if direction == SweepDirection.RIGHT:
-            env_L = self.select_envs[i - 1]
-            if env_L is not None:
-                ket_and_env = qtn.tensor_contract(ket_tens, env_L)
+        elif x_version == 'select':
+            #### update select_envs ####
+            ## new env is ket_and_env[select_inds],  bra_ind + '_x' // ket_ind
+            ket_tens = self.ket.get_tens(i)  # self.ket[self.mps_inds[i]]
+            site_ind = self.ket.site_ind(i)  # self.ket.site_ind_id.format(self.mps_inds[i])
+
+            bond_old = self.bra_horizontal_bond(i - direction, direction)
+            if bond_old is not None:     bond_old = bond_old + '_x'
+            bond_new = self.bra_horizontal_bond(i, direction) + '_x'
+            bond_ket = self.ket_horizontal_bond(i, direction)
+
+            # env_L, env_R = self.select_envs[i - 1], self.select_envs[i + 1]
+            if direction == SweepDirection.RIGHT:
+                env_L = self.select_envs[i - 1]
+                if env_L is not None:
+                    ket_and_env = qtn.tensor_contract(ket_tens, env_L)
+                else:
+                    ket_and_env = ket_tens.copy()
             else:
-                ket_and_env = ket_tens.copy()
-        else:
-            env_R = self.select_envs[i + 1]
-            if env_R is not None:
-                ket_and_env = qtn.tensor_contract(ket_tens, env_R)
+                env_R = self.select_envs[i + 1]
+                if env_R is not None:
+                    ket_and_env = qtn.tensor_contract(ket_tens, env_R)
+                else:
+                    ket_and_env = ket_tens.copy()
+
+            # print('extend env', i, direction)
+            # helper_cross.plot_submat(self.bra, i, 1, ket_tens, select_inds=self.select_inds_bra, ref_ket=self.ket)
+
+            ## env should be the selected columns?
+            ## left_env @ ket_tens @ right_env should be the submatrix
+            ## select_inds are determined wrt to bra;
+            ## which should be fine bc we're selecting from env @ ket_tens;
+            ## bra ind should be size of bra so select_inds correctly selects things.
+            if bond_old is not None:
+                new_env = ket_and_env.fuse({bond_new: [site_ind, bond_old]})
+                new_env.transpose(bond_new, bond_ket, inplace=True)
             else:
-                ket_and_env = ket_tens.copy()
+                new_env = ket_and_env.reindex({site_ind: bond_new})
+                new_env.transpose(bond_new, bond_ket, inplace=True)
 
-        # print('extend env', i, direction)
-        # helper_cross.plot_submat(self.bra, i, 1, ket_tens, select_inds=self.select_inds_bra, ref_ket=self.ket)
+            select_inds = self.select_inds_bra[i]
+            # print('build env select inds', i, select_inds)
+            if select_inds is None:
+                raise ValueError('need to compute/update select_inds to extend env')
 
-        ## env should be the selected columns?
-        ## left_env @ ket_tens @ right_env should be the submatrix
-        ## select_inds are determined wrt to bra;
-        ## which should be fine bc we're selecting from env @ ket_tens;
-        ## bra ind should be size of bra so select_inds correctly selects things.
-        if bond_old is not None:
-            new_env = ket_and_env.fuse({bond_new: [site_ind, bond_old]})
-            new_env.transpose(bond_new, bond_ket, inplace=True)
-        else:
-            new_env = ket_and_env.reindex({site_ind: bond_new})
-            new_env.transpose(bond_new, bond_ket, inplace=True)
+            new_env.modify(apply=lambda x: x[select_inds, :])
+            # print('vec new env', new_env.data)
+            # print('ket cur orthog', self.ket.cur_orthog, direction)
+            # print('check orthog', helper_cross.check_orthog(self.ket, self.ket.select_inds, [self.ket.site_ind_id]))
 
-        select_inds = self.select_inds_bra[i]
-        # print('build env select inds', i, select_inds)
-        if select_inds is None:
-            raise ValueError('need to compute/update select_inds to extend env')
-
-        new_env.modify(apply=lambda x: x[select_inds, :])
-        # print('vec new env', new_env.data)
-        # print('ket cur orthog', self.ket.cur_orthog, direction)
-        # print('check orthog', helper_cross.check_orthog(self.ket, self.ket.select_inds, [self.ket.site_ind_id]))
-
-        self.select_envs[i] = new_env
+            self.select_envs[i] = new_env
 
         return new_env_orthog
 
-
-    # def get_projected(self, left_site_pos: int, nsites: int, return_combined=False, transpose_bonds=None,
-    #                   return_intermediates=False, site_tens: 'qtn.Tensor'=None):
-    #     """ assumes that the provided site_tens is element-wise
-    #     """
-    #     if self.version != 'G':
-    #         if site_tens is not None:
-    #             site_tens = helper_mixed.convert_elementwise_to_basis(self.ket, site_tens, left_site_pos, nsites)
-    #             # basis_sites = self.elementwise_to_basis([site_tens], left_site_pos, nsites)
-    #             # site_tens = basis_sites[0]
-    #     return super().get_projected(left_site_pos, nsites, return_combined=return_combined,
-    #                                  transpose_bonds=transpose_bonds, return_intermediates=return_intermediates,
-    #                                  site_tens=site_tens)
 
     def get_projected(self, left_site_pos: int, nsites: int, return_combined=False, transpose_bonds=None,
                       return_intermediates=False, site_tens: 'qtn.Tensor'=None):
@@ -278,38 +277,6 @@ class BlockVector_Mixed(BlockMixed, BlockVector_DMRG):
         return super().get_projected(left_site_pos, nsites, return_combined=return_combined,
                                      transpose_bonds=transpose_bonds, return_intermediates=return_intermediates,
                                      site_tens=site_tens)
-
-        # ref_g = super().get_projected(left_site_pos, nsites, return_combined=return_combined,
-        #                              transpose_bonds=transpose_bonds, return_intermediates=return_intermediates,
-        #                              site_tens=site_tens)
-        #
-        # out_x = self.get_projected_X_new(left_site_pos, nsites, return_combined=return_combined,
-        #                              transpose_bonds=transpose_bonds, return_intermediates=return_intermediates,
-        #                              site_tens=site_tens)
-        # if return_intermediates:
-        #     ref_g, ref_inter_g = ref_g
-        #     out_x, inter_x = out_x
-        #
-        # b2k_x = self.projected_bra_to_ket_x(left_site_pos, nsites)
-        # out_x = out_x.reindex(b2k_x)
-        # out_g = helper_mixed.convert_elementwise_to_basis(self.bra, out_x, left_site_pos, nsites)
-        #
-        # b2k = self.projected_bra_to_ket(left_site_pos, nsites)
-        # ref_g = ref_g.reindex(b2k)
-        # err = (ref_g - out_g).norm()
-        # print('diff ref, out g', err)
-        # if err > 1.0e-12:
-        #     pdb.set_trace()
-        #
-        # self._projected_site = out_g
-        # if return_intermediates:
-        #     inter_g = []
-        #     for tmp in inter_x:
-        #         tmp = tmp.reindex(b2k_x)
-        #         tmp_g = helper_mixed.convert_elementwise_to_basis(self.bra, tmp, left_site_pos, nsites)
-        #         inter_g += [tmp_g]
-        #     return out_g, inter_g
-        # return out_g
 
 
     def get_projected_bond_X(self, left_site_pos:int, return_combined=False, transpose_bonds=None,
@@ -574,7 +541,7 @@ class BlockOperator_Mixed(BlockMixed, BlockOperator_DMRG):
             select_inds_bra/ket: inds to select when moving canonical site from i to i +/- 1 (decimation)
                 assumes select_inds are correctly set regardless of decimation direction
         """
-        self.version = version  ## 'G' for Galerkin method
+        self.version = flags.get('version', version)  ## 'G' for Galerkin method; override via flags['version']
         self.select_envs = {-1: None, ket.L: None}
         super(BlockMixed, self).__init__(ket, bra, operator=operator,
                                          anc_env_left=anc_env_left, anc_env_right=anc_env_right, # mps_inds=mps_inds,
@@ -589,57 +556,62 @@ class BlockOperator_Mixed(BlockMixed, BlockOperator_DMRG):
         #### orthogonal envs ####
         new_env_orthog = super().extend_env(i, direction)
 
-        g2x = self.bra.select_tens.get(i, None)
-        ## bra (g) --> bra(x)
-        b2k = {**{ind: ind[:-2] + '__x' for ind in g2x.inds if ind[-1] == 'x'},   ## bra x
-               **{ind: ind + '_' for ind in g2x.inds if ind[-1] != 'x'}}
-        g2x = g2x.reindex(b2k)
-        sel_env = new_env_orthog @ g2x
-        self.select_envs[i] = sel_env
+        x_version = flags.get('x_version', 'select')  #  'select' or 'proj'; override via flags['x_version']
 
+        if x_version == 'proj':
+            g2x = self.bra.select_tens.get(i, None)
+            ## bra (g) --> bra(x)
+            b2k = {**{ind: ind[:-2] + '__x' for ind in g2x.inds if ind[-2:] == '_x'},  ## bra x
+                   **{ind: ind + '_' for ind in g2x.inds if ind[-2:] != '_x'}}
+            g2x = g2x.reindex(b2k)
+            sel_env = new_env_orthog @ g2x
+            self.select_envs[i] = sel_env
 
-        # #### new env is ket_and_env[select_inds] (bra_ind + '_x', ket_ind)  ####
-        # op_tens = self.operator[i]
-        # upper_ind = self.operator.upper_ind_id.format(i)  # (self.mps_inds[i])
-        # # lower_ind = self.operator.lower_ind_id.format(i)  # (self.mps_inds[i])
-        #
-        # bra_old = self.bra_horizontal_bond(i - direction, direction)
-        # if bra_old is not None:     bra_old = bra_old + '_x'
-        # # ket_old = self.ket_horizontal_bond(i - direction, direction)
-        # # op_old = self.operator.bond(i - direction, i) if bra_old is not None else None
-        # bra_new = self.bra_horizontal_bond(i, direction) + '_x'
-        # ket_new = self.ket_horizontal_bond(i, direction)
-        # op_new = self.operator.bond(i, i + direction)
-        #
-        # # envL, envR = self.select_envs[i - 1], self.select_envs[i + 1]
-        # # env_tens = envL if direction == SweepDirection.RIGHT else envR
-        #
-        # if direction == SweepDirection.RIGHT:
-        #     env_tens = self.select_envs[i - 1]
-        # else:
-        #     env_tens = self.select_envs[i + 1]
-        #
-        # ket_tens = self.ket[i]  ## tensor with selected "columns" / "rows"
-        # if env_tens is not None:
-        #     ket_and_env = qtn.tensor_contract(op_tens, env_tens, ket_tens)
-        # else:
-        #     ket_and_env = qtn.tensor_contract(op_tens, ket_tens)
-        #
-        # if bra_old is not None:     ## not at end
-        #     new_env = ket_and_env.fuse({bra_new: [upper_ind, bra_old]})
-        #     new_env.transpose(bra_new, ket_new, op_new, inplace=True)
-        # else:   ## at end
-        #     new_env = ket_and_env.reindex({upper_ind: bra_new,})
-        #     new_env.transpose(bra_new, ket_new, op_new, inplace=True)
-        #
-        # bra_select_inds = self.bra.select_inds[i]
-        # if bra_select_inds is None:
-        #     raise ValueError('need to compute/update bra (select_inds) to extend env')
-        #
-        # new_env.transpose(bra_new, ket_new, op_new, inplace=True)
-        # new_env.modify(apply=lambda x: x[bra_select_inds, :, :])
-        #
-        # self.select_envs[i] = new_env
+        elif x_version == 'select':
+
+            # print('orig SAE extend env', 'op is None', self.operator is None)
+            #### new env is ket_and_env[select_inds] (bra_ind + '_x', ket_ind)  ####
+            op_tens = self.operator[i]
+            upper_ind = self.operator.upper_ind_id.format(i)  # (self.mps_inds[i])
+            # lower_ind = self.operator.lower_ind_id.format(i)  # (self.mps_inds[i])
+
+            bra_old = self.bra_horizontal_bond(i - direction, direction)
+            if bra_old is not None:     bra_old = bra_old + '_x'
+            # ket_old = self.ket_horizontal_bond(i - direction, direction)
+            # op_old = self.operator.bond(i - direction, i) if bra_old is not None else None
+            bra_new = self.bra_horizontal_bond(i, direction) + '_x'
+            ket_new = self.ket_horizontal_bond(i, direction)
+            op_new = self.operator.bond(i, i + direction)
+
+            # envL, envR = self.select_envs[i - 1], self.select_envs[i + 1]
+            # env_tens = envL if direction == SweepDirection.RIGHT else envR
+
+            if direction == SweepDirection.RIGHT:
+                env_tens = self.select_envs[i - 1]
+            else:
+                env_tens = self.select_envs[i + 1]
+
+            ket_tens = self.ket[i]  ## tensor with selected "columns" / "rows"
+            if env_tens is not None:
+                ket_and_env = qtn.tensor_contract(op_tens, env_tens, ket_tens)
+            else:
+                ket_and_env = qtn.tensor_contract(op_tens, ket_tens)
+
+            if bra_old is not None:     ## not at end
+                new_env = ket_and_env.fuse({bra_new: [upper_ind, bra_old]})
+                new_env.transpose(bra_new, ket_new, op_new, inplace=True)
+            else:   ## at end
+                new_env = ket_and_env.reindex({upper_ind: bra_new,})
+                new_env.transpose(bra_new, ket_new, op_new, inplace=True)
+
+            bra_select_inds = self.bra.select_inds[i]
+            if bra_select_inds is None:
+                raise ValueError('need to compute/update bra (select_inds) to extend env')
+
+            new_env.transpose(bra_new, ket_new, op_new, inplace=True)
+            new_env.modify(apply=lambda x: x[bra_select_inds, :, :])
+
+            self.select_envs[i] = new_env
 
         return new_env_orthog
 

@@ -19,6 +19,75 @@ import quimb.tensor as qtn
 """
 
 
+def get_cut_ind(svals, cutoff=CUTOFF, max_bond=MAXBOND, min_bond=MINBOND, is_squared=False):
+    """ for eigenvalues, is_squared=True
+    """
+    if max_bond is not None and max_bond <= 0:
+        max_bond = None
+
+    tot_num = len(svals)
+    cut_ind = tot_num
+
+    eigval = svals ** 2 if not is_squared else svals
+
+    if cutoff is not None:
+        ev_max = np.max(np.abs(eigval))
+        cum_sum = np.cumsum(np.abs(eigval[::-1]))  # --> smallest (sum from end) to largest (including largest eigval)
+        cut_ind = np.argmin(cum_sum / cum_sum[-1] < cutoff)
+
+        if min_bond is not None:  ## ensure a minimum bond dimension
+            min_ind = max(len(eigval) - min_bond, 0)
+            cut_ind = min(cut_ind, min_ind)  ## cut fewer elements from the end
+
+        cut_ind = tot_num - cut_ind
+
+    if max_bond is not None:
+        cut_ind = min(cut_ind, max_bond)
+
+    return cut_ind
+
+def tensor_svd(tens: 'qtn.Tensor', left_inds: Sequence[str], absorb: Literal['left','right'],
+                 max_bond=MAXBOND, min_bond=MINBOND, cutoff=CUTOFF, bond_ind: str=None):
+
+    if bond_ind is None:
+        bond_ind = '__tmp__'
+
+    u, s, vt = qtn.tensor_split(tens, left_inds, bond_ind=bond_ind, absorb=None, get='tensors',
+                                cutoff=1.0e-40, cutoff_mode=CUTOFF_MODE)
+
+    svals = s.data
+    cut_ind = get_cut_ind(svals, cutoff=cutoff, max_bond=max_bond, min_bond=min_bond)
+    bond_idx = u.inds.index(bond_ind)
+    u_data = np.moveaxis(u.data, bond_idx, 0)
+    u_data = u_data[:cut_ind]
+    u_data = np.moveaxis(u_data, 0, bond_idx)
+    u.modify(data=u_data)
+
+    bond_idx = vt.inds.index(bond_ind)
+    vt_data = np.moveaxis(vt.data, bond_idx, 0)
+    vt_data = vt_data[:cut_ind]
+    vt_data = np.moveaxis(vt_data, 0, bond_idx)
+    vt.modify(data=vt_data)
+
+    if absorb == 'left':
+        ix = u.inds.index(bond_ind)
+        u_data = np.moveaxis(u.data, ix, -1)
+        u_data = u_data * svals[:cut_ind]
+        u_data = np.moveaxis(u_data, -1, ix)
+        u.modify(data=u_data)
+
+    elif absorb == 'right':
+        ix = vt.inds.index(bond_ind)
+        vt_data = np.moveaxis(vt.data, ix, -1)
+        vt_data = vt_data * svals[:cut_ind]
+        vt_data = np.moveaxis(vt_data, -1, ix)
+        vt.modify(data=vt_data)
+    else:
+        raise ValueError
+
+    return u, vt
+
+
 def add_tensors(tens1: 'qtn.Tensor', tens2: 'qtn.Tensor', inplace=False):
     new_tens = tens1 if inplace else tens1.copy()
     tens2 = tens2.transpose_like(tens1)

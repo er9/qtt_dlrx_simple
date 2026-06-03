@@ -91,6 +91,7 @@ class PDE_system:
 
         self.te_order = te_order
         self.time = 0  # can use to keep track of time
+        self.dt = 0    # last/initial timestep; consumed by pde_EM (Maxwell) create_like/copy
 
         self.do_normalization = normalize
         self.conservative = conservative
@@ -434,8 +435,7 @@ class PDE_system:
         """Advance the system by one time step ``dt``.
 
         Dispatches to the integrator selected by ``self.te_order``: explicit
-        Runge-Kutta of order 1-4 (or their upwind ``global_rk_cross`` / interpolative
-        variants when ``self.upwind`` is set), Lax-Wendroff (order 5), or the implicit
+        Runge-Kutta of order 1-4, Lax-Wendroff (order 5), or the implicit
         schemes (backward Euler, implicit midpoint, Crank-Nicolson) for negative
         ``te_order`` codes.
 
@@ -474,25 +474,13 @@ class PDE_system:
         # mod_compress_opts = state0.get_te_compress_opts(compress).copy()
         # mod_compress_opts.update(compress_opts)
         if te_order == 1:
-            if self.upwind:
-                state_t = self.global_rk_cross(dt, 1, )
-            else:
-                state_t = self.euler(dt, deriv0, inplace=inplace, compress_level=compress_level, **kwargs)
+            state_t = self.euler(dt, deriv0, inplace=inplace, compress_level=compress_level, **kwargs)
         elif te_order == 2:
-            if self.upwind:
-                state_t = self.global_rk_cross(dt, 2, )
-            else:
-                state_t = self.rk2(dt, deriv0, compress_level=compress_level, )
+            state_t = self.rk2(dt, deriv0, compress_level=compress_level, )
         elif te_order == 3:
-            if self.upwind:
-                state_t = self.global_rk_cross(dt, 3, )
-            else:
-                state_t = self.rk3(dt, deriv0, compress_level=compress_level, )
+            state_t = self.rk3(dt, deriv0, compress_level=compress_level, )
         elif te_order == 4:
-            if self.upwind:
-                state_t = self.global_rk_cross(dt, 4, )
-            else:
-                state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot, )
+            state_t = self.rk4(dt, deriv0, compress_level=compress_level, verbose_plot=verbose_plot, )
         elif te_order == 5:
             state_t = self.lax_wendroff_ndim(dt, compress_level=compress_level)
 
@@ -1427,9 +1415,6 @@ class PDE_system:
     def _get_time_evolution_mpos_lw(self, dt, advec_axes: Sequence['Axis'] = None, ax_deriv_configs=None,
                                     transpose=False, **kwargs):
         """ time evolution mpo dict for upwinding """
-        raise NotImplementedError
-
-    def global_rk_cross(self, dt, te_order=3, inplace=False, **kwargs):
         raise NotImplementedError
 
     def deriv_upwind_global(self, nsites=2, ket=None, max_bond: int = None, cutoff: Numeric = None,

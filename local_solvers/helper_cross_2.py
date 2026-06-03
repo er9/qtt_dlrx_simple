@@ -2,10 +2,6 @@
     this is a cleaner version + elemental multiplication of f(x) * g(y)
     where f, g are element-wise operations
 """
-import pdb
-
-import numpy as np
-
 import helper_quimb
 from setup_.configs import *
 import time
@@ -200,8 +196,8 @@ def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Ten
     plt.title(plt_title)
     for it, ref_ket in enumerate(ref_kets):
         if isinstance(ref_ket, qtn.MatrixProductState):
-            plt.plot((np.real(ref_ket.to_dense()) * 10 ** ref_ket.exponent), label=f'init {it}')
-            plt.plot((np.imag(ref_ket.to_dense()) * 10 ** ref_ket.exponent), '--', label=f'_init {it}')
+            plt.plot(np.real(ref_ket.to_dense()) * 10 ** ref_ket.exponent, label=f'init {it}')
+            plt.plot(np.imag(ref_ket.to_dense()) * 10 ** ref_ket.exponent, '--', label=f'_init {it}')
         else:
             plt.plot(np.real(ref_ket), label=f'init {it}')
             plt.plot(np.imag(ref_ket), '--', label=f'_init {it}')
@@ -214,7 +210,7 @@ def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Ten
         selectors += [int("".join(str(x) for x in c), q)]
 
     # print('selectors', selectors)
-    print('nsites', nsites)
+    # print('nsites', nsites)
     if nsites == 0:
         x_ind = mps.bond(left_site_pos, left_site_pos + 1)
         inds = [x_ind + '_L', x_ind + '_R']
@@ -230,6 +226,8 @@ def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Ten
     site_tens = site_tens.transpose(*inds, inplace=False)
     # print('site tens', site_tens.data.reshape(-1))
     # print('plot submat', site_tens)
+    # print('selectors', selectors)
+    # print('select inds', mps.select_inds)
     plt.plot(selectors, np.real(site_tens.data.reshape(-1)), 'o', label='site tens')
     plt.plot(selectors, np.imag(site_tens.data.reshape(-1)), 'x', label='_site tens')
     plt.legend()
@@ -428,7 +426,6 @@ def tensor_compress(tens: qtn.Tensor, phys_inds: list[str], right_inds: list[str
     shape_left = tens.shape[:len(fuse_inds)]
     shape_right = tens.shape[len(fuse_inds):]
     tens_ = tens.fuse({f'xx': fuse_inds, f'oo': right_inds})
-    # print('cross tensor compress', tens.shape, tens_.shape)
     # nr, nc = q_.shape[0], q_.shape[-1]
     if solver_type == CrossSolver.DEIM:
         q, r, inds_r, inds_c = deim_compress(tens_.data, max_bond=max_bond, cutoff=cutoff, return_inds=True,
@@ -1239,9 +1236,6 @@ def update_ket(mps: 'MPS', tensors: Union[qtn.Tensor, Sequence[qtn.Tensor]], i: 
     left_site_pos = i if (nsites == 1 or direction == SweepDirection.RIGHT) else i - 1
     at_end = (left_site_pos == L - nsites) if direction == SweepDirection.RIGHT else (left_site_pos == 0)
 
-    print('direction', direction, direction == SweepDirection.RIGHT)
-    print('nsites', nsites)
-
     ### targets:  [out] or [original tensor, *targets]
     if direction == SweepDirection.RIGHT:
         if nsites == 1:
@@ -1315,6 +1309,7 @@ def update_ket(mps: 'MPS', tensors: Union[qtn.Tensor, Sequence[qtn.Tensor]], i: 
             T2 = qtn.tensor_contract(T2, site2)
             T2.transpose_like(site2, inplace=True)
             site2.modify(data=T2.data)
+            mps._cur_orthog = ind2
         elif nsites == 2:
             # print('T1', T1)
             # print('T2', T2)
@@ -1856,7 +1851,7 @@ def deim_inds_1(W: 'np.ndarray', max_r: int = None, include_inds=None):
 
     return indices
 
-def deim_inds(W: 'np.ndarray', max_r: int = None, include_inds=None, add_rand_noise=False):
+def deim_inds(W: 'np.ndarray', max_r: int = None, include_inds=None):
     """Q-DEIM: QR-based DEIM for better numerical stability."""
     max_r = min(max_r, W.shape[1]) if max_r is not None else W.shape[1]
 
@@ -1887,8 +1882,6 @@ def regularized_solve(A: np.ndarray, R: np.ndarray, use_new_method=False, regula
         R_RH = R @ R.conj().T
         inv2 = np.linalg.inv(R_RH + lambda_I)
         X = A @ R.conj().T @ inv2
-        # print('X', X)
-        # pdb.set_trace()
 
     else:
         X = A @ np.linalg.pinv(R)
@@ -1900,7 +1893,6 @@ def deim_split(A: np.ndarray, return_inds=False, max_bond=None, expand_u=False):
     decompose matrix using DEIM; obtain low-rank approximation
     A is 2D matrix: (alpha_{i-1} * d_{i}) x alpha_{i}
     """
-    # print('in deim split')
 
     size_l, size_r = A.shape
     max_bond = size_l if max_bond is None else min(size_l, max_bond)
@@ -2011,7 +2003,6 @@ def approx_svd(A: np.ndarray, max_bond=None, cutoff=CUTOFF, full_matrices=False)
             vt = vt[:-cut_ind, :]
     return u, s, vt
 
-
 def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
                   include_inds_r: Sequence[int]=None, expand_u=False):
     """
@@ -2089,163 +2080,6 @@ def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
         return T1, T2, inds_r, inds_c  # np.sort(inds)
     else:
         return T1, T2
-
-
-# def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
-#                   include_inds_r: Sequence[int]=None, expand_u=False):
-#     """
-#     decompose matrix using DEIM; obtain low-rank approximation
-#     truncate via singular values, and then perform DEIM?
-#     or, just perform DEIM up to desired rank?
-#     i don't think it really matters
-#     """
-#
-#     # print('deim compression', A.shape, max_bond, cutoff)
-#
-#     n, r = A.shape  ## A is 2D matrix:  e.g 2 site tensor, (alpha_{i-1} * d_{i}) x alpha_{i+1} * d{i+1}
-#
-#     if (max_bond is None or n < max_bond or r < max_bond) and cutoff is None:
-#         T1, T2, inds_r = deim_split(A, return_inds=True, max_bond=max_bond, expand_u=expand_u)
-#         if return_inds:
-#             inds_c = list(range(r))
-#             return T1, T2, inds_r, inds_c
-#         else:
-#             return T1, T2
-#
-#
-#     u, s, vt = approx_svd(A, max_bond, cutoff, full_matrices=expand_u)
-#     if include_inds_r is None:
-#         inds_r = deim_inds_old(u, max_bond, include_inds=include_inds_r)
-#         inds_c = []
-#         print('A shape', A.shape, 'len deim inds', len(inds_r))
-#
-#         submat_u = u[inds_r, :]
-#         R_dmp = (vt.T * s).T
-#
-#         print('u', u.shape, R_dmp.shape)
-#     else:
-#         inds_r = deim_inds_old(u, max_bond)
-#         inds_c = []
-#         new_inds_r = list(set(inds_r).union(set(include_inds_r)))
-#         add_size = len(new_inds_r) - len(inds_r)
-#         print('len inds r', len(inds_r), len(new_inds_r))
-#
-#         print('add size', add_size)
-#         if add_size > 0:
-#             print('add size?', add_size)
-#             noise_norm =  np.linalg.norm(A) / A.size # * 1.0e-3
-#             print('noise norm', noise_norm)
-#             A_add = A[:, :add_size] + np.random.random((A.shape[0], add_size)) * noise_norm
-#             A_ = np.hstack([A, A_add])
-#             print('A add', A_add.shape, A.shape, A_.shape, len(inds_r), add_size)
-#
-#             # A_ = A.copy()
-#             # A_add = np.zeros_like(A)
-#             # A_add[:,-add_size:] = np.random.random((A.shape[0], add_size)) * 1.0e-4
-#             # A_ = A + A_add
-#
-#             inds_r = new_inds_r
-#
-#             # pdb.set_trace()
-#
-#             u = A_
-#             submat_u = A_[inds_r, :]    ## should be a square matrix
-#             R_dmp = np.eye( A_.shape[1] )
-#             A = A_
-#
-#             # u, s, vt = approx_svd(A_, max_bond, cutoff)
-#             # print('A_ svd', u.shape, len(inds_r), len(s))
-#             # submat_u = u[inds_r, :]  ## should be a square matrix
-#             # R_dmp = (vt.T * s).T
-#             # A = A_
-#
-#         else:
-#             submat_u = u[inds_r, :]
-#             R_dmp = (vt.T * s).T
-#
-#     # if not expand_u:
-#     #     inds_r = deim_inds_old(u, max_bond, include_inds=include_inds_r)
-#     #     inds_c = []
-#     #     print('A shape', A.shape, 'len deim inds', len(inds_r))
-#     #
-#     #     submat_u = u[inds_r, :]
-#     #     R_dmp = (vt.T * s).T
-#     #
-#     #     print('u', u.shape, R_dmp.shape)
-#     #
-#     # else:
-#     #     inds_c = []
-#     #     if include_inds_r is not None:
-#     #         u = u[:, :r]
-#     #         inds_r = deim_inds_old(u, min(r, max_bond) if max_bond is not None else r)
-#     #         print('inds r', inds_r)
-#     #         print('inds select r', include_inds_r)
-#     #         inds_r = list( set(inds_r).union(set(include_inds_r)) )
-#     #
-#     #         submat_u = u[inds_r, :]
-#     #         R_dmp = (vt.T * s).T
-#     #
-#     #         print('u', u.shape, R_dmp.shape)
-#     #         add_size = u.shape[1] - R_dmp.shape[0]
-#     #         # print('add size', add_size)
-#     #         R_dmp = np.vstack([R_dmp, np.zeros((add_size, R_dmp.shape[1]))])
-#     #         print('add size', add_size, R_dmp.shape)
-#     #
-#     #         print('exanded diff', np.linalg.norm(submat_u @ R_dmp - A[inds_r, :]))
-#     #
-#     #     else:
-#     #         raise NotImplementedError
-#
-#     use_new_method = False
-#     if use_new_method:
-#         B = regularized_solve(u, submat_u, use_new_method=True, regularization=0.1)
-#         T1 = B
-#         T2 = u[inds_r, :] @ R_dmp
-#
-#         # R = submat @ R_dmp
-#         # X = regularized_solve(A, R, use_new_method=True)
-#         # T1, T2 = X, R
-#
-#     else:
-#         B = regularized_solve(u, submat_u, use_new_method=False)
-#         T1 = B
-#         T2 = submat_u @ R_dmp
-#
-#         np.set_printoptions(2)
-#         print('T1', np.diag(T1[inds_r,:]))
-#
-#         print('A diff', np.linalg.norm( T1 @ T2 - A) )
-#         print('A diff', np.linalg.norm((T1 @ T2)[inds_r,:] - A[inds_r,:]))
-#
-#         print('T1', T1.shape, 'T2', T2.shape, 'inds r', len(inds_r))
-#
-#         # ## old version version: construct T1, T2 from low-rank tensor
-#         # submat_u = u[inds_r, :]
-#         # T1 = u @ np.linalg.pinv(submat_u)
-#         #
-#         # R_dmp = (vt.T * s).T
-#         # T2 = submat_u @ R_dmp
-#
-#         if False:  # len(inds_r) > r:
-#             print('len inds', len(inds_r), r)
-#             print('T1', [(submat_u @ np.linalg.pinv(submat_u))[i, i] for i in range(len(inds_r))], np.linalg.cond(submat_u))
-#             # print('T1', submat_u @ np.linalg.pinv(submat_u))
-#             # print('canon error', np.linalg.norm(T1[inds_r, :] @ T2 - submat_u @ R_dmp))
-#             print('canon error', np.linalg.norm(A[inds_r, :] - submat_u @ R_dmp))
-#
-#             R0_dmp = R_dmp.copy()
-#             R0_dmp[:, A.shape[1]//2:] *= 0.5
-#             T2_0 = submat_u @ R0_dmp
-#             A_0 = A.copy()
-#             A_0[:, A.shape[1]//2:] *= 0.5
-#             print('canon error', np.linalg.norm(A_0[inds_r, :] - T2_0))
-#
-#             # pdb.set_trace()
-#
-#     if return_inds:
-#         return T1, T2, inds_r, inds_c  # np.sort(inds)
-#     else:
-#         return T1, T2
 
 
 
@@ -2337,7 +2171,7 @@ def tensor_compress_expand(targets: Sequence[qtn.Tensor], phys_inds: list[str], 
     fuse_inds = phys_inds + left_inds
     r_size = [main_tens.ind_size(ri) for ri in right_inds]
 
-    version = 'random'  # oversample
+    version = 'oversample'
 
     ## new method  v2
     if version == 'oversample':

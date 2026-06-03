@@ -118,7 +118,6 @@ class LocalEvaluator:
             new_terms = []
             for term in copy_obj.terms:
                 if term is not None:
-                    # new_term = term.copy(bra_copy=self.out if term.bra is copy_obj.out else None)
                     new_term = term.copy()
                     if term.bra is copy_obj.out:
                         new_term.bra = self.out
@@ -130,9 +129,9 @@ class LocalEvaluator:
 
             self.direction = copy_obj.direction
             canon_site = 0 if self.direction == SweepDirection.RIGHT else self.out.L - 1
-            # if not np.isnan(self.cur_orthog):   # is nan means left_cur_orthog > right_cur_orthog
-            #     assert(self.cur_orthog == canon_site), \
-            #         f'solver cur_orthog {self.cur_orthog} not consistent with direction {self.direction}'
+            if not np.isnan(self.cur_orthog):   # is nan means left_cur_orthog > right_cur_orthog
+                assert(self.cur_orthog == canon_site), \
+                    f'solver cur_orthog {self.cur_orthog} not consistent with direction {self.direction}'
 
             self.conv_tol = copy_obj.conv_tol
             self.max_tot_iter = copy_obj.max_tot_iter
@@ -323,7 +322,7 @@ class LocalEvaluator:
             raise TypeError
 
         print('ket orthog l', ket_orthog_l, 'ket orthog r', ket_orthog_r)
-        assert(ket_orthog_l>=ket_orthog_r), 'ket is not in orthogonal for m'
+        assert(ket_orthog_l>=ket_orthog_r), 'ket is not in orthogonal form'
 
         cur_orthog = np.nan
         if ket_orthog_l == ket_orthog_r:
@@ -451,7 +450,10 @@ class LocalEvaluator:
             if i == L-1:
                 nsites = 1
             else:
-                max_rank = min(self.max_bond, np.prod(phys_dims[:i + 1]).item(), np.prod(phys_dims[i + 1:]).item())
+                if self.max_bond is None:
+                    max_rank = min(np.prod(phys_dims[:i + 1]).item(), np.prod(phys_dims[i + 1:]).item())
+                else:
+                    max_rank = min(self.max_bond, np.prod(phys_dims[:i + 1]).item(), np.prod(phys_dims[i + 1:]).item())
                 current_rank = self.out.bond_size(i, i + 1)
                 nsites = 2 if current_rank < max_rank else 1
 
@@ -512,7 +514,10 @@ class LocalEvaluator:
             if i == 0:
                 nsites = 1
             else:
-                max_rank = min(self.max_bond, np.prod(phys_dims[:i]).item(), np.prod(phys_dims[i:]).item())
+                if self.max_bond is None:
+                    max_rank = min(np.prod(phys_dims[:i]).item(), np.prod(phys_dims[i:]).item())
+                else:
+                    max_rank = min(self.max_bond, np.prod(phys_dims[:i]).item(), np.prod(phys_dims[i:]).item())
                 current_rank = self.out.bond_size(i, i - 1)
                 nsites = 2 if current_rank < max_rank else 1
 

@@ -12,11 +12,11 @@ import scipy.linalg as linalg
 import quimb.tensor as qtn
 # import helper_quimb as helper
 from local_solvers.defaults import *
-from local_solvers.mps_classes import MPS
 
 MPO_type = Union['qtn.MatrixProductOperator']
 MPS_type = Union['qtn.MatrixProductState']
 
+from local_solvers.mps_classes import MPS
 from local_solvers.helper_cross_2 import get_inds, iso_left_inds, iso_right_inds, plot_submat
 
 
@@ -42,29 +42,10 @@ def cur_split(tens: qtn.Tensor, inds_r: Sequence[int], cu_bond=None, ur_bond=Non
     if ur_bond is None:
         ur_bond = ind2 + '_'
 
-    # data = tens.data
-    # q, r = np.linalg.qr(data)
-    # submat = q[inds_r, :] @ r
-    # u = np.linalg.pinv(submat)
-    # # u = np.linalg.pinv(q[inds_r, :])
-    # # submat = q[inds_r, :] @ r
-
     data = tens.data
-    q = data
-    submat = data[inds_r, :]
+    q, r = np.linalg.qr(data)
+    submat = q[inds_r, :] @ r
     u = np.linalg.pinv(submat)
-
-    ### if indices are poorly chosen, submat might not be invertible.
-    # print('diff u', np.linalg.norm(np.linalg.pinv(u) - submat))
-    # err = np.linalg.norm(u @ submat - np.eye(submat.shape[1]))
-    # print('diff r^{-1} r', err)
-    # if err > 1.0e-10:
-    #     tu, ts, tvt = np.linalg.svd(submat)
-    #     print('submat singular values', ts)
-    #     print(np.linalg.cond(u))
-    #     print(u @ submat)
-    #     pdb.set_trace()
-    # print('diff cur', np.linalg.norm(q @ u @ submat - data))
 
     c = qtn.Tensor(data=q, inds=[ind1, cu_bond],)
     u = qtn.Tensor(data=u, inds=[cu_bond, ur_bond], )
@@ -212,12 +193,20 @@ def check_right_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int
 
 
 def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection',
-                 max_bond:int = None, cutoff:float=CUTOFF, solver_type=DEFAULT_SOLVER, version='X'):
+                 max_bond:int = None, cutoff:float=CUTOFF, solver_type=DEFAULT_SOLVER, version=None,
+                 verbose_plot=False):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         get row/column selected inds
         inplace operation
     """
+    version = flags.get('version', 'X') if version is None else version
+    # mps_copy = mps.copy()
+    print('mixed update 1 site', 'max_bond', max_bond, 'cutoff', cutoff)
+
+    if not isinstance(site_i, (list, tuple)):
+        site_i = [site_i]
+
     ### project site_i onto orthogonal basis (currently it's in element-wise basis
     if version != 'G':      ## if 'G', already in basis representation
 
@@ -231,6 +220,18 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
             out = convert_elementwise_to_basis(mps, tens, left_site_pos, 1)
             proj_sites += [out]
         site_i = proj_sites
+
+        if verbose_plot:
+            tmp1 = mps.copy()
+            ref_data = helper_quimb.to_dense(mps)
+            for tens_g in proj_sites:
+                tmp1[left_site_pos].transpose_like(tens_g, inplace=True)
+                tmp1[left_site_pos].modify(data=tens_g.data)
+                tmp1_data = helper_quimb.to_dense(tmp1)
+                print('diff', np.linalg.norm(tmp1_data - ref_data))
+                plt.figure()
+                plt.plot((tmp1_data - ref_data).reshape(-1))
+                plt.show()
 
         # if left_site_pos == mps.L // 2:
         #     tmp = mps.copy()
@@ -249,8 +250,13 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
 
     from local_solvers.helper_dmrg_loc import update_1site as update_1site_dmrg
+    print('cutoff', cutoff)
+    print('left site pos', left_site_pos)
+    print('check orthog', check_orthog(mps))
     update_1site_dmrg(mps, left_site_pos, site_i, direction=direction, max_bond=max_bond, cutoff=cutoff)
     out = mps
+
+    # print('update 1 site distance', helper_quimb.distance(mps, mps_copy ))
 
     ind1 = left_site_pos
     ind2 = left_site_pos + direction
@@ -287,20 +293,21 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
 
 def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection',
-                 max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version='X'):
+                 max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         inplace operation
     """
+    version = flags.get('version', 'X') if version is None else version
     if not isinstance(site_i, (list, tuple)):
         site_i = [site_i]
 
     if version != 'G':
 
-        if left_site_pos == mps.L-2:
-            for ix, tmp in enumerate(site_i):
-                tmp = tmp.reindex({ind: ind[:-2] for ind in tmp.inds if ind[-1] =='x'})
-                plot_submat(mps, left_site_pos, 2, tmp, plt_title=f'update 2 site {ix}')
+        # if left_site_pos == mps.L-2:
+        #     for ix, tmp in enumerate(site_i):
+        #         tmp = tmp.reindex({ind: ind[:-2] for ind in tmp.inds if ind[-1] =='x'})
+        #         plot_submat(mps, left_site_pos, 2, tmp, plt_title=f'update 2 site {ix}')
 
         proj_sites = []
         for tens in site_i:
@@ -320,16 +327,16 @@ def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
     print('difference', helper_quimb.distance(mps, copy_mps))
 
-    plt.figure()
-    plt.plot(np.real(helper_quimb.to_dense(copy_mps).reshape(-1)))
-    plt.plot(np.real(helper_quimb.to_dense(mps).reshape(-1)), '--')
-    plt.title('update 2 site real')
-
-    plt.figure()
-    plt.plot(np.imag(helper_quimb.to_dense(copy_mps).reshape(-1)))
-    plt.plot(np.imag(helper_quimb.to_dense(mps).reshape(-1)), '--')
-    plt.title('update 2 site imag')
-    plt.show()
+    # plt.figure()
+    # plt.plot(np.real(helper_quimb.to_dense(copy_mps).reshape(-1)))
+    # plt.plot(np.real(helper_quimb.to_dense(mps).reshape(-1)), '--')
+    # plt.title('update 2 site real')
+    #
+    # plt.figure()
+    # plt.plot(np.imag(helper_quimb.to_dense(copy_mps).reshape(-1)))
+    # plt.plot(np.imag(helper_quimb.to_dense(mps).reshape(-1)), '--')
+    # plt.title('update 2 site imag')
+    # plt.show()
 
     if direction > 0:
         ind1, ind2 = left_site_pos, left_site_pos + 1
@@ -363,13 +370,16 @@ def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
 
 def update_ket(mps: 'MPS', tensors: Union[qtn.Tensor, Sequence[qtn.Tensor]], i: int, nsites: int,
-               direction: SweepDirection, max_bond: int = None, cutoff: float = None, version='X'):
+               direction: SweepDirection, max_bond: int = None, cutoff: float = None, version=None,
+               verbose_plot=False):
     """ update ket with corresponding (targeting) tensors
         update mps_list[i] with tensors[i][0] (ideally the original tensor if just doing decimation)
         target all tensors in "tensors" list; shared across all "mps"
     """
+    version = flags.get('version', 'X') if version is None else version
     if nsites == 1:
-        return update_1site(mps, i, tensors, direction, max_bond=max_bond, cutoff=cutoff, version=version)
+        return update_1site(mps, i, tensors, direction, max_bond=max_bond, cutoff=cutoff, version=version,
+                            verbose_plot=verbose_plot)
     elif nsites == 2:
         left_site_pos = i - 1 if direction < 0 else i
         return update_2site(mps, left_site_pos, tensors, direction, max_bond=max_bond, cutoff=cutoff, version=version)
@@ -378,11 +388,12 @@ def update_ket(mps: 'MPS', tensors: Union[qtn.Tensor, Sequence[qtn.Tensor]], i: 
 
 
 def update_and_replace_2site(mps: MPS, left_site_pos: int, site_tens: qtn.Tensor, direction: 'SweepDirection',
-                             max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version='X'):
+                             max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         inplace operation
     """
+    version = flags.get('version', 'X') if version is None else version
     from local_solvers.helper_dmrg_loc import tensor_svd
 
     if version != 'G':
@@ -731,7 +742,7 @@ def tensor_get_submat(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, 
     ## oversampling
     tens_copy = tens_.copy()
     if oversample:
-        diff_r = min(tens_copy.shape[0] - tens_copy.shape[1], 5)
+        diff_r = min(tens_copy.shape[0] - tens_copy.shape[1], 1)
         print('over sampling?', tens_copy.shape, diff_r)
         if diff_r > 0:
             add_rand = np.random.random((tens_copy.shape[0], diff_r)) * 1.0e-08
@@ -750,10 +761,6 @@ def tensor_get_submat(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, 
     ## TU: rbond  //  rbond + '_x'
     ## TR: rbond + 'x' // rbond
 
-    # tmp = TC @ TU @ TR
-    # print('CUR diff', (tmp - tens_).norm())
-
-
     return inds_r, TC, TU, TR
 
 
@@ -764,12 +771,11 @@ def check_orthog(mps: 'MPS'):
     #     indL1, indR1 = mps.check_select_inds()
     # else:
     try:
-        raise KeyError
         ind1 = mps.cur_orthog
-        # ref_tens = convert_basis_to_elementwise(mps, mps[ind1], ind1, 1)
-        # ref_tens.reindex( {ind: ind[:-2] for ind in ref_tens.inds if ind[-1] == 'x'} , inplace=True)
-        # is_canon = helper_cross.check_center_orthog(mps, mps.cur_orthog, ref_tens=ref_tens)
-        # indL1, indR1 = (ind1, ind1) if is_canon else (-1, mps.L)
+        ref_tens = convert_basis_to_elementwise(mps, mps[ind1], ind1, 1)
+        ref_tens.reindex( {ind: ind[:-2] for ind in ref_tens.inds if ind[-1] == 'x'} , inplace=True)
+        is_canon = helper_cross.check_center_orthog(mps, mps.cur_orthog, ref_tens=ref_tens)
+        indL1, indR1 = (ind1, ind1) if is_canon else (-1, mps.L)
     except KeyError:
         indL1, indR1 = mps.check_select_inds()
     print('check G orthog')

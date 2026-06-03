@@ -1,4 +1,5 @@
-"""Driver: 1-D inviscid Burgers equation test case.
+"""
+Driver: 1-D inviscid Burgers equation test case.
 
 Solves du/dt + u du/dx = 0 (flux form du/dt + 1/2 d/dx u**2 = 0) on a
 quantized-tensor-train grid and compares against a reference solution.
@@ -155,6 +156,8 @@ flux_coeff = 1.0  # 1.0 # 1.0        ## nonolinear flux coeff
 Lbox = 1.0
 run = 3
 ## 1: cosine, 2: shock propagation, 3: rarefaction
+
+# flags['x_version'] = 'proj'  ## burgers uses 'proj' interpolation at both extend_env sites (default elsewhere: 'select')
 
 print('upwind?', upwind)
 

@@ -58,7 +58,8 @@ def local_mixed_evaluator(terms: Sequence['Term_Mixed'],
 
 class MixedEvaluator(CrossEvaluator):
 
-    version = 'X'  #  'G'
+    version = flags.get('version', 'X')
+    # 'version' ('X' default / 'G' Galerkin) is read at use sites via flags.get('version', 'X')
 
     @classmethod
     def term_class(cls) -> Type['Term_Mixed']:
@@ -87,7 +88,7 @@ class MixedEvaluator(CrossEvaluator):
                     term_.match_inds(ref_term)
 
                 # term_.bra = self.ket
-                if term_.bra is None:
+                if term_._bra is None:
                     term_.bra = self.out  # self.ket.copy()
                 self.term_class().canonize_func(term_.ket, canon_site)
 
@@ -377,12 +378,12 @@ class MixedEvaluator(CrossEvaluator):
         #     if term is None:  continue
         #     tensors += [term._proj_vec_targets]
 
+        # print('tensors', tensors)
+        helper_mixed.update_ket(ket, tensors, i, 2, direction=direction, max_bond=self.max_bond, cutoff=self.cutoff)
+
         for term in self.terms:
             if term is not None:
                 term.update_intermediate_kets(i, 2, direction)
-
-        # print('tensors', tensors)
-        helper_mixed.update_ket(ket, tensors, i, 2, direction=direction, max_bond=self.max_bond, cutoff=self.cutoff)
 
         self.update_blocks(i, direction)
 

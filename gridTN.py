@@ -54,6 +54,7 @@ class GridTN:
         self._data_type = None
         self.data = data  # list of dicts with grid.axIDs as keys
         # self.is_sqrt = False
+        self.info = {}  # solver instrumentation (e.g. 'internal_rank', 'num_evals')
 
         if ax_deriv_configs is None:
             self.ax_deriv_configs = {ax: DerivativeConfiguration() for ax in self.grid.axes}
