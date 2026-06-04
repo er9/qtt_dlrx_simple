@@ -111,6 +111,7 @@ class LocalEvaluator:
         self._direction = None
 
         if copy_obj:
+            self.verbose = getattr(copy_obj, 'verbose', 0)
             self.L = copy_obj.L
             self.out = copy_obj.out.copy()
             self.out.view_as(MPS, inplace=True)
@@ -160,6 +161,10 @@ class LocalEvaluator:
             # self.check_orthog()
             # print('done init check')
         else:
+            # subclasses (e.g. TimeIntegrator) may set self.verbose before super().__init__;
+            # only default it here if not already set
+            if not hasattr(self, 'verbose'):
+                self.verbose = 0
             self.L : int = init_guess.L
             # self.cur_orthog = cur_orthog
             self.max_bond = max_bond
@@ -263,7 +268,8 @@ class LocalEvaluator:
             if ref_term is None:
                 ref_term = term_
                 if term_._bra is not None:
-                    print('term bra is not None')
+                    if self.verbose:
+                        print('term bra is not None')
                     self.out = term_.bra
                     self.term_class().canonize_func(self.out, canon_site)
             else:
@@ -321,7 +327,8 @@ class LocalEvaluator:
         else:
             raise TypeError
 
-        print('ket orthog l', ket_orthog_l, 'ket orthog r', ket_orthog_r)
+        if self.verbose:
+            print('ket orthog l', ket_orthog_l, 'ket orthog r', ket_orthog_r)
         assert(ket_orthog_l>=ket_orthog_r), 'ket is not in orthogonal form'
 
         cur_orthog = np.nan
@@ -340,7 +347,8 @@ class LocalEvaluator:
                     lb, ub = term.cur_orthog - 1, term.cur_orthog
 
                 if not (lb <= cur_orthog <= ub):
-                    print('cur orthog', cur_orthog, term.cur_orthog)
+                    if self.verbose:
+                        print('cur orthog', cur_orthog, term.cur_orthog)
                     raise ValueError('orthogonalities of terms not consistent')
 
         return cur_orthog
@@ -374,7 +382,8 @@ class LocalEvaluator:
         # self.update_bra_from_ket()
 
         # print('local eval canonize target orthog', target_orthog)
-        print('term canonize')
+        if self.verbose:
+            print('term canonize')
         for term in self.terms:
             if term is None:  continue
 
@@ -392,7 +401,8 @@ class LocalEvaluator:
                 #     for i in range(self.cur_orthog, target_orthog):
                 #         term.extend_env(i, direction=SweepDirection.RIGHT)
 
-        print('eval.cur_orthog', self.cur_orthog)
+        if self.verbose:
+            print('eval.cur_orthog', self.cur_orthog)
 
 
     def update_ket_from_out(self):
@@ -463,7 +473,8 @@ class LocalEvaluator:
             site_i, site_err = self._site_solve(i, nsites)
             # print('site err', site_err)
             if site_err/self.out_norm > 10 ** 5:
-                print('l2r site error too large', site_err)
+                if self.verbose:
+                    print('l2r site error too large', site_err)
                 raise RuntimeError
             tot_err += site_err
 
@@ -528,7 +539,8 @@ class LocalEvaluator:
             site_i, site_err = self._site_solve(left_site_pos, nsites)
             # print('site err', site_err)
             if site_err/self.out_norm > 10 ** 5:
-                print('r2l site err too large', site_err)
+                if self.verbose:
+                    print('r2l site err too large', site_err)
                 raise RuntimeError
             tot_err += site_err
 
@@ -554,7 +566,8 @@ class LocalEvaluator:
 
     def solve_l2r(self, nsites: int, canonize=True, verbose=False, filter_bases=False, **kwargs):
 
-        print("SOLVE L2R")
+        if self.verbose:
+            print("SOLVE L2R")
 
         if nsites > 2:
             return self.solve_l2r_adapt(canonize=canonize, verbose=verbose, filter_bases=filter_bases, **kwargs)
@@ -616,7 +629,8 @@ class LocalEvaluator:
 
     def solve_r2l(self, nsites: int, canonize=True, verbose=False, filter_bases=False, **kwargs):
 
-        print('SOLVE R2L')
+        if self.verbose:
+            print('SOLVE R2L')
 
         if nsites > 2:
             return self.solve_r2l_adapt(canonize=canonize, verbose=verbose, filter_bases=filter_bases, **kwargs)
@@ -646,7 +660,8 @@ class LocalEvaluator:
             site_i, site_err = self._site_solve(left_site_pos, nsites)
             # print('site err', site_err)
             if site_err/self.out_norm > 10 ** 5:
-                print('r2l site err too large', site_err)
+                if self.verbose:
+                    print('r2l site err too large', site_err)
                 raise RuntimeError
             tot_err += site_err
 
@@ -693,9 +708,11 @@ class LocalEvaluator:
         # canon_site = 0 if self.direction == SweepDirection.RIGHT else L - 1
         # helper_quimb.canonize(self.out, i=0)
         # self.canonize(canon_site)
-        print('solve', self.terms)
+        if self.verbose:
+            print('solve', self.terms)
         for term in self.terms:
-            print('local_evaluator solve: term check orthog')
+            if self.verbose:
+                print('local_evaluator solve: term check orthog')
             if term is not None:
                 term.check_orthog()
             # if self.term_class() is Term_DMRG:
@@ -736,10 +753,12 @@ class LocalEvaluator:
         # self.max_tot_iter = 1  # 10
 
         # min_ket, min_err = self.ket, err
-        print('self copy before', self.terms)
+        if self.verbose:
+            print('self copy before', self.terms)
         min_solver, min_err = self.copy(), err
         # direction = self.direction
-        print('conv tol', conv_tol, 'max iter', self.max_iter, self.max_wrong_iter)
+        if self.verbose:
+            print('conv tol', conv_tol, 'max iter', self.max_iter, self.max_wrong_iter)
         while it < 1 or (err > conv_tol and conv_it < self.max_iter
                 and it < self.max_tot_iter and num_wrong_it < self.max_wrong_iter):
 
@@ -824,9 +843,11 @@ class LocalEvaluator:
                 min_err = err if not np.isnan(err) else min_err
                 num_wrong_it = 0
             else:
-                print('Warning: solve error went up', err, min_err)
+                if self.verbose:
+                    print('Warning: solve error went up', err, min_err)
                 num_wrong_it += 1
-                print('num wrong', num_wrong_it, self.max_wrong_iter)
+                if self.verbose:
+                    print('num wrong', num_wrong_it, self.max_wrong_iter)
 
         # conv = min_err < conv_tol
 
@@ -841,7 +862,8 @@ class LocalEvaluator:
             self.is_conv = min_solver.is_conv
             # self.cur_orthog = min_solver.cur_orthog
 
-        print('solver num iter', it)
+        if self.verbose:
+            print('solver num iter', it)
         # exit()
 
         return self.out, self.err, self.is_conv

@@ -128,9 +128,11 @@ class TimeIntegratorGlobal(TimeIntegrator, ABC):
 
         # ket_state = self.__class__.add_global_projector_to_ket(ket_state, self.linear_operators, self.sources,
         #                                                        direction=self.direction * -1)
-        print('init ket rank', ket_state.max_bond())
+        if self.verbose:
+            print('init ket rank', ket_state.max_bond())
         ket_state = self.add_global_projector_to_ket(ket_state=ket_state, direction=self.direction * -1)
-        print('expanded ket rank', ket_state.max_bond())
+        if self.verbose:
+            print('expanded ket rank', ket_state.max_bond())
 
         ## 0 if self.direction * -1 = LEFT, else self.ket.L - 1
         canon_i = ket_state.L - 1 if self.direction == SweepDirection.LEFT else 0
@@ -188,7 +190,8 @@ class TDLocal_Global(TimeIntegratorGlobal, DMRGEvaluator):
         """ direction l2r means ket currently in right canonical form, cur_orthog = 0
         """
 
-        print('solve l2r', self.max_bond, self.dt)
+        if self.verbose:
+            print('solve l2r', self.max_bond, self.dt)
 
         L = self.L
 
@@ -213,13 +216,15 @@ class TDLocal_Global(TimeIntegratorGlobal, DMRGEvaluator):
         # print('x norms', [self.ket[i].norm() for i in range(self.ket.L)])
 
         self.direction = SweepDirection.LEFT
-        print('self.direction', self.direction)
+        if self.verbose > 1:
+            print('self.direction', self.direction)
 
         ## one right to left sweep
         i = 0
         site_i, site_err = self._site_solve(i, nsites, return_intermediates=False)
         if site_err > 10 ** 5:
-            print('l2r site error too large', site_err)
+            if self.verbose > 2:
+                print('l2r site error too large', site_err)
             exit()
         tot_err = site_err
 
@@ -239,7 +244,8 @@ class TDLocal_Global(TimeIntegratorGlobal, DMRGEvaluator):
 
     def solve_r2l(self, nsites: int, canonize=False, verbose=False, filter_bases=False, **kwargs):
 
-        print('solve r2l', self.max_bond, self.dt)
+        if self.verbose:
+            print('solve r2l', self.max_bond, self.dt)
 
         L = self.L
 
@@ -263,7 +269,8 @@ class TDLocal_Global(TimeIntegratorGlobal, DMRGEvaluator):
         left_site_pos = i - nsites + 1
         site_i, site_err = self._site_solve(left_site_pos, nsites)
         if site_err > 10 ** 5:
-            print('r2l site err too large', site_err)
+            if self.verbose > 2:
+                print('r2l site err too large', site_err)
             exit()
         tot_err = site_err
 

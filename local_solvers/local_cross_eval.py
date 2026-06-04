@@ -30,6 +30,7 @@ def local_cross_evaluator(terms: Sequence['Term_Cross'],
                           init_guess: Optional['qtn.MatrixProductState'] = None,
                           max_bond=None, cutoff=None, combine_terms_func:Callable=None,
                           nsites=1, direction: SweepDirection = SweepDirection.RIGHT,
+                          verbose: bool = False,
                           ):
     """ terms are sequences of ((A, B, ...), x)
         where A, B are operators or functions that are applied to x in
@@ -42,9 +43,11 @@ def local_cross_evaluator(terms: Sequence['Term_Cross'],
     init_guess = terms[0].ket.copy() if init_guess is None else init_guess
     init_guess = MPS(init_guess)
 
-    print('nsites', nsites)
+    if verbose:
+        print('nsites', nsites)
     solver = CrossEvaluator(init_guess, terms, combine_terms_func=combine_terms_func,
                             direction=direction, max_bond=max_bond, cutoff=cutoff)
+    solver.verbose = verbose
     solver.solve(nsites)
 
     # plt.figure()
@@ -135,7 +138,8 @@ class CrossEvaluator(LocalEvaluator):
         else:
             raise TypeError
 
-        print('ket orthog l', ket_orthog_l, 'ket orthog r', ket_orthog_r)
+        if self.verbose:
+            print('ket orthog l', ket_orthog_l, 'ket orthog r', ket_orthog_r)
         # assert (ket_orthog_l >= ket_orthog_r), 'ket is not in orthogonal for m'
 
         cur_orthog = np.nan
@@ -154,7 +158,8 @@ class CrossEvaluator(LocalEvaluator):
                     lb, ub = term.cur_orthog - 1, term.cur_orthog
 
                 if not (lb <= cur_orthog <= ub):
-                    print('cur orthog', cur_orthog, term.cur_orthog)
+                    if self.verbose:
+                        print('cur orthog', cur_orthog, term.cur_orthog)
                     raise ValueError('orthogonalities of terms not consistent')
 
         return cur_orthog
@@ -177,7 +182,8 @@ class CrossEvaluator(LocalEvaluator):
         sites: int or slice(start, stop, step)
         update bond between left_site_pos, left_site_pos + 1
         """
-        print('CROSS BOND SOLVE', left_site_pos)
+        if self.verbose:
+            print('CROSS BOND SOLVE', left_site_pos)
         site_inds = list(range(left_site_pos, left_site_pos + 1))
 
         direction = self.direction
@@ -248,7 +254,8 @@ class CrossEvaluator(LocalEvaluator):
         """
         sites: int or slice(start, stop, step)
         """
-        print('in CROSS site solve')
+        if self.verbose:
+            print('in CROSS site solve')
         # direction = self.direction
         # at_end = (left_site_pos == self.L - nsites) if direction == SweepDirection.RIGHT else (left_site_pos == 0)
 
@@ -283,7 +290,8 @@ class CrossEvaluator(LocalEvaluator):
                 num_ops = len(term.operators)
                 if term is not None:
                     eval_site = term.get_evaluated_site(left_site_pos, nsites, site_tens=site_tens)
-                    print('eval site', eval_site)
+                    if self.verbose:
+                        print('eval site', eval_site)
 
                     eval_site.modify(apply=lambda x: x * 10 ** term.bra.exponent)  ## include term.bra exponent
                     # helper_cross.plot_submat(self.ket, left_site_pos, nsites, tmp, select_inds=self.ket.select_inds,
@@ -375,7 +383,8 @@ class CrossEvaluator(LocalEvaluator):
             site_err = np.linalg.norm(x_eff.data - current_x.data) / np.linalg.norm(current_x.data)
         except ValueError:  ## shape mismatch
             site_err = np.nan
-        print('site err', site_err)
+        if self.verbose:
+            print('site err', site_err)
 
         # ### plot out
         # coords = helper_cross.get_selectors(self.out, left_site_pos, nsites)
@@ -500,7 +509,8 @@ class CrossEvaluator(LocalEvaluator):
         #     print('term ket', term.ket is self.ket)
         #     print('term bra', term.bra is self.out)
 
-        print('UPDATE2', i)
+        if self.verbose:
+            print('UPDATE2', i)
         # print('self.out select inds', self.out.select_inds)
 
         # coords = helper_cross.get_selectors(self.out, left_site_pos, 2)

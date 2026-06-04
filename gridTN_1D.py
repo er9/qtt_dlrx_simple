@@ -57,10 +57,16 @@ DEFAULT_OPT_NSITES = 2
 class GridTN1D(GridTN):
 
     def __init__(self, grid: 'Grid1D', data: Optional[qtn.TensorNetwork1D] = None, ax_deriv_configs=None):
-        """
-        Attributes:
-            grid:  GridLayout object
-            data:  MPS or MPO object consistent with grid
+        """Construct a 1-D quantized tensor-network state on a grid.
+
+        Parameters
+        ----------
+        grid : Grid1D
+            Grid layout the tensor network lives on.
+        data : qtn.TensorNetwork1D, optional
+            MPS or MPO data consistent with ``grid``; left unset if None.
+        ax_deriv_configs : dict, optional
+            Per-Axis finite-difference configurations forwarded to the base class.
         """
         super().__init__(grid, ax_deriv_configs=ax_deriv_configs)
         # self.grid = grid
@@ -71,9 +77,19 @@ class GridTN1D(GridTN):
             # self._set_data(data)
 
     def _get_data(self) -> TN1Type:
+        """Return the underlying MPS/MPO/scalar data object."""
         return self._data
 
     def _set_data(self, data):
+        """Set the underlying data, coercing several input forms to a 1-D TN.
+
+        Parameters
+        ----------
+        data : ndarray, dict, qtn.TensorNetwork1D, GridTN1D, float, complex, or None
+            Source data. Dense arrays and dicts are mapped to an MPS, falling
+            back to an MPO on assertion failure; a GridTN1D contributes its
+            ``.data``; scalars are stored as-is. None clears the data.
+        """
         if data is None:
             self._data = data
         else:
@@ -107,34 +123,94 @@ class GridTN1D(GridTN):
     data = property(fget=_get_data, fset=_set_data)
 
     def __getitem__(self, ind):
-        """ imitates indexing MPS/MPO object
+        """Index the underlying MPS/MPO object.
+
+        Parameters
+        ----------
+        ind : int or slice
+            Site index (or slice) passed through to the data object.
+
+        Returns
+        -------
+        qtn.Tensor or qtn.TensorNetwork1D
+            The selected tensor(s).
         """
         return self._data[ind]
 
     def get_inds_in_axis(self, ax: 'Axis', ax_ind=None) -> list:
-        """ get inds in 1D TN corresponding to axis axID
+        """Get the 1-D TN site indices belonging to a given axis.
+
+        Parameters
+        ----------
+        ax : Axis
+            Axis whose site indices are requested.
+        ax_ind : int, optional
+            Select a single index within the axis instead of the full list.
+
+        Returns
+        -------
+        list
+            Site indices corresponding to ``ax``.
         """
         return self.grid.get_inds_in_axis(ax, ax_ind)
 
     def shape(self) -> tuple:
-        """ get grid shape
-        """
+        """Return the dense shape of the underlying grid."""
         return self.grid.shape()
 
     @property
     def L(self):
+        """Number of sites (length) of the underlying 1-D tensor network."""
         return self.data.L
 
     def mangle_inner(self, inplace=True, append=None):
+        """Rename inner bond indices to avoid name collisions.
+
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        append : str, optional
+            Suffix appended to inner index names; forwarded to the data object.
+
+        Returns
+        -------
+        GridTN1D
+            The state with mangled inner indices.
+        """
         out = self if inplace else self.copy()
         out.data.mangle_inner_(append=append)
         return out
 
     def create_like(self, new_data=None) -> 'GridTN1D':
+        """Build a new GridTN1D sharing this grid and deriv configs.
+
+        Parameters
+        ----------
+        new_data : qtn.TensorNetwork1D or compatible, optional
+            Data for the new object; None creates an empty one.
+
+        Returns
+        -------
+        GridTN1D
+            A fresh instance on the same grid.
+        """
         new_tn1D = self.__class__(self.grid, data=new_data, ax_deriv_configs=self.ax_deriv_configs)
         return new_tn1D
 
     def copy(self, deep=True) -> 'GridTN1D':
+        """Copy this state, preserving constancy and canonical-form metadata.
+
+        Parameters
+        ----------
+        deep : bool
+            Deep-copy the underlying data if True, else share the data object.
+
+        Returns
+        -------
+        GridTN1D
+            The copied state.
+        """
         new_tn1D = self.create_like()
         if self.data is not None:
             new_tn1D.data = self.data.copy() if (deep and self.data is not None) else self.data
@@ -144,9 +220,24 @@ class GridTN1D(GridTN):
         return new_tn1D
 
     def get_TN(self):
+        """Return the underlying quimb tensor-network data object."""
         return self.data
 
     def conj(self, inplace=False, mangle_inner=False) -> 'GridTN1D':
+        """Take the complex conjugate of the tensor network.
+
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else return a copy.
+        mangle_inner : bool
+            Rename inner bond indices while conjugating to avoid collisions.
+
+        Returns
+        -------
+        GridTN1D
+            The conjugated state.
+        """
         new_tn1D = self if inplace else self.copy()
         new_tn1D.data.conj(mangle_inner=mangle_inner, inplace=True)
         return new_tn1D
@@ -159,6 +250,18 @@ class GridTN1D(GridTN):
     #         return out
 
     def ovlp(self, other) -> Numeric:
+        """Compute the overlap <self|other> between two states.
+
+        Parameters
+        ----------
+        other : GridTN1D
+            The other state; returns 0.0 if either state has no data.
+
+        Returns
+        -------
+        Numeric
+            The overlap value.
+        """
         if self.data is not None and other.data is not None:
             out = helper.ovlp(self.data, other.data)
             return out
@@ -175,6 +278,14 @@ class GridTN1D(GridTN):
     #         return np.nan
 
     def max_bond(self) -> int:
+        """Return the largest bond dimension of the tensor network.
+
+        Returns
+        -------
+        int
+            Maximum bond dimension; 1 for a scalar/constant component, NaN if
+            there is no data.
+        """
         if self.data is not None:
             if hasattr(self.data, 'max_bond'):
                 return self.data.max_bond()
@@ -184,7 +295,12 @@ class GridTN1D(GridTN):
             return np.nan
 
     def num_elem(self) -> Numeric:
-        """ returns in kilobytes
+        """Return the total number of stored tensor entries.
+
+        Returns
+        -------
+        Numeric
+            Sum of ``tensor.size`` over all tensors, or 0 if there is no data.
         """
         if self.data is not None:
             # print('num elem', [t.shape for t in self.data.tensors])
@@ -195,7 +311,13 @@ class GridTN1D(GridTN):
 
 
     def mem_size(self) -> Numeric:
-        """ returns in kilobytes
+        """Return the in-memory size of the tensor data in kilobytes.
+
+        Returns
+        -------
+        Numeric
+            Total bytes (itemsize times size summed over tensors) divided by
+            1000, or 0 if there is no data.
         """
         if self.data is not None:
             return np.sum([t.data.itemsize * t.data.size for t in self.data.tensors]) / 1000
@@ -203,12 +325,33 @@ class GridTN1D(GridTN):
             return 0
 
     def all_virtual_sizes(self) -> list[int]:
+        """Return the list of inner (virtual) bond dimensions.
+
+        Returns
+        -------
+        list[int]
+            Bond size of each neighboring-site bond, or an empty list if there
+            is no data.
+        """
         if self.data is not None:
             return [self.data.bond_size(i,i+1) for i in range(self.data.L - 1)]
         else:
             return []
 
     def all_smallest_singular_values(self, max_bond=None) -> list[Numeric]:
+        """Return the smallest singular value at each bond.
+
+        Parameters
+        ----------
+        max_bond : int, optional
+            If given, bonds with fewer than ``max_bond`` singular values report
+            0 instead of their tail value.
+
+        Returns
+        -------
+        list[Numeric]
+            Smallest singular value per bond, or an empty list if no data.
+        """
         if self.data is not None:
             svals_all = helper.singular_values_all(self.data.copy())
             smallest_vals = []
@@ -223,28 +366,58 @@ class GridTN1D(GridTN):
 
 
     def entanglement_entropy_all(self) -> list[Numeric]:
+        """Return the bipartite entanglement entropy across every bond."""
         return helper.entanglement_entropy_all(self.data)
 
     def check_orthog(self):
+        """Diagnostic check of the canonical/orthogonality structure of the TN."""
         helper.check_orthog(self.data)
 
     def get_anchor_tens(self) -> qtn.Tensor:
+        """Return the anchor tensor (the site holding any ancilla indices).
+
+        Returns
+        -------
+        qtn.Tensor
+            Tensor at the anchor index, or None if there is no data.
+        """
         if self.data is not None:
             return self.data[self.get_anchor_ind()]
 
     def get_anchor_ind(self) -> int:
+        """Return the anchor site index (always 0)."""
         return 0
 
     def transpose(self, inplace=True, mangle_inner=False):
-        """ take transpose of MPO
+        """Transpose an MPO by swapping its upper and lower physical indices.
+
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        mangle_inner : bool
+            Rename inner bond indices during the flip to avoid collisions.
+
+        Returns
+        -------
+        GridTN1D
+            The transposed operator.
         """
         gtn = self if inplace else self.copy()
         helper.mpo_flip_upper_lower(gtn.data, inplace=True, mangle_inner=mangle_inner)
         return gtn
 
     def get_like_iden(self):
-        """ get identity MPO with appropriate shape
-            note: allows MPO to be of different L from grid
+        """Build an identity MPO matching this state's physical dimensions.
+
+        Physical dimensions are read from the MPO upper indices, MPS site
+        indices, or the grid shape depending on the data type. The result may
+        have a different length L than the grid.
+
+        Returns
+        -------
+        GridTN1D
+            Identity MPO wrapped as a GridTN1D on this grid.
         """
         L = self.data.L
 
@@ -272,7 +445,21 @@ class GridTN1D(GridTN):
 
     @classmethod
     def get_ones_mps(cls, grid, site_ind_id='i({})', site_tag_id='X({})'):
-        """ build ones vector mps on sepcified grid
+        """Build the all-ones vector as an MPS on the given grid.
+
+        Parameters
+        ----------
+        grid : Grid1D
+            Grid to build the MPS on.
+        site_ind_id : str
+            Format string for site (physical) index names.
+        site_tag_id : str
+            Format string for site tags.
+
+        Returns
+        -------
+        GridTN1D
+            The all-ones MPS.
         """
         # return cls(grid, grid.get_ones_mps(site_ind_id,site_tag_id))
         return grid.get_ones_mps(site_ind_id, site_tag_id)
@@ -283,7 +470,23 @@ class GridTN1D(GridTN):
 
     @classmethod
     def get_iden_mpo(cls, grid, upper_ind_id='i({})', lower_ind_id='o({})', site_tag_id='X({})'):
-        """ build identity mpo on specified grid
+        """Build the identity MPO on the given grid.
+
+        Parameters
+        ----------
+        grid : Grid1D
+            Grid to build the MPO on.
+        upper_ind_id : str
+            Format string for upper (output) physical index names.
+        lower_ind_id : str
+            Format string for lower (input) physical index names.
+        site_tag_id : str
+            Format string for site tags.
+
+        Returns
+        -------
+        GridTN1D
+            The identity MPO.
         """
         # return cls(grid, grid.get_iden_mpo(upper_ind_id, lower_ind_id, site_tag_id))
         return grid.get_iden_mpo(upper_ind_id, lower_ind_id, site_tag_id)
@@ -295,7 +498,23 @@ class GridTN1D(GridTN):
 
     @classmethod
     def get_select_elem_mps(cls, grid, inds, site_ind_id='i({})', site_tag_id='X({})'):
-        """ build MPO to select certain elements specified by inds
+        """Build an MPS that selects the grid elements specified by ``inds``.
+
+        Parameters
+        ----------
+        grid : Grid1D
+            Grid to build the MPS on.
+        inds : Sequence
+            Per-axis indices identifying the elements to select.
+        site_ind_id : str
+            Format string for site (physical) index names.
+        site_tag_id : str
+            Format string for site tags.
+
+        Returns
+        -------
+        GridTN1D
+            The selector MPS.
         """
         # return cls(grid, grid.get_select_elems_mps(inds, site_ind_id, site_tag_id))
         return grid.get_select_elems_mps(inds, site_ind_id, site_tag_id)
@@ -307,7 +526,25 @@ class GridTN1D(GridTN):
 
     @classmethod
     def get_select_elem_mpo(cls, grid, inds, upper_ind_id='i({})', lower_ind_id='o({})', site_tag_id='X({})'):
-        """ build MPO to select certain elements specified by inds
+        """Build an MPO that selects the grid elements specified by ``inds``.
+
+        Parameters
+        ----------
+        grid : Grid1D
+            Grid to build the MPO on.
+        inds : Sequence
+            Per-axis indices identifying the elements to select.
+        upper_ind_id : str
+            Format string for upper (output) physical index names.
+        lower_ind_id : str
+            Format string for lower (input) physical index names.
+        site_tag_id : str
+            Format string for site tags.
+
+        Returns
+        -------
+        GridTN1D
+            The selector MPO.
         """
         # return cls(grid, grid.get_select_elems_mpo(inds, upper_ind_id, lower_ind_id, site_tag_id))
         return grid.get_select_elems_mpo(inds, upper_ind_id, lower_ind_id, site_tag_id)
@@ -321,17 +558,81 @@ class GridTN1D(GridTN):
 
     @classmethod
     def from_dense_state(cls, data, grid, site_ind_id='i({})', site_tag_id='T({})', split_opts=None, axes=None):
+        """Construct a GridTN1D MPS from a dense state array.
+
+        Parameters
+        ----------
+        data : ndarray
+            Dense state to quantize into an MPS.
+        grid : Grid1D
+            Grid defining the quantization layout.
+        site_ind_id : str
+            Format string for site (physical) index names.
+        site_tag_id : str
+            Format string for site tags.
+        split_opts : dict, optional
+            Options forwarded to the SVD splitting during MPS construction.
+        axes : optional
+            Unused placeholder for axis ordering.
+
+        Returns
+        -------
+        GridTN1D
+            The resulting MPS state.
+        """
         mps = grid.map_state_to_mps(data, site_ind_id, site_tag_id, split_opts=split_opts)
         return cls(grid, data=mps)
 
     @classmethod
     def from_dense_operator(cls, data, grid, upper_ind_id='o({})', lower_ind_id='i({})', site_tag_id='T({})',
                             split_opts=None, **kwargs):
+        """Construct a GridTN1D MPO from a dense operator array.
+
+        Parameters
+        ----------
+        data : ndarray
+            Dense operator to quantize into an MPO.
+        grid : Grid1D
+            Grid defining the quantization layout.
+        upper_ind_id : str
+            Format string for upper (output) physical index names.
+        lower_ind_id : str
+            Format string for lower (input) physical index names.
+        site_tag_id : str
+            Format string for site tags.
+        split_opts : dict, optional
+            Options forwarded to the SVD splitting during MPO construction.
+        **kwargs
+            Additional keyword arguments (currently unused).
+
+        Returns
+        -------
+        GridTN1D
+            The resulting MPO operator.
+        """
         mpo = grid.map_operator_to_mpo(data, upper_ind_id, lower_ind_id, site_tag_id, split_opts=split_opts)
         return cls(grid, data=mpo)
 
     def get_data(self, ax_order=None, ax_select: Optional[dict[int]] = None, pad_data=False):
-        """ ax_select:  select element along each axis
+        """Contract the tensor network back to a dense state/operator array.
+
+        Handles MPS and MPO data, tracking ancilla bonds on the boundary
+        tensors and optionally transposing the dense result to a requested axis
+        order.
+
+        Parameters
+        ----------
+        ax_order : Sequence[Axis], optional
+            Desired ordering of axes in the dense output.
+        ax_select : dict[int], optional
+            Per-axis index to slice out before contracting.
+        pad_data : bool
+            Unused placeholder flag.
+
+        Returns
+        -------
+        ndarray or None
+            Dense array, or None if there is no data.
         """
         if self.data is None:
             return None
@@ -386,6 +687,19 @@ class GridTN1D(GridTN):
     #######################
 
     def _parse_input_TN1D(self, other):
+        """Validate and unwrap another operand to a bare 1-D tensor network.
+
+        Parameters
+        ----------
+        other : GridTN1D or qtn.TensorNetwork1D
+            Operand to validate; a GridTN1D must share this grid, a raw MPX must
+            match the grid shape.
+
+        Returns
+        -------
+        qtn.TensorNetwork1D
+            The unwrapped data of ``other``.
+        """
         if isinstance(other, type(self)):
             assert (other.grid == self.grid), 'self and other gridTN need to live on the same grids'
             other = other.data
@@ -395,7 +709,22 @@ class GridTN1D(GridTN):
         return other
 
     def _match_grids(self, other, target_data_type=None):
-        """ inplace operation to match gtn grids
+        """Pad self and/or other so both live on a common grid.
+
+        Whichever operand has the smaller axis set is padded up to the other's
+        grid via ``pad_gtn_to_grid``; incompatible grids raise ValueError.
+
+        Parameters
+        ----------
+        other : GridTN1D
+            The other operand to reconcile grids with.
+        target_data_type : DataType, optional
+            Data type (MPS/MPO) the padded operand should be coerced to.
+
+        Returns
+        -------
+        tuple[GridTN1D, GridTN1D]
+            The (possibly padded) self and other on a shared grid.
         """
         grid_mpx1 = self
         if grid_mpx1.grid != other.grid:
@@ -414,9 +743,36 @@ class GridTN1D(GridTN):
     # @profile
     def apply(self, other, inplace=False, zipup=True, compress_type=CompressType.SVD, compress=False,
               compress_opts=None, add_cc=False, **kwargs) -> 'GridTN1D':
-        """ Apply grid_mpo to self, assuming they exist on the same grid
-            compress [int]:  determines compression parameters from compression level
-            compress_opts:  overrides compression parameters
+        """Apply operator ``other`` to this state, with optional compression.
+
+        Grids are padded to match, then the product is formed either by a
+        zip-up SVD apply or a plain apply followed by SVD/MG/DMRG compression
+        depending on ``compress_type``.
+
+        Parameters
+        ----------
+        other : GridTN1D
+            Operator (MPO) or scalar to apply; None returns None.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        zipup : bool
+            Use the zip-up SVD apply algorithm when ``compress_type`` is SVD.
+        compress_type : CompressType
+            Compression backend (SVD, MG, or DMRG).
+        compress : bool or int
+            Whether to compress the product (compression level when truthy).
+        compress_opts : dict, optional
+            Overrides for compression parameters (e.g. ``max_bond``, ``form``).
+        add_cc : bool
+            Convert the state to its full real-Fourier representation first.
+        **kwargs
+            Extra options (e.g. ``init_guess``) forwarded to the MG/DMRG paths.
+
+        Returns
+        -------
+        GridTN1D
+            The resulting state after application.
+
         """
         # zipup = True
         if self.data is None:
@@ -434,7 +790,7 @@ class GridTN1D(GridTN):
         # print('padded other', other)
 
         if other.data_type == DataType.Num:
-            grid_mpx1.scalar_mutliply(other, inplace=True)
+            grid_mpx1.scalar_multiply(other, inplace=True)
             return grid_mpx1
 
         # other = self._parse_input_TN1D(other)
@@ -536,9 +892,41 @@ class GridTN1D(GridTN):
     def apply_rdm(self, other, bra_self=None, bra_other=None, left_env=None, right_env=None,
                   direction=1, open_end=False, inplace=False, compress=True, compress_opts=None, verbose=False,
                   ) -> Union['GridTN1D', tuple['GridTN1D', 'qtn.Tensor']]:
-        """ Apply grid_mpo to self, assuming they exist on the same grid
-            compress [int]:  determines compression parameters from compression level
-            compress_opts:  overrides compression parameters
+        """Apply an MPO to this state using a reduced-density-matrix sweep.
+
+        Grids are matched, then ``helper.apply_rdm`` performs a directional
+        sweep with optional left/right environments and compression. With
+        ``open_end`` the central tensor C is returned alongside the new state.
+
+        Parameters
+        ----------
+        other : GridTN1D
+            Operator (MPO) to apply; None returns None.
+        bra_self : GridTN1D, optional
+            Bra state for self (currently unused inside the sweep).
+        bra_other : GridTN1D, optional
+            Bra operator (currently unused inside the sweep).
+        left_env : qtn.Tensor, optional
+            Precomputed left environment tensor.
+        right_env : qtn.Tensor, optional
+            Precomputed right environment tensor.
+        direction : int
+            Sweep direction; sets the resulting canonical site.
+        open_end : bool
+            If True, leave the boundary open and also return the C tensor.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress : bool
+            Compress during the sweep.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        verbose : bool
+            Print diagnostic information.
+
+        Returns
+        -------
+        GridTN1D or tuple[GridTN1D, qtn.Tensor]
+            The resulting state, plus the C tensor when ``open_end`` is True.
         """
 
         if self.data is None:
@@ -582,7 +970,36 @@ class GridTN1D(GridTN):
     def solve(self, operator: 'GridTN', compress_type: CompressType, inplace=False, use_A2=False, compress_opts=None,
               is_H=False, init_guess: Optional['GridTN'] = None, verbose_output=False, **kwargs
               ) -> Union[tuple['GridTN1D', float, bool], 'GridTN1D']:
-        """ solve Ax=b using local optimization methods
+        """Solve the linear system A x = b for x via local optimization.
+
+        Here self is the right-hand side b and ``operator`` is A; the DMRG
+        solver (optionally the A^2 normal-equation variant) returns x.
+
+        Parameters
+        ----------
+        operator : GridTN
+            The system matrix A (MPO); None returns self unchanged.
+        compress_type : CompressType
+            Solver backend; DMRG is supported, MG raises NotImplementedError.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        use_A2 : bool
+            Solve the squared/normal-equation system via ``dmrg_solve_2``.
+        compress_opts : dict, optional
+            Compression options; ``max_bond`` caps the solution bond dimension.
+        is_H : bool
+            Treat A as Hermitian, forwarded to the DMRG solver.
+        init_guess : GridTN, optional
+            Initial guess for x.
+        verbose_output : bool
+            If True, also return the residual error and convergence flag.
+        **kwargs
+            Additional options forwarded to the DMRG solver.
+
+        Returns
+        -------
+        GridTN1D or tuple[GridTN1D, float, bool]
+            The solution x, plus (error, is_converged) if ``verbose_output``.
         """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
@@ -627,7 +1044,33 @@ class GridTN1D(GridTN):
 
     def add(self, gtn_mpx2, zipup=False, inplace=False, compress_type=CompressType.SVD,
             compress=False, compress_opts=None, **kwargs) -> 'GridTN1D':
-        """ Add other grid_mpx (of the same type and on the same grid) to self
+        """Add another tensor network of matching type to this one.
+
+        Grids are padded to match; MPS/MPO addition is dispatched by
+        ``compress_type`` (SVD, MG, or DMRG) with optional zip-up and
+        compression, updating the canonical-site bookkeeping.
+
+        Parameters
+        ----------
+        gtn_mpx2 : GridTN1D
+            Operand to add (same MPS/MPO type); None returns self unchanged.
+        zipup : bool
+            Use a zip-up SVD addition where supported.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_type : CompressType
+            Addition/compression backend (SVD, MG, or DMRG).
+        compress : bool or int
+            Whether to compress the sum (compression level when truthy).
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        **kwargs
+            Additional options forwarded to the backend.
+
+        Returns
+        -------
+        GridTN1D
+            The summed state.
         """
         grid_mpx1 = self if inplace else self.copy(deep=True)
 
@@ -728,7 +1171,33 @@ class GridTN1D(GridTN):
 
     def add_subgtn(self, sub_gtn_mpx2: 'GridTN', open_bc=False, inplace=False, zipup=False, compress=False,
                    compress_opts=None, **kwargs) -> 'GridTN':
+        """Add a sub-grid tensor network into a contiguous index window of self.
 
+        The sub-network's axes are mapped to a contiguous ``[min, max]`` range
+        of self's site indices and added there via ``helper.add_submpx``.
+
+        Parameters
+        ----------
+        sub_gtn_mpx2 : GridTN
+            Sub-grid operand to embed and add; None returns self unchanged.
+        open_bc : bool
+            Use open boundary conditions at the insertion window.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        zipup : bool
+            Use a zip-up addition where supported.
+        compress : bool
+            Compress after insertion.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        **kwargs
+            Additional options forwarded to the helper.
+
+        Returns
+        -------
+        GridTN
+            The state with the sub-network added.
+        """
         gtn = self if inplace else self.copy()
         if sub_gtn_mpx2 is None:
             return gtn
@@ -751,7 +1220,20 @@ class GridTN1D(GridTN):
         return gtn
 
     def scalar_multiply(self, scalar_const, inplace=False) -> 'GridTN1D':
+        """Multiply the tensor network by a scalar constant.
 
+        Parameters
+        ----------
+        scalar_const : Numeric
+            Scalar factor to multiply into the data.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+
+        Returns
+        -------
+        GridTN1D
+            The scaled state.
+        """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
 
@@ -761,6 +1243,25 @@ class GridTN1D(GridTN):
 
 
     def evaluate_func(self, func: Callable, max_bond=None, inplace=False):
+        """Evaluate an element-wise function of the state via TT-cross.
+
+        Builds a cross-interpolation term from ``func`` applied to this MPS and
+        approximates the result as an MPS with a 2-site local cross evaluator.
+
+        Parameters
+        ----------
+        func : Callable
+            Element-wise function applied to the MPS values.
+        max_bond : int, optional
+            Bond-dimension cap for the cross-interpolated result.
+        inplace : bool
+            Mutate self in place if True, else return a copy.
+
+        Returns
+        -------
+        GridTN1D
+            The state holding ``func`` applied element-wise.
+        """
         # from local_solvers.local_cross_eval_old import local_cross_evaluator, Term_Cross
         from local_solvers.local_cross_eval import local_cross_evaluator, Term_Cross
 
@@ -776,7 +1277,27 @@ class GridTN1D(GridTN):
 
 
     def canonize(self, inplace=True, scale=True, form='right', i=None, cur_orthog=None) -> 'GridTN1D':
+        """Put the MPS/MPO into mixed canonical form about a site.
 
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        scale : bool
+            Absorb the norm into the orthogonality center if True.
+        form : str
+            Default target form ('right' -> site 0, 'left' -> site L-1) used
+            when ``i`` is not given.
+        i : int, optional
+            Explicit orthogonality-center site.
+        cur_orthog : int, optional
+            Current orthogonality center, used to shorten the canonization.
+
+        Returns
+        -------
+        GridTN1D
+            The canonized state with ``canon_site`` set to ``i``.
+        """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
 
@@ -792,11 +1313,37 @@ class GridTN1D(GridTN):
         return grid_mpx1
 
     def canonize_axes(self, axes: Sequence['Axis'], inplace=True, scale=True):
+        """Canonize so the orthogonality center lies within the given axes.
+
+        Parameters
+        ----------
+        axes : Sequence[Axis]
+            Axes whose index range should contain the orthogonality center.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        scale : bool
+            Absorb the norm into the orthogonality center if True.
+
+        Returns
+        -------
+        GridTN1D
+            The canonized state.
+        """
         canon_i = self.get_canon_site_from_axes(axes)
         return self.canonize(inplace=inplace, scale=scale, i=canon_i)
 
     def get_canon_site_from_axes(self, axes: Sequence['Axis']):
-        """ site of mixed canonical form; included within inds in axes
+        """Compute the canonical-center site contained within the given axes.
+
+        Parameters
+        ----------
+        axes : Sequence[Axis]
+            Axes that must lie contiguously on one side of the MPS.
+
+        Returns
+        -------
+        int
+            The site index to use as orthogonality center.
         """
         ax_inds = np.sort([self.grid.axes.index(ax) for ax in axes])
         if len(ax_inds) == 1 or all(np.diff(ax_inds) == 1):
@@ -814,7 +1361,40 @@ class GridTN1D(GridTN):
                  sub_compress_opts=None, norm_cutoff=None,
                  conservative=False,
                  **kwargs) -> 'GridTN1D':
+        """Truncate the bond dimensions of the tensor network.
 
+        Dispatches by ``compress_type``: SVD truncation (optionally a
+        mass-conserving orthogonal compression against the ones vector), or
+        local DMRG/MG compression (MPS only). Updates ``canon_site`` from the
+        resulting form.
+
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        verbose : bool
+            Print diagnostic information.
+        canonize : bool
+            Canonize before truncating in the SVD path.
+        compress_type : CompressType
+            Compression backend (SVD, DMRG, or MG).
+        compress_opts : dict, optional
+            Overrides for compression parameters (e.g. ``max_bond``, ``form``,
+            ``do_midpt``).
+        sub_compress_opts : dict, optional
+            Secondary compression options (unused in this path).
+        norm_cutoff : float, optional
+            Norm threshold below which the SVD compression drops the state.
+        conservative : bool
+            Use the conservative (mass-preserving) orthogonal compression.
+        **kwargs
+            Additional options forwarded to the SVD compressor.
+
+        Returns
+        -------
+        GridTN1D
+            The compressed state.
+        """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
 
@@ -887,7 +1467,37 @@ class GridTN1D(GridTN):
     def compress_rdm(self, inplace=True, verbose=False, compress_opts=None, sub_compress_opts=None,
                      direction=1, open_end=False, left_env=None, right_env=None, back_compress=True,
                      **kwargs) -> Union['GridTN1D', tuple['GridTN1D', 'qtn.Tensor']]:
+        """Compress the MPS using a reduced-density-matrix directional sweep.
 
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        verbose : bool
+            Print diagnostic information.
+        compress_opts : dict, optional
+            Overrides for compression parameters (e.g. ``max_bond``, ``form``,
+            ``do_midpt``).
+        sub_compress_opts : dict, optional
+            Secondary compression options (unused in this path).
+        direction : int
+            Sweep direction; determines the resulting canonical site.
+        open_end : bool
+            If True, leave the boundary open and also return the C tensor.
+        left_env : qtn.Tensor, optional
+            Precomputed left environment tensor.
+        right_env : qtn.Tensor, optional
+            Precomputed right environment tensor.
+        back_compress : bool
+            Perform the back-sweep compression step.
+        **kwargs
+            Additional options forwarded to ``helper.compress_rdm``.
+
+        Returns
+        -------
+        GridTN1D or tuple[GridTN1D, qtn.Tensor]
+            The compressed state, plus the C tensor when ``open_end`` is True.
+        """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
 
@@ -919,7 +1529,21 @@ class GridTN1D(GridTN):
 
 
     def get_bases(self, i: int):
-        """ get the basis functions of the mps assuming the orthogonality center is at site i
+        """Extract the left and right basis functions about an orthogonality site.
+
+        Assuming the orthogonality center is at site ``i``, splits the MPS into
+        the left and right blocks and enumerates each ancilla branch as a
+        separate sub-grid GridTN.
+
+        Parameters
+        ----------
+        i : int
+            Site holding the orthogonality center.
+
+        Returns
+        -------
+        tuple[list, list]
+            Lists of left-block and right-block GridTN basis states.
         """
         data = self.data.copy()
 
@@ -972,9 +1596,28 @@ class GridTN1D(GridTN):
 
     def expand_subspace(self, subspace_vecs: Sequence['GridTN'], orthog_direction=-1, compress_opts=None,
                         inplace=False):
-        """ expand subspace of MPS according to http://arxiv.org/abs/2005.06104
-            orthog_direction = 1:  start from site 0 -> L-1; final orthog center at L-1
-            orthog_direction = -1: start from site L-1 -> site 0;  final  orthog center at 0
+        """Enlarge the MPS bond space by adding zeroed subspace vectors.
+
+        Implements the basis-expansion of http://arxiv.org/abs/2005.06104 by
+        canonizing both self and each subspace vector, zeroing the vector's
+        center tensor, and adding it without compression.
+
+        Parameters
+        ----------
+        subspace_vecs : Sequence[GridTN]
+            States whose subspaces are folded into self.
+        orthog_direction : int
+            Sweep direction: +1 starts at site 0 (final center L-1); -1 starts
+            at site L-1 (final center 0).
+        compress_opts : dict, optional
+            Provides ``max_bond`` and ``cutoff`` for the expansion.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+
+        Returns
+        -------
+        GridTN1D
+            The state with expanded subspace.
         """
         print('EXPANDING SUBSPACE')
         gtn = self if inplace else self.copy()
@@ -997,9 +1640,30 @@ class GridTN1D(GridTN):
 
     def expand_subspace_v2(self, subspace_vecs: Sequence['GridTN'], orthog_direction=-1, compress_opts=None,
                            inplace=False):
-        """ expand subspace of MPS according to http://arxiv.org/abs/2005.06104
-            orthog_direction = 1:  start from site 0 -> L-1; final orthog center at L-1
-            orthog_direction = -1: start from site L-1 -> site 0;  final  orthog center at 0
+        """Enlarge the MPS bond space via per-site projected density matrices.
+
+        Refined variant of the basis-expansion of
+        http://arxiv.org/abs/2005.06104: sweeps site by site, projecting each
+        subspace vector's density matrix orthogonal to self and keeping the
+        leading eigenvectors (bounded by cutoff and max_bond) as new basis
+        directions, synchronously updating self and the vectors.
+
+        Parameters
+        ----------
+        subspace_vecs : Sequence[GridTN]
+            States whose subspaces are folded into self.
+        orthog_direction : int
+            Sweep direction: +1 starts at site 0 (final center L-1); -1 starts
+            at site L-1 (final center 0).
+        compress_opts : dict, optional
+            Provides ``max_bond`` and ``cutoff`` for the expansion.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+
+        Returns
+        -------
+        GridTN1D
+            The state with expanded subspace.
         """
         print('EXPANDING SUBSPACE')
         gtn = self if inplace else self.copy()
@@ -1015,7 +1679,19 @@ class GridTN1D(GridTN):
             vec.canonize(inplace=True, scale=False, i=canon_site)
 
         def _get_site_rho(tens, open_inds):
-            """ gets sum{ij} A_ijk A*_ijk'
+            """Form the single-site reduced density matrix sum_ij A_ijk A*_ijk'.
+
+            Parameters
+            ----------
+            tens : qtn.Tensor
+                Site tensor whose density matrix is computed.
+            open_inds : Sequence[str]
+                Indices kept open (not contracted) on both bra and ket.
+
+            Returns
+            -------
+            qtn.Tensor
+                The reduced density matrix tensor over the open indices.
             """
             tens_c = tens.conj()
             tens_c.reindex({ind: ind + '_' for ind in open_inds}, inplace=True)
@@ -1230,12 +1906,27 @@ class GridTN1D(GridTN):
 
     def interpolate_data(self, depth: int, interp_dict: dict['Axis': 'qtn.MatrixProductOperator'],
                          new_grid: 'Grid1D' = None):
-        """ extend grid s.t. data is interpolated between existing grid points
-            only works for outer-product interpolation schemes
-            interp_dict: dict[Axis, qtn.MatrixProductOperator]
-                the tensor has all the indices appropriately
-                decomposed on the coarse grid (all fine indices are labeled as "fine")
-                though perhaps not numbered appropriately.
+        """Refine the grid by interpolating the data onto a finer grid.
+
+        Applies per-axis interpolation MPOs, decomposes the resulting fine
+        tensors, and inserts them to build a state on a grid with ``depth``
+        extra points per axis. Only outer-product interpolation schemes are
+        supported.
+
+        Parameters
+        ----------
+        depth : int
+            Number of fine points introduced per coarse interval.
+        interp_dict : dict[Axis, qtn.MatrixProductOperator]
+            Per-axis interpolation operator; its tensors carry all coarse-grid
+            indices with fine indices tagged "fine" (numbering may be off).
+        new_grid : Grid1D, optional
+            Target fine grid; constructed automatically if None.
+
+        Returns
+        -------
+        GridTN1D
+            The interpolated state on the fine grid.
         """
         grid = self.grid
         mps = self.data.copy()
@@ -1424,7 +2115,25 @@ class GridTN1D(GridTN):
     ###############################
 
     def mps_to_diag_mpo(self, lower_ind_id='i({})', upper_ind_id='o({})', inplace=False) -> 'GridTN':
+        """Convert an MPS into a diagonal MPO using COPY tensors.
 
+        Each site tensor is contracted with a 3-leg COPY tensor so the MPS
+        values appear on the diagonal of the resulting MPO.
+
+        Parameters
+        ----------
+        lower_ind_id : str
+            Format string for the MPO lower (input) physical indices.
+        upper_ind_id : str
+            Format string for the MPO upper (output) physical indices.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+
+        Returns
+        -------
+        GridTN
+            The diagonal MPO.
+        """
         if self.data is None:
             return self if inplace else self.create_like(new_data=None)
 
@@ -1472,10 +2181,35 @@ class GridTN1D(GridTN):
 
     def apply_elemental_multiply_op(self, lower_ind_id='i({})', upper_ind_id='o({})', axes=None, add_cc=False,
                                     take_mps_cc=False, compress=False, compress_opts=None):
-        """ Use 3-leg elemental multiply TN, apply to self to turn into mpo
-            for elemental multiplication (with some other, yet to be specified gmps)
-            assumes indices of self goes from 0 to grid.L-1 (no missing indices)
-            lower_ind_id, upper_ind_id = desired formats for output MPO
+        """Turn this MPS into an MPO implementing element-wise multiplication.
+
+        Contracts self with the grid's 3-leg elemental-multiply tensor network
+        so the resulting MPO multiplies any other state element-wise by self.
+        Single-tensor spatial data are handled as a sparse diagonal; real
+        Fourier bases trigger the conjugate-augmented (add_cc) path. Assumes
+        self's site indices run 0..grid.L-1 with no gaps.
+
+        Parameters
+        ----------
+        lower_ind_id : str
+            Format string for the output MPO lower (input) indices.
+        upper_ind_id : str
+            Format string for the output MPO upper (output) indices.
+        axes : Sequence[Axis], optional
+            Restrict the multiply to these axes.
+        add_cc : bool
+            Add the complex-conjugate branch (forced on for real-k bases).
+        take_mps_cc : bool
+            Return the operator transposed and conjugated.
+        compress : bool
+            Compress the resulting MPO.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+
+        Returns
+        -------
+        GridTN1D
+            The element-wise multiplication MPO.
         """
         if self.data is None:  # zero
             return self.create_like(new_data=None)
@@ -1620,7 +2354,26 @@ class GridTN1D(GridTN):
     ################
 
     def apply_mps(self, mps, inplace=False, compress=True, compress_opts=None):
-        """ Apply MPS on top of an MPS -> # or MPO -> MPS
+        """Apply an MPS to self: MPO times MPS gives an MPS, MPS times MPS gives a scalar.
+
+        If self is an MPO, it is transposed and applied to ``mps`` to yield a
+        new MPS; if self is an MPS, the overlap with ``mps`` is returned.
+
+        Parameters
+        ----------
+        mps : GridTN1D or qtn.MatrixProductState
+            The MPS operand.
+        inplace : bool
+            Mutate self in place if True (MPO case only).
+        compress : bool
+            Compress the resulting product (MPO case).
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+
+        Returns
+        -------
+        GridTN1D or Numeric
+            The resulting MPS (MPO case) or the scalar overlap (MPS case).
         """
         if isinstance(mps, GridTN1D):
             mps = mps.data
@@ -1644,12 +2397,48 @@ class GridTN1D(GridTN):
                    new_grid: 'Grid1D' = None, exclude_axes=None, exclude_weights=False,
                    new_ax_deriv_configs=None, compress=False, compress_opts=None,
                    zipup=False, zipup_direction=-1, **kwargs):
-        """ integrate over specified dimensions. returns scalar if axes='all'
-            otherwise, returns a Field object with reduced dimensionality
-            inplace is dummy parameter.
-            ancilla_reindex:  dict[old_anc: new_anc] for reindexing MPS when is_sqrt==True
-                ancilla must be on the anchor tensor (indexed by 0)
-                new and old ancilla are fused together -> old ancilla name
+        """Measure an observable, optionally integrating over a set of axes.
+
+        Computes integral dx f O f (or f O f when ``is_sqrt``) over
+        ``integ_axes``. Integrating all axes returns a scalar (or Tensor with
+        ancilla bonds); integrating none applies the observable; a partial set
+        returns a reduced-dimensionality GridTN1D on the remaining axes.
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable; an MPS observable is first turned into an element-wise
+            multiply MPO. None measures the bare (square) norm.
+        integ_axes : Sequence[Axis], optional
+            Axes to integrate over; defaults to all axes.
+        is_sqrt : bool
+            Measure the quadratic form f O f rather than the linear f O.
+        ancilla_reindex : dict, optional
+            Mapping old_anc -> new_anc for the anchor tensor's ancilla when
+            ``is_sqrt``; old and new ancilla are fused under the old name.
+        new_grid : Grid1D, optional
+            Output grid for the reduced result.
+        exclude_axes : Sequence[Axis], optional
+            Axes to exclude; not supported (raises if non-empty).
+        exclude_weights : bool
+            Use unit integration weights instead of axis quadrature weights.
+        new_ax_deriv_configs : dict, optional
+            Derivative configs for the output grid.
+        compress : bool
+            Compress the reduced result.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        zipup : bool
+            Use zip-up application in the no-integration path.
+        zipup_direction : int
+            Direction (and resulting form) for the zip-up application.
+        **kwargs
+            Additional options (ignored).
+
+        Returns
+        -------
+        Numeric, qtn.Tensor, or GridTN1D
+            A scalar/Tensor when integrating all axes, else a reduced GridTN1D.
         """
         if exclude_axes is not None and len(exclude_axes) != 0:
             raise NotImplementedError('meas expec with exclude axes not implemented for GridTN1D')
@@ -1975,7 +2764,37 @@ class GridTN1D(GridTN):
 
     def project(self, obs_gtn, proj_axes, new_grid=None, canonize=True, compress=False, compress_opts=None,
                 ancilla_reindex=None, new_ax_deriv_configs=None, **kwargs) -> Optional['GridTN1D']:
-        """ project obs_gtn onto manifold of self:  PROJ O|state>
+        """Project an operator onto the tangent manifold of self: PROJ O|state>.
+
+        Canonizes self about the projection axes, contracts the integrated axes
+        against the conjugated state and (optionally) the observable, and
+        returns the reduced result as a GridTN1D on the projection axes.
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable (MPO) to project; None projects the bare state.
+        proj_axes : Sequence[Axis]
+            Axes retained in the projected output.
+        new_grid : Grid1D, optional
+            If given (truthy), a projection subgrid is built from ``proj_axes``.
+        canonize : bool
+            Canonize about the projection axes first.
+        compress : bool
+            Compress the projected result.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        ancilla_reindex : dict, optional
+            Mapping old_anc -> new_anc applied to the conjugate anchor tensor.
+        new_ax_deriv_configs : dict, optional
+            Derivative configs for the output grid.
+        **kwargs
+            Additional options (ignored).
+
+        Returns
+        -------
+        GridTN1D or None
+            The projected state, or None if self has no data.
         """
         if self.data is None:
             return None
@@ -2029,7 +2848,7 @@ class GridTN1D(GridTN):
         else:
             proj_mps.site_tag_id = gtn.data.site_tag_id
             obs_mpo = obs_gtn.data.copy()
-            assert (isinstance(obs_mpo, qtn.MatrixProductOperator), 'obs_mpo must be MPO')
+            assert isinstance(obs_mpo, qtn.MatrixProductOperator), 'obs_mpo must be MPO'
             obs_mpo.mangle_inner_()
             obs_mpo.lower_ind_id = '_tmp{}_'
             obs_mpo.upper_ind_id = gtn.data.site_ind_id
@@ -2151,8 +2970,36 @@ class GridTN1D(GridTN):
     def integrate(self, integ_axes=None, is_sqrt=False, new_grid=None, new_ax_deriv_configs=None, exclude_weights=False,
                   compress=False, compress_opts=None, ancilla_reindex: dict[str, str] = None, **kwargs) \
             -> Union[Numeric, qtn.Tensor]:
-        """ integrate dx f(x) O(x) dx
-            integrate dx g*(x) O(x) g(x) dx
+        """Integrate the state (optionally as a quadratic form) over axes.
+
+        Thin wrapper over :meth:`meas_expec` with no observable: computes
+        integral dx f O (linear) or integral dx g* O g (when ``is_sqrt``).
+
+        Parameters
+        ----------
+        integ_axes : Sequence[Axis], optional
+            Axes to integrate over; defaults to all axes.
+        is_sqrt : bool
+            Integrate the quadratic form g* g rather than the linear f.
+        new_grid : Grid1D, optional
+            Output grid for a partial integration.
+        new_ax_deriv_configs : dict, optional
+            Derivative configs for the output grid.
+        exclude_weights : bool
+            Use unit weights instead of axis quadrature weights.
+        compress : bool
+            Compress a reduced result.
+        compress_opts : dict, optional
+            Overrides for compression parameters.
+        ancilla_reindex : dict[str, str], optional
+            Ancilla reindexing forwarded to :meth:`meas_expec`.
+        **kwargs
+            Additional options (ignored).
+
+        Returns
+        -------
+        Numeric or qtn.Tensor
+            The integral value, NaN if there is no data.
         """
         if self.data is None:
             return np.nan
@@ -2162,7 +3009,21 @@ class GridTN1D(GridTN):
                                ancilla_reindex=ancilla_reindex, compress=compress, compress_opts=compress_opts)
 
     def meas_elem(self, sel_inds: Sequence[int], site_ind_id='i({})', site_tag_id='X({})',):
-        """ select the element indexed by sel_inds (listed by order of tensor core)
+        """Read out a single tensor-network element by its per-core indices.
+
+        Parameters
+        ----------
+        sel_inds : Sequence[int]
+            Index along each tensor core (in core order) of the element.
+        site_ind_id : str
+            Format string for site (physical) index names of the selector MPS.
+        site_tag_id : str
+            Format string for site tags of the selector MPS.
+
+        Returns
+        -------
+        Numeric
+            The selected element value (overlap with the selector MPS).
         """
         q = self.grid.axes[0].q
         sel_mps = get_select_elem_mps(self.grid.L, q, sel_inds, site_ind_id, site_tag_id, )
@@ -2172,7 +3033,26 @@ class GridTN1D(GridTN):
 
     def meas_shifted_elem(self, sel_inds: Sequence[int], shifts: dict['Axis', int],
                           ax_deriv_configs: ['Axis', 'DerivativeConfiguration'],):
+        """Read out an element after applying per-axis index shifts.
 
+        Computes the shifted index and sign (from finite-difference stencils),
+        selects the corresponding entry, and scales by the stored exponent and
+        sign.
+
+        Parameters
+        ----------
+        sel_inds : Sequence[int]
+            Base per-core indices of the element to read.
+        shifts : dict[Axis, int]
+            Integer index shift to apply along each axis.
+        ax_deriv_configs : dict[Axis, DerivativeConfiguration]
+            Per-Axis finite-difference configs determining shift wrap and sign.
+
+        Returns
+        -------
+        qtn.Tensor
+            The shifted element value (scaled by exponent and sign).
+        """
         new_sel_inds, new_sign = self.grid.get_shifted_index_and_sign(sel_inds, shifts, ax_deriv_configs)
         site_ind_id = self.data.site_ind_id
         tensors = []
@@ -2187,6 +3067,22 @@ class GridTN1D(GridTN):
     #######################
 
     def convert_to_USVT(self, canon_site, inplace=False, cur_orthog=None):
+        """Convert the MPS data to USVT (explicit singular-value) form.
+
+        Parameters
+        ----------
+        canon_site : int
+            Bond/site at which the singular-value (S) tensor is placed.
+        inplace : bool
+            Mutate self in place if True, else return a copy.
+        cur_orthog : int, optional
+            Current orthogonality center to speed up the conversion.
+
+        Returns
+        -------
+        GridTN1D
+            The state with USVT-form data.
+        """
         out = MPS_USVT.from_MPS(self.data, canon_site=canon_site, cur_orthog=cur_orthog)
         if inplace:
             self.data = out
@@ -2195,6 +3091,20 @@ class GridTN1D(GridTN):
             return self.create_like(new_data=out)
 
     def convert_from_USVT(self, inplace=False, canon_site=None):
+        """Convert USVT-form data back to a plain MPS.
+
+        Parameters
+        ----------
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        canon_site : int, optional
+            If given, re-canonize about this site after conversion.
+
+        Returns
+        -------
+        GridTN1D
+            The state with plain MPS data.
+        """
         new_gtn = self if inplace else self.copy()
         cur_orthog = self.canon_site
         assert (isinstance(new_gtn.data, MPS_USVT)), 'new_gtn data needs to be in MPS_USVT form'
@@ -2204,10 +3114,39 @@ class GridTN1D(GridTN):
         return new_gtn
 
     def get_S_tensor(self, **kwargs):
+        """Return the singular-value (S) tensor of USVT-form data.
+
+        Parameters
+        ----------
+        **kwargs
+            Unused; accepted for interface compatibility.
+
+        Returns
+        -------
+        qtn.Tensor
+            The S tensor.
+        """
         assert (isinstance(self.data, MPS_USVT)), 'new_gtn data needs to be in MPS_USVT form'
         return self.data.get_S_tensor()
 
     def project_bond(self, obs_gtn, bond_ind):
+        """Project an MPO observable onto the S bond of USVT-form data.
+
+        Contracts the ket, conjugated bra (with mangled inner bonds), and the
+        observable while leaving the bond around the S tensor open.
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable MPO supplying the upper/lower index ids.
+        bond_ind : int
+            Site whose bond to the S tensor is projected open.
+
+        Returns
+        -------
+        qtn.Tensor
+            The projected (bond-open) observable tensor.
+        """
         self_data = self.data.copy()
         conj_data = self.data.conj(inplace=False, mangle_inner=True)
         s_tens = self_data.select_tensors(self_data.s_tag)[0]
@@ -2229,6 +3168,25 @@ class GridTN1D(GridTN):
         return out
 
     def project_site(self, obs_gtn, site_ind, nsites=1) -> 'qtn.Tensor':
+        """Project an MPO observable onto the open legs of a local site block.
+
+        Contracts the ket, conjugated bra, and observable, leaving the physical
+        legs of the ``nsites`` block (and any boundary bonds) open.
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable MPO supplying the upper/lower index ids.
+        site_ind : int
+            Starting site of the local block.
+        nsites : int
+            Number of sites in the local block (1- or 2-site update).
+
+        Returns
+        -------
+        qtn.Tensor
+            The projected local tensor with reindexed bonds.
+        """
         self_data = self.data.copy()
         conj_data = self.data.conj(inplace=False, mangle_inner=True)
         # print('project site', site_ind, 'nsites', nsites)
@@ -2262,6 +3220,30 @@ class GridTN1D(GridTN):
 
     def project_op_site(self, obs_gtn, site_ind, nsites=1, left_env=None, right_env=None) \
             -> tuple['qtn.Tensor', Sequence[str], Sequence[str]]:
+        """Build the local effective operator for an MPO over a site block.
+
+        Contracts ket, conjugated bra, and observable while popping the block's
+        own site tensors, yielding an operator tensor acting on the block legs
+        plus boundary bonds (returned as separate input/output index lists).
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable MPO supplying the upper/lower index ids.
+        site_ind : int
+            Starting site of the local block.
+        nsites : int
+            Number of sites in the local block (1- or 2-site update).
+        left_env : qtn.Tensor, optional
+            Precomputed left environment (currently unused).
+        right_env : qtn.Tensor, optional
+            Precomputed right environment (currently unused).
+
+        Returns
+        -------
+        tuple[qtn.Tensor, Sequence[str], Sequence[str]]
+            The local operator tensor and its input/output index name lists.
+        """
         self_data = self.data.copy()
         conj_data = self.data.conj(inplace=False, mangle_inner=False)
         conj_data.mangle_inner_(append='_')
@@ -2311,7 +3293,29 @@ class GridTN1D(GridTN):
 
     def project_op_bond(self, obs_gtn, bond_ind, left_env=None, right_env=None, **kwargs) \
             -> tuple['qtn.Tensor', Sequence[str], Sequence[str]]:
-        """ project obs_gtn (mpo) onto LLL-(S)-RRR
+        """Build the local effective operator for an MPO across the S bond.
+
+        Projects ``obs_gtn`` onto the LLL-(S)-RRR structure of USVT-form data,
+        popping the S tensor and returning the operator on the surrounding
+        bonds (as separate input/output index lists).
+
+        Parameters
+        ----------
+        obs_gtn : GridTN1D
+            Observable MPO supplying the upper/lower index ids.
+        bond_ind : int
+            Site whose bond to the S tensor is projected.
+        left_env : qtn.Tensor, optional
+            Precomputed left environment (currently unused).
+        right_env : qtn.Tensor, optional
+            Precomputed right environment (currently unused).
+        **kwargs
+            Additional options (ignored).
+
+        Returns
+        -------
+        tuple[qtn.Tensor, Sequence[str], Sequence[str]]
+            The local operator tensor and its input/output index name lists.
         """
         self_data = self.data.copy()
         conj_data = self.data.conj(inplace=False, mangle_inner=False)
@@ -2356,6 +3360,34 @@ class GridTN1D(GridTN):
 
     def evolve_tdvp(self, dt, mpo_list, te_order=0, do_adapt=False, inplace=False,
                     compress_config: CompressionConfiguration = None, expand_basis=None):
+        """Advance the state one TDVP time step via the helper_tdvp_v2 solver.
+
+        Distributes operator exponents, optionally expands the basis, then runs
+        ``TDVPSolver_v2.take_time_step`` and (if a basis was expanded)
+        recompresses the result.
+
+        Parameters
+        ----------
+        dt : float
+            Time step.
+        mpo_list : Sequence[GridTN1D]
+            Hamiltonian MPO terms; an empty list returns the state unchanged.
+        te_order : int
+            Time-integration order code selecting the local integrator.
+        do_adapt : bool
+            Rank-adaptation flag (forced to False inside this method).
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_config : CompressionConfiguration, optional
+            Source of compression options (level 1) for the solver/recompress.
+        expand_basis : Sequence[GridTN], optional
+            Subspace vectors to expand the basis with before stepping.
+
+        Returns
+        -------
+        GridTN1D
+            The evolved state.
+        """
         print('tdvp 1D', te_order)
         gtn = self if inplace else self.copy()
 
@@ -2420,6 +3452,30 @@ class GridTN1D(GridTN):
         return gtn
 
     def evolve_tdmrg(self, dt, mpo_list, te_order=0, do_adapt=True, inplace=False, compress_config=None):
+        """Advance the state one TD-DMRG time step via the helper_tdvp_v2 solver.
+
+        Wraps ``TDMRGSolver.take_time_step`` over the given operator MPOs.
+
+        Parameters
+        ----------
+        dt : float
+            Time step.
+        mpo_list : Sequence[GridTN1D]
+            Hamiltonian MPO terms.
+        te_order : int
+            Time-integration order code selecting the local integrator.
+        do_adapt : bool
+            Rank-adaptation flag forwarded to the solver.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_config : CompressionConfiguration, optional
+            Compression configuration forwarded to the solver.
+
+        Returns
+        -------
+        GridTN1D
+            The evolved state.
+        """
         print('tdmrg 1D', te_order)
         gtn = self if inplace else self.copy()
         dist_mpx = gtn.data
@@ -2441,14 +3497,64 @@ class GridTN1D(GridTN):
     def evolve_tdvp_new(self, dt, linear_mpo_list, te_order=0, do_adapt=True, inplace=False,
                         compress_config: CompressionConfiguration = None, nonlinear_terms=None, sources=None,
                         solver_type=LocalSolverType.TDDMRG, filter_bases=False, time=None,
-                        upwind_func=None, upwind_deriv_func=None, direction=1, **kwargs):
+                        upwind_func=None, upwind_deriv_func=None, direction=1, verbose=False, **kwargs):
+        """Advance the state one step with the two-sweep local time integrator.
 
+        Performs a half-step (dt/2) left-to-right canonizing sweep followed by a
+        half-step right-to-left sweep. The integrator is selected by
+        ``solver_type``/``te_order``: TDDMRG/DMRG use the DMRG-style TDVP_DMRG;
+        otherwise the cross (TDVPCross) or mixed (TDVPMixed) integrators are
+        used. Records ``gtn.info['num_evals']`` and ``gtn.info['internal_rank']``,
+        then compresses using max_bond from compress_config level 1 and cutoff
+        from level 2.
+
+        Parameters
+        ----------
+        dt : float
+            Full time step (each sweep advances dt/2).
+        linear_mpo_list : Sequence[GridTN1D]
+            Linear operator MPO terms.
+        te_order : int
+            Time-integration order code selecting the local integrator.
+        do_adapt : bool
+            Rank adaptation; widens the local update (nsites) when set.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_config : CompressionConfiguration, optional
+            Source of max_bond (level 1) and cutoff (level 2) options.
+        nonlinear_terms : optional
+            Nonlinear term objects forwarded to the integrator.
+        sources : Sequence[GridTN1D], optional
+            Source terms; their data is forwarded to the integrator.
+        solver_type : LocalSolverType
+            Selects the DMRG-style vs cross/mixed local integrator.
+        filter_bases : bool
+            Filter local bases during the sweeps.
+        time : float, optional
+            Current simulation time (advanced by dt/2 between sweeps).
+        upwind_func : callable, optional
+            Upwind flux function passed to the integrator.
+        upwind_deriv_func : callable, optional
+            Upwind derivative function passed to the integrator.
+        direction : int
+            Nominal sweep direction (the method itself does l2r then r2l).
+        verbose : bool
+            Print diagnostic information.
+        **kwargs
+            Additional options forwarded to the time integrator.
+
+        Returns
+        -------
+        GridTN1D
+            The evolved state.
+        """
         max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
         compress_opts = compress_config.get_compress_opts(1)
 
         cutoff = compress_config.get_compress_opts(2).get('cutoff', None) if compress_config is not None else None
 
-        print('tdvp 1D new', 'direction', direction, 'te order', te_order)
+        if verbose:
+            print('tdvp 1D new', 'direction', direction, 'te order', te_order)
         gtn = self if inplace else self.copy()
         dist_mpx = gtn.data.copy()
 
@@ -2466,7 +3572,8 @@ class GridTN1D(GridTN):
 
             # max_bond, max_bond_2 = None, None
             cutoff = cutoff if cutoff is not None else CUTOFF
-            print('tdvp max bond, cutoff', max_bond, cutoff)
+            if verbose:
+                print('tdvp max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2479,9 +3586,9 @@ class GridTN1D(GridTN):
             solver.upwind_func = upwind_func
             solver.upwind_deriv_func = upwind_deriv_func
 
-            print('local tdvp new', solver.dt, 'per sweep')
             nsites = 2 if max_bond is None else (3 if do_adapt else 1)
-            print('local tdvp new', solver.dt, 'per sweep', 'nsites', nsites)
+            if verbose:
+                print('local tdvp new', solver.dt, 'per sweep', 'nsites', nsites)
 
             if False: # max_bond_2 is not None and max_bond_2 != max_bond:
                 print('w/ post compress')
@@ -2542,15 +3649,17 @@ class GridTN1D(GridTN):
             # # solver.update_ket_from_out()
             # # solver.solve(1, canonize=True, filter_bases=filter_bases)
             # gtn.data = solver.out
-            print('TDVP pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
+            if verbose:
+                print('TDVP pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
             gtn.info['num_evals'] = solver.num_evals
             gtn.info['internal_rank'] = solver.out.max_bond()
 
-            print('compress opts', compress_opts)
             gtn.compress(inplace=True, compress_opts={**compress_config.get_compress_opts(1), 'form': 'left'},
                          canonize=False)    ## bec cur orthog is at i=0 after r2l sweep
 
-            print('TDVP post compress bonds', helper.inner_bond_sizes(solver.out))
+            if verbose:
+                print('compress opts', compress_opts)
+                print('TDVP post compress bonds', helper.inner_bond_sizes(solver.out))
 
         else:
             if te_order == 3:   ## 68
@@ -2565,7 +3674,8 @@ class GridTN1D(GridTN):
             # max_bond, max_bond_2 = None, None
             # cutoff = CUTOFF   # cutoff * 1.0e-2 if cutoff is not None else CUTOFF
             cutoff = cutoff if cutoff is not None else CUTOFF
-            print('tdvp-x max bond, cutoff', max_bond, cutoff)
+            if verbose:
+                print('tdvp-x max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2576,12 +3686,12 @@ class GridTN1D(GridTN):
             solver.upwind_func = upwind_func
             solver.upwind_deriv_func = upwind_deriv_func
 
-            print('local tdvp new', solver.dt, 'per sweep')
+            # print('local tdvp new', solver.dt, 'per sweep')
             nsites = 2 if max_bond is None or dist_mpx.max_bond() < max_bond else 1 # (3 if do_adapt else 1)
             # nsites = 2 if max_bond is None else (3 if do_adapt else 1)
 
             if False: # max_bond_2 is not None and max_bond_2 != max_bond:
-                print('w/ post compress')
+                # print('w/ post compress')
                 # #### two sweeps ####
                 # print('ket', solver.ket.cur_orthog, helper.check_orthog(solver.ket))
                 # print('out', solver.out.cur_orthog, helper.check_orthog(solver.out))
@@ -2669,7 +3779,8 @@ class GridTN1D(GridTN):
                 #
                 # gtn.data = solver.out
 
-            print('TDVP-X pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
+            if verbose:
+                print('TDVP-X pre compress bonds', gtn.data.max_bond(), helper.inner_bond_sizes(solver.out))
 
             gtn.info['num_evals'] = solver.num_evals
             gtn.info['internal_rank'] = solver.out.max_bond()
@@ -2685,9 +3796,10 @@ class GridTN1D(GridTN):
             # # solver.solve(1, canonize=True, filter_bases=filter_bases)
             # gtn.data = solver.out
 
-            print('compress opts', compress_opts)
             gtn.compress(inplace=True, compress_opts=compress_opts, canonize=True)
-            print('TDVP-X post compress', helper.inner_bond_sizes(solver.out))
+            if verbose:
+                print('compress opts', compress_opts)
+                print('TDVP-X post compress', helper.inner_bond_sizes(solver.out))
 
 
         # print('dist mpx max bond', gtn.data.max_bond())
@@ -2699,10 +3811,63 @@ class GridTN1D(GridTN):
     def evolve_tdmrg_new(self, dt, linear_mpo_list, te_order=0, do_adapt=True, inplace=False,
                          compress_config: CompressionConfiguration = None, nonlinear_terms=None, sources=None,
                          solver_type=LocalSolverType.TDDMRG, conservative=False,
-                         filter_bases=False, verbose_plot=False, time=None, upwind_func=None, upwind_deriv_func=None,
+                         filter_bases=False, verbose_plot=False, verbose=False, time=None, upwind_func=None, upwind_deriv_func=None,
                          direction=1,
                          **kwargs):
-        print('evolve tdmrg new', 'direction', direction, 'te order', te_order)
+        """Advance the state one step with a single directional TD-DMRG sweep.
+
+        Canonizes to site 0, runs one direction-aware (l2r/r2l) sweep with an
+        expanded working max_bond (scaled by te_order), records
+        ``gtn.info['num_evals']`` and ``gtn.info['internal_rank']``, then
+        applies an optional conservative compression back to the target bond.
+        The cross/mixed integrators are used for non-DMRG ``solver_type``.
+
+        Parameters
+        ----------
+        dt : float
+            Time step.
+        linear_mpo_list : Sequence[GridTN1D]
+            Linear operator MPO terms.
+        te_order : int
+            Time-integration order code; also scales the working max_bond.
+        do_adapt : bool
+            Rank-adaptation flag forwarded to the integrator.
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_config : CompressionConfiguration, optional
+            Source of max_bond (level 1) and cutoff (level 2) options.
+        nonlinear_terms : optional
+            Nonlinear term objects forwarded to the integrator.
+        sources : Sequence[GridTN1D], optional
+            Source terms; their data is forwarded to the integrator.
+        solver_type : LocalSolverType
+            Selects the DMRG-style vs cross/mixed local integrator.
+        conservative : bool
+            Use mass-conserving compression for the post-sweep truncation.
+        filter_bases : bool
+            Filter local bases during the sweep.
+        verbose_plot : bool
+            Emit per-step plots from the integrator.
+        verbose : bool
+            Print diagnostic information.
+        time : float, optional
+            Current simulation time.
+        upwind_func : callable, optional
+            Upwind flux function passed to the integrator.
+        upwind_deriv_func : callable, optional
+            Upwind derivative function passed to the integrator.
+        direction : int
+            Sweep direction (l2r if > 0, else r2l).
+        **kwargs
+            Additional options forwarded to the time integrator.
+
+        Returns
+        -------
+        GridTN1D
+            The evolved state.
+        """
+        if verbose:
+            print('evolve tdmrg new', 'direction', direction, 'te order', te_order)
 
         max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
         if max_bond is not None:
@@ -2710,7 +3875,10 @@ class GridTN1D(GridTN):
                 max_bond = max_bond * 3
             else:
                 max_bond = (max_bond * max(2,te_order + 1)) if te_order != 0 else None
-        print('expanded max bond', max_bond, te_order, compress_config.get_compress_opts(1)['max_bond'])
+
+        if verbose:
+            print('td-dmrg expanded max bond', max_bond, compress_config.get_compress_opts(1)['max_bond'])
+
         compress_opts = compress_config.get_compress_opts(1)
         max_bond_2 = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
         cutoff = compress_config.get_compress_opts(2).get('cutoff', None) if compress_config is not None else None
@@ -2739,7 +3907,8 @@ class GridTN1D(GridTN):
             # max_bond, max_bond_2 = None if max_bond is None else max_bond * 2, None
             # max_bond, max_bond_2 = None, None
             cutoff = cutoff if cutoff is not None else CUTOFF
-            print('tddmrg max bond, cutoff', max_bond, cutoff)
+            if verbose:
+                print('tddmrg max bond, cutoff', max_bond, cutoff)
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -2752,17 +3921,16 @@ class GridTN1D(GridTN):
                                **kwargs
                                )
 
-            print('local tddmrg', solver.dt)
-
             if max_bond_2 is not None and max_bond_2 != max_bond:
-                print('w/ post compress, max_bond', max_bond_2)
+                # print('w/ post compress, max_bond', max_bond_2)
                 if direction > 0:
                     solver.solve_l2r(1, canonize=True, filter_bases=filter_bases)
                 else:
                     # solver.direction = solver.direction * -1
                     solver.solve_r2l(1, canonize=True, filter_bases=filter_bases)
                 gtn.data = solver.out
-                print('tddmrg pre compress bond', solver.out.max_bond())
+                if verbose:
+                    print('tddmrg pre compress bond', solver.out.max_bond())
                 gtn.compress(inplace=True, compress_opts=compress_opts, conservative=conservative)
                 # print('gtn.data', gtn.data.cur_orthog)
 
@@ -2773,7 +3941,8 @@ class GridTN1D(GridTN):
                     solver.solve_r2l(1, canonize=True, filter_bases=filter_bases)
                 gtn.data = solver.out
 
-                print('(Td-dmrg) pre compress ranks', helper.inner_bond_sizes(solver.out))
+                if verbose:
+                    print('(Td-dmrg) pre compress ranks', helper.inner_bond_sizes(solver.out))
                 gtn.info['num_evals'] = solver.num_evals
                 gtn.info['internal_rank'] = solver.out.max_bond()
 
@@ -2796,7 +3965,8 @@ class GridTN1D(GridTN):
 
             max_bond, max_bond_2 = None, None
             cutoff = cutoff if cutoff is not None else CUTOFF
-            print('tddmrg-x modified max bond, cutoff', max_bond, cutoff)
+            if verbose:
+                print('tddmrg-x modified max bond, cutoff', max_bond, cutoff)
 
             nsites = 1
 
@@ -2838,11 +4008,13 @@ class GridTN1D(GridTN):
 
             gtn.data = solver.out  # solution
 
-            print('tddmrg-x pre compress bond', solver.out.max_bond(), helper.inner_bond_sizes(solver.out))
+            if verbose:
+                print('tddmrg-x pre compress bond', solver.out.max_bond(), helper.inner_bond_sizes(solver.out))
             gtn.info['num_evals'] = solver.num_evals
             gtn.info['internal_rank'] = solver.out.max_bond()
 
-            print('compress opts', compress_opts)
+            if verbose:
+                print('compress opts', compress_opts)
             gtn.compress(inplace=True, compress_opts=compress_opts, conservative=conservative)
 
 
@@ -2860,7 +4032,43 @@ class GridTN1D(GridTN):
     def evolve_time_local_global(self, dt, linear_mpo_list, te_order=0, do_adapt=True, inplace=False,
                                  compress_config: CompressionConfiguration = None, nonlinear_terms=None, sources=None,
                                  solver_type=LocalSolverType.TDDMRG, filter_bases=False, time=None):
+        """Advance the state one step with a combined local/global integrator.
 
+        Canonizes to site 0, runs a single left-to-right sweep of the chosen
+        TDLocal_Global / TDDMRG_Global / TDVP_Global integrator, then applies a
+        direction-aware conservative compression. Only TDDMRG/DMRG solver types
+        are supported; others raise NotImplementedError.
+
+        Parameters
+        ----------
+        dt : float
+            Time step.
+        linear_mpo_list : Sequence[GridTN1D]
+            Linear operator MPO terms.
+        te_order : int
+            Time-integration order code selecting the local integrator.
+        do_adapt : bool
+            Rank-adaptation flag (unused in this path).
+        inplace : bool
+            Mutate self in place if True, else operate on a copy.
+        compress_config : CompressionConfiguration, optional
+            Source of max_bond and compression options (level 1).
+        nonlinear_terms : optional
+            Nonlinear term objects forwarded to the integrator.
+        sources : Sequence[GridTN1D], optional
+            Source terms; their data is forwarded to the integrator.
+        solver_type : LocalSolverType
+            Must be TDDMRG or DMRG; other values raise NotImplementedError.
+        filter_bases : bool
+            Filter local bases during the sweep.
+        time : float, optional
+            Current simulation time.
+
+        Returns
+        -------
+        GridTN1D
+            The evolved state.
+        """
         max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
         compress_opts = {k: v for k,v in compress_config.get_compress_opts(1).items()}
 

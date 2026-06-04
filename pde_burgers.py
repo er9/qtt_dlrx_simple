@@ -147,6 +147,7 @@ class Burgers(PDE_system):
         new_system.dissip_coeff = self.dissip_coeff
         new_system.power = self.power
         new_system.flux_coeff = self.flux_coeff
+        new_system.verbose = self.verbose
 
         return new_system
 
@@ -204,7 +205,8 @@ class Burgers(PDE_system):
 
     def evolve_dissipation(self, dt, inplace=False, method='rk4', compress=1, compress1=4, compress2=5,
                            verbose_plot=False):
-        print('self dissip', self.dissip_coeff, self.dissip_coeff == 0.0)
+        if self.verbose:
+            print('self dissip', self.dissip_coeff, self.dissip_coeff == 0.0)
         if self.dissip_coeff == 0.0:
             return self
         raise NotImplementedError
@@ -542,7 +544,8 @@ class Burgers(PDE_system):
                     ddx_gtn = dist.grid.get_firstderivative_mpo(x_ax, deriv_config=deriv_config)
                     deriv_u = dist.component.apply(ddx_gtn)
                     ul_vs_ur = deriv_u.integrate()
-                    print('ul > ur?', ul_vs_ur)
+                    if self.verbose:
+                        print('ul > ur?', ul_vs_ur)
 
                     ## finite volume:  f_{i} --> f_{i+1/2} = 1/2 (f_{i} + f_{i+1})
                     # shift = dist.grid.get_shift_mpo({x_ax: -1}, ax_boundary_conditions=dist.component.ax_deriv_configs)
@@ -551,7 +554,8 @@ class Burgers(PDE_system):
                         shift = dist.grid.get_shift_mpo({x_ax: -1},
                                                         ax_boundary_conditions=dist.component.ax_deriv_configs)
                     else:
-                        print('here')
+                        if self.verbose:
+                            print('here')
                         shift = dist.grid.get_shift_mpo({x_ax: 1},
                                                         ax_boundary_conditions=dist.component.ax_deriv_configs)
 
@@ -768,7 +772,8 @@ class Burgers(PDE_system):
             d/dx F_{i} = 1/dx (F_{i+1/2} - F_{i-1/2})
         """
         assert (len(self.f.grid.axes) == 1), 'only implemented for 1D system'
-        print('in euler upwind')
+        if self.verbose:
+            print('in euler upwind')
 
         ax = self.f.grid.axes[0]
         npts = self.f.grid.npts
@@ -852,7 +857,7 @@ class Burgers(PDE_system):
             d/dx F_{i} = 1/dx (F_{i+1/2} - F_{i-1/2})
         """
         assert (len(self.f.grid.axes) == 1), 'only implemented for 1D system'
-        print('in deriv upwind', submat.shape)
+        # print('in deriv upwind', submat.shape)
 
         ax = self.f.grid.axes[0]
         npts = self.f.grid.npts
@@ -990,7 +995,8 @@ class Burgers(PDE_system):
             val, inds, tags = val.data, val.inds, val.tags
             val0 = val0.data
             val2 = val2.data
-            print('val', type(val))
+            if self.verbose:
+                print('val', type(val))
 
             def get_flux(lvals, rvals):
                 S_ = (lvals + rvals) / 2
@@ -1079,7 +1085,8 @@ class Burgers(PDE_system):
         # dist_gtn.evolve_tdvp(dt, mpo_list, te_order=te_order, do_adapt=do_adapt, inplace=True,
         #                      compress_config=compress_config, expand_basis=expand_basis)
 
-        print('done boltzmann tdvp')
+        if self.verbose:
+            print('done boltzmann tdvp')
         return new_state
 
 
@@ -1100,12 +1107,15 @@ class Burgers(PDE_system):
         # do_upwind = True if te_order == 1 else False
         # solver_type = LocalSolverType.TDCross   # LocalSolverType.TDDMRG
 
-        print('Burgers in time dmrg')
+        if self.verbose:
+            print('Burgers in time dmrg')
 
         # solver_type = LocalSolverType.MIXED   # TDCross
         # solver_type = LocalSolverType.TDCross
-        print('te order', te_order)
-        print('solver type', solver_type)
+        if self.verbose:
+            print('te order', te_order)
+        if self.verbose:
+            print('solver type', solver_type)
 
         # out = self._get_nonlinear_value(solver_type)[0]
         # plt.figure()
@@ -1127,12 +1137,13 @@ class Burgers(PDE_system):
         #     # s.scalar_multiply(10, inplace=True)
         #     # print('s.norm()', helper.norm(s.data), s.exponent)
         # print('sources', sources)
-        for t in nonlin_terms:
-            print('pde burger', t.ket is dist_gtn.data, t.bra is None)
+
+        # for t in nonlin_terms:
+        #     print('pde burger', t.ket is dist_gtn.data, t.bra is None)
 
         # if te_order == 1 and solver_type is LocalSolverType.TDCross:
         if solver_type is LocalSolverType.TDCross or solver_type is LocalSolverType.MIXED:
-            print('is upwind', self.upwind)
+            # print('is upwind', self.upwind)
             if self.upwind:
                 dist_gtn.evolve_tdmrg_new(dt, lin_ops, te_order=te_order, inplace=True, compress_config=compress_config,
                                           # nonlinear_terms=nonlin_terms,
@@ -1141,10 +1152,10 @@ class Burgers(PDE_system):
                                           upwind_func=self.euler_upwind,
                                           upwind_deriv_func=self.deriv_upwind)
 
-                print('internal evals')
-                print(dist_gtn.info.get('num_evals'), 2**dist_gtn.L)
-                print('internal rank')
-                print(dist_gtn.info.get('internal_rank'))
+                if self.verbose:
+                    print('internal evals', dist_gtn.info.get('num_evals'), 'max', 2**dist_gtn.L)
+                if self.verbose:
+                    print('internal rank', dist_gtn.info.get('internal_rank'))
                 # pdb.set_trace()
 
             else:
@@ -1174,7 +1185,8 @@ class Burgers(PDE_system):
         # plt.show()
 
 
-        print('done burgers tdmrg')
+        if self.verbose:
+            print('done burgers tdmrg')
         return new_state
 
 
@@ -1195,7 +1207,8 @@ class Burgers(PDE_system):
         # do_upwind = True if te_order == 1 else False
         # solver_type = LocalSolverType.TDCross   # LocalSolverType.TDDMRG
 
-        print('in time dmrg')
+        if self.verbose:
+            print('in time dmrg')
 
         # out = self._get_nonlinear_value(solver_type)[0]
         # plt.figure()
@@ -1218,9 +1231,11 @@ class Burgers(PDE_system):
         #     # print('s.norm()', helper.norm(s.data), s.exponent)
         # print('sources', sources)
         for t in nonlin_terms:
-            print('pde burger', t.ket is dist_gtn.data, t.bra is None)
+            if self.verbose:
+                print('pde burger', t.ket is dist_gtn.data, t.bra is None)
 
-        print('self.time', self.time)
+        if self.verbose:
+            print('self.time', self.time)
 
         # if te_order == 1 and solver_type is LocalSolverType.TDCross:
         if solver_type is LocalSolverType.TDCross:
@@ -1258,7 +1273,8 @@ class Burgers(PDE_system):
         # plt.show()
 
 
-        print('done burgers tdmrg')
+        if self.verbose:
+            print('done burgers tdmrg')
         return new_state
 
 
@@ -1298,7 +1314,8 @@ class Burgers_FV(Burgers):
 
             note:  div(E)=rho/eps0, div(B)=0 must be satisfied with initial definitions of E, B
         """
-        print('BURGERS FV calc time deriv')
+        if self.verbose:
+            print('BURGERS FV calc time deriv')
 
         ### advection term
         flux_term = self._calculate_time_derivative_f_flux(compress1=compress_level1, compress2=compress_level2)
@@ -1332,7 +1349,8 @@ class Burgers_FV(Burgers):
             return None
 
         # avg_mpo = dist.grid.get_averaging_mpo(ax_deriv_configs=dist.component.ax_deriv_configs)
-        print('AVG DIST')
+        if self.verbose:
+            print('AVG DIST')
         avg_dist = dist.component.average_fine_scale(inplace=False, stencil_type=FDType.FORWARD)
 
         mpo_list = self._get_time_evolution_mpos_flux(avg_f=avg_dist)
@@ -1426,7 +1444,8 @@ class Burgers_FV(Burgers):
 
         dist = self.f
 
-        print('FV get nonlinear terms')
+        if self.verbose:
+            print('FV get nonlinear terms')
 
         # ## flux = f^power
         # f_diag_mpo = self.f.component.apply_elemental_multiply_op()

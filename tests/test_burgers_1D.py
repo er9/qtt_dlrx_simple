@@ -300,7 +300,7 @@ while ts[-1] < T:
 
     dt_ = (dt * 0.1) if nt == 0 else dt
 
-    print('dt/dx', dt_/ax_x.dx, dt_/(ax_x.dx**2))
+    # print('dt/dx', dt_/ax_x.dx, dt_/(ax_x.dx**2))
 
     walltime = time.time()
     bg_sys = bg_sys.next_time_step(dt_, compress_level=1, verbose_plot=False, is_first_time_step=(nt==0 and not upwind)
@@ -338,8 +338,8 @@ while ts[-1] < T:
     #     plt.show()
 
 
-    print('pre compress ranks', helper.inner_bond_sizes(u_field.component.data))
-    u_field.compress(compress_level=1)
+    # print('pre compress ranks', helper.inner_bond_sizes(u_field.component.data))
+    # u_field.compress(compress_level=1)
     print('post compress ranks', helper.inner_bond_sizes(u_field.component.data))
     max_bond_fe += [u_field.component.max_bond()]
 
@@ -355,7 +355,7 @@ while ts[-1] < T:
 
     norm_u = u_field.component.norm(is_sqrt=True)
     print('result norm', nt, ts[-1], dt, norm_u, 'u max bond', u_field.max_bond(), 'Lx', Lx)
-    print('u glob max bond', u_glob.max_bond())
+    # print('u glob max bond', u_glob.max_bond())
 
     # ### compute errors
     # theory_u_gtn = grid_X.make_gtn_from_dicts([{ax_x: fe1_vxy}],data_type=DataType.MPS)

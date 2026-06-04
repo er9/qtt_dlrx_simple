@@ -79,7 +79,7 @@ def get_power_func(power: int):
             it_ = min(it, num_tiers - 1)
             out = apply_effective_op(site_tens, eff_ops[it_], output_to_input_inds)
             if it_ + 1 < num_tiers - 1:
-                print('power func intermediate', it_ + 1)
+                # print('power func intermediate', it_ + 1)  # debug (no verbose flag in scope)
                 intermediates[it_ + 1] = [out.copy()]
             # out = apply_effective_op(out, eff_ops[it_], output_to_input_inds)
 

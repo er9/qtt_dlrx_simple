@@ -20,7 +20,30 @@ import quimb.tensor as qtn
 
 
 def get_cut_ind(svals, cutoff=CUTOFF, max_bond=MAXBOND, min_bond=MINBOND, is_squared=False):
-    """ for eigenvalues, is_squared=True
+    """Determine the number of singular values to keep under a truncation policy.
+
+    Parameters
+    ----------
+    svals : numpy.ndarray
+        Singular values (or eigenvalues if ``is_squared`` is True), in
+        descending order.
+    cutoff : float
+        SVD truncation threshold; the smallest values whose cumulative squared
+        weight (relative to the total) falls below this are discarded
+        (default module const CUTOFF).
+    max_bond : int or None
+        Maximum bond dimension; the kept count is capped at this value. A value
+        ``<= 0`` is treated as None (no cap). Default MAXBOND.
+    min_bond : int or None
+        Minimum bond dimension to retain regardless of ``cutoff``. Default MINBOND.
+    is_squared : bool
+        If True, ``svals`` are already eigenvalues (squared singular values);
+        otherwise they are squared internally.
+
+    Returns
+    -------
+    int
+        The number of leading singular values to keep.
     """
     if max_bond is not None and max_bond <= 0:
         max_bond = None
@@ -48,7 +71,32 @@ def get_cut_ind(svals, cutoff=CUTOFF, max_bond=MAXBOND, min_bond=MINBOND, is_squ
 
 def tensor_svd(tens: 'qtn.Tensor', left_inds: Sequence[str], absorb: Literal['left','right'],
                  max_bond=MAXBOND, min_bond=MINBOND, cutoff=CUTOFF, bond_ind: str=None):
+    """Split a tensor by SVD and truncate, absorbing singular values to one side.
 
+    Parameters
+    ----------
+    tens : qtn.Tensor
+        The tensor to split.
+    left_inds : Sequence[str]
+        Index labels forming the left (U) factor; the remaining indices form
+        the right (V) factor.
+    absorb : {'left', 'right'}
+        Which SVD factor receives the singular values.
+    max_bond : int or None
+        Maximum bond dimension to keep. Default MAXBOND.
+    min_bond : int or None
+        Minimum bond dimension to keep. Default MINBOND.
+    cutoff : float
+        SVD truncation threshold. Default module const CUTOFF.
+    bond_ind : str, optional
+        Label for the new bond index between the factors; a temporary name is
+        used if None.
+
+    Returns
+    -------
+    tuple of qtn.Tensor
+        The truncated ``(u, vt)`` factors.
+    """
     if bond_ind is None:
         bond_ind = '__tmp__'
 
@@ -89,6 +137,22 @@ def tensor_svd(tens: 'qtn.Tensor', left_inds: Sequence[str], absorb: Literal['le
 
 
 def add_tensors(tens1: 'qtn.Tensor', tens2: 'qtn.Tensor', inplace=False):
+    """Add two tensors elementwise after aligning their index order.
+
+    Parameters
+    ----------
+    tens1 : qtn.Tensor
+        First tensor; its index order defines the output layout.
+    tens2 : qtn.Tensor
+        Second tensor; transposed to match ``tens1`` before adding.
+    inplace : bool
+        Modify ``tens1`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.Tensor
+        The elementwise sum ``tens1 + tens2``.
+    """
     new_tens = tens1 if inplace else tens1.copy()
     tens2 = tens2.transpose_like(tens1)
     new_tens.modify(apply=lambda data: tens2.data + data)
@@ -96,21 +160,78 @@ def add_tensors(tens1: 'qtn.Tensor', tens2: 'qtn.Tensor', inplace=False):
 
 
 def scale_tensors(tens, val, inplace=False):
+    """Multiply a tensor's data by a scalar.
+
+    Parameters
+    ----------
+    tens : qtn.Tensor
+        The tensor to scale.
+    val : Numeric
+        Scalar multiplier applied to the tensor data.
+    inplace : bool
+        Modify ``tens`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.Tensor
+        The scaled tensor.
+    """
     new_tens = tens if inplace else tens.copy()
     new_tens.modify(apply=lambda data: data * val)
     return new_tens
 
 
 def elem_mult_tensors(tens1: 'qtn.Tensor', tens2: 'qtn.Tensor', inplace=False):
+    """Multiply two tensors elementwise after aligning their index order.
+
+    Parameters
+    ----------
+    tens1 : qtn.Tensor
+        First tensor; its index order defines the output layout.
+    tens2 : qtn.Tensor
+        Second tensor; transposed to match ``tens1`` before multiplying.
+    inplace : bool
+        Modify ``tens1`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.Tensor
+        The elementwise (Hadamard) product ``tens1 * tens2``.
+    """
     new_tens = tens1 if inplace else tens1.copy()
     tens2 = tens2.transpose_like(tens1)
     new_tens.modify(apply=lambda data: tens2.data * data)
     return new_tens
 
 
-def diag_mult(tens: 'qtn.Tensor', diag_vec: 'qtn.Tensor', inplace=False):
-    print('tens', tens)
-    print('diag vec', diag_vec)
+def diag_mult(tens: 'qtn.Tensor', diag_vec: 'qtn.Tensor', inplace=False, verbose=False):
+    """Multiply a tensor along an index by a diagonal given as a vector tensor.
+
+    The indices of ``diag_vec`` are fused (when multi-dimensional) and matched
+    against the corresponding fused indices of ``tens``, applying the diagonal
+    along that index; the fused indices are then unfused again.
+
+    Parameters
+    ----------
+    tens : qtn.Tensor
+        The tensor to scale along the shared index/indices.
+    diag_vec : qtn.Tensor
+        Vector tensor whose entries form the diagonal; if it has more than one
+        index, its indices are fused to a single index.
+    inplace : bool
+        Modify ``tens`` in place if True, else operate on a copy.
+    verbose : bool
+        Print ``tens`` and ``diag_vec`` for diagnostics if True.
+
+    Returns
+    -------
+    qtn.Tensor
+        The tensor with the diagonal applied.
+    """
+    if verbose:
+        print('tens', tens)
+    if verbose:
+        print('diag vec', diag_vec)
     new_tens = tens if inplace else tens.copy()
     num_diag = diag_vec.ndim
     if num_diag > 1:
@@ -134,6 +255,23 @@ def diag_mult(tens: 'qtn.Tensor', diag_vec: 'qtn.Tensor', inplace=False):
 
 
 def tensor_transpose_inds(tens: 'qtn.Tensor', swap_inds: dict[str, str], inplace=False):
+    """Swap pairs of index labels on a tensor.
+
+    Parameters
+    ----------
+    tens : qtn.Tensor
+        The tensor whose index labels are swapped.
+    swap_inds : dict[str, str]
+        Mapping of index labels to swap; each ``key -> value`` pair causes the
+        two labels to be exchanged.
+    inplace : bool
+        Modify ``tens`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.Tensor
+        The tensor with the index labels swapped.
+    """
     tens = tens if inplace else tens.copy()
     tens.reindex({**{sw: st for sw, st in swap_inds.items()},
                   **{st: sw for sw, st in swap_inds.items()}}, inplace=True)
@@ -143,6 +281,30 @@ def tensor_transpose_inds(tens: 'qtn.Tensor', swap_inds: dict[str, str], inplace
 
 def tensor_direct_product(tens1: qtn.Tensor, tens2: qtn.Tensor, sum_inds=None, inplace=False,
                           force_match=False, auto_transpose=False):
+    """Form the direct (block-diagonal) product of two tensors.
+
+    Parameters
+    ----------
+    tens1 : qtn.Tensor
+        First tensor; the result is written into it.
+    tens2 : qtn.Tensor
+        Second tensor.
+    sum_inds : sequence of str, optional
+        Indices that are summed/stacked rather than block-concatenated.
+    inplace : bool
+        Modify ``tens1`` in place if True, else operate on a copy (only
+        relevant when ``auto_transpose`` is True).
+    force_match : bool
+        If True, zero-pad each tensor along mismatched index sizes so the two
+        tensors share the same shape before taking the direct product.
+    auto_transpose : bool
+        If True, transpose ``tens2`` to match ``tens1``'s index order first.
+
+    Returns
+    -------
+    qtn.Tensor
+        The direct product, stored in ``tens1``.
+    """
     if auto_transpose:
         tens1 = tens1 if inplace else tens1.copy()
         tens2 = tens2.transpose_like(tens1, inplace=False)
@@ -160,8 +322,20 @@ def tensor_direct_product(tens1: qtn.Tensor, tens2: qtn.Tensor, sum_inds=None, i
 
 
 def tensor_adjust_shape(tens: qtn.Tensor, ind_sizes: dict):
-    """ an inplace operation
-        ind_sizes: ind: desired size
+    """Pad or trim a tensor along given indices to the requested sizes (in place).
+
+    Parameters
+    ----------
+    tens : qtn.Tensor
+        The tensor to reshape; modified in place.
+    ind_sizes : dict
+        Mapping ``ind -> desired size``; each index is zero-padded if larger
+        than the current size or trimmed if smaller.
+
+    Returns
+    -------
+    qtn.Tensor
+        The resized tensor (same object as ``tens``).
     """
     tens_data = tens.data.copy()
     for ind, size in ind_sizes.items():
@@ -178,6 +352,26 @@ def tensor_adjust_shape(tens: qtn.Tensor, ind_sizes: dict):
 
 
 def zero_mps(L, max_bond=2, orthog=0):
+    """Construct an all-zero MPS of length L.
+
+    A random MPS is canonicalized around site ``orthog`` and that site is then
+    zeroed, yielding an MPS that evaluates to zero while keeping a valid bond
+    structure.
+
+    Parameters
+    ----------
+    L : int
+        Number of sites.
+    max_bond : int
+        Bond dimension of the underlying random state. Default 2.
+    orthog : int
+        Site about which to canonize and which is zeroed. Default 0.
+
+    Returns
+    -------
+    MPS
+        The zero MPS with ``exponent`` set to 0.0.
+    """
     out = qtn.MPS_rand_state(L=L, bond_dim=max_bond)
     canonize(out, i=orthog)
     out[orthog].modify(apply=lambda x: x * 0)
@@ -186,6 +380,24 @@ def zero_mps(L, max_bond=2, orthog=0):
 
 
 def pad_mpx_virtuals(mpx: Union['MPSType, MPOType'], max_bond: int):
+    """Zero-pad the virtual (bond) indices of an mpx up to a target bond size.
+
+    For each interior bond smaller than ``max_bond``, both adjacent tensors are
+    direct-product padded with zeros so the shared bond reaches ``max_bond``.
+    Modifies ``mpx`` in place.
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The matrix product state/operator whose bonds are padded.
+    max_bond : int
+        Target bond dimension for every interior bond.
+
+    Returns
+    -------
+    MPSType or MPOType
+        The padded network (same object as ``mpx``).
+    """
     for i in range(mpx.L - 1):
         bond_size = mpx.bond_size(i, i + 1)
         if bond_size < max_bond:
@@ -210,7 +422,23 @@ def pad_mpx_virtuals(mpx: Union['MPSType, MPOType'], max_bond: int):
 
 
 def mpx_add_label(mpx, label, check_exist=True) -> qtn.TensorNetwork1D:
-    """ add dims to all labels in mpx (inplace)
+    """Append a label suffix to the site tag and index id formats of an mpx (in place).
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork1D
+        The MPS or MPO whose tag/index id format strings are extended.
+    label : str
+        Suffix appended to ``site_tag_id`` and to the physical index ids
+        (``site_ind_id`` for an MPS; ``upper_ind_id``/``lower_ind_id`` for an MPO).
+    check_exist : bool
+        Guard controlling whether the suffix is applied based on whether the
+        label is already present in the relevant id format.
+
+    Returns
+    -------
+    qtn.TensorNetwork1D
+        The relabeled network (same object as ``mpx``).
     """
     if not (check_exist and label in mpx.site_tag_id):
         mpx.site_tag_id = mpx.site_tag_id + label
@@ -226,20 +454,58 @@ def mpx_add_label(mpx, label, check_exist=True) -> qtn.TensorNetwork1D:
     return mpx
 
 
-def collect_exponent(mpx: qtn.TensorNetwork, inplace=False):
+def collect_exponent(mpx: qtn.TensorNetwork, inplace=False, verbose=False):
+    """Factor out the network norm into the ``exponent`` attribute.
+
+    Divides the first tensor by the network norm and adds ``log10(norm)`` to
+    ``mpx.exponent``, leaving a normalized network whose magnitude is carried as
+    a base-10 exponent.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork
+        The network whose norm is absorbed into the exponent.
+    inplace : bool
+        Modify ``mpx`` in place if True, else operate on a copy.
+    verbose : bool
+        Print norm diagnostics before and after if True.
+
+    Returns
+    -------
+    qtn.TensorNetwork
+        The normalized network with updated ``exponent``.
+    """
     mpx = mpx if inplace else mpx.copy()
     mpx_norm = mpx.copy().norm()
-    print('collect exp mpx norm', mpx_norm, norm(mpx))
+    if verbose:
+        print('collect exp mpx norm', mpx_norm, norm(mpx))
     mpx[0].modify(apply=lambda x: x * 1. / mpx_norm)
     # mpx.distribute_exponent()
     # scalar_multiply(mpx, 1./mpx_norm, inplace=True)
     mpx.exponent += np.log10(mpx_norm)
-    print('mpx normalized?', mpx.copy().norm(), norm(mpx))
+    if verbose:
+        print('mpx normalized?', mpx.copy().norm(), norm(mpx))
     return mpx
 
 
 def norm(mpx: qtn.TensorNetwork, verbose=False):
-    """ return norm of mps/mpo
+    """Return the Frobenius norm of an MPS/MPO including its exponent factor.
+
+    Computed as ``sqrt(<x|x>)`` via :func:`ovlp` (which incorporates the
+    base-10 ``exponent``). A length-1 network returns the single tensor's norm.
+    Slightly negative overlaps within tolerance trigger a debugger trace.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork
+        The MPS/MPO to measure; ``None`` returns ``0.0``.
+    verbose : bool
+        Print several norm computations for diagnostics if True.
+
+    Returns
+    -------
+    float
+        The norm of ``mpx``.
     """
     # return qtn.expec_TN_1D(mpx.H, mpx) * 10**(mpx.exponent)
     if mpx is None:
@@ -263,7 +529,8 @@ def norm(mpx: qtn.TensorNetwork, verbose=False):
 
     out = ovlp(mpx, mpx.conj())
     if out < -1 * np.sqrt(CUTOFF):
-        print('<x|x> yields negative value', out)
+        if verbose:
+            print('<x|x> yields negative value', out)
         pdb.set_trace()
         # raise ValueError('<x|x> yields negative value', out)
     out = np.sqrt(out)
@@ -284,6 +551,26 @@ def norm(mpx: qtn.TensorNetwork, verbose=False):
 
 
 def ovlp(mps1: Union['MPSType', 'MPOType'], mps2: Union['MPSType', 'MPOType']):
+    """Contract two MPS/MPO networks to compute their overlap (inner product).
+
+    Both inputs are copied and canonized about site 0, ``mps2`` is reindexed to
+    share ``mps1``'s site/upper/lower index ids, and the combined network is
+    contracted. The result is scaled by ``10 ** (mps1.exponent + mps2.exponent)``.
+    A length-1 network special-cases a direct matrix/vector product.
+
+    Parameters
+    ----------
+    mps1 : MPSType or MPOType
+        First network (ket side).
+    mps2 : MPSType or MPOType
+        Second network (bra side); should already be conjugated by the caller
+        when a true inner product is wanted.
+
+    Returns
+    -------
+    Numeric
+        The overlap value scaled by the combined exponent.
+    """
     if mps1.L == 1:
         # if True: # mps1 == mps2 or mps1[0] == mps2[0]:
         #     print('is same')
@@ -329,6 +616,24 @@ def ovlp(mps1: Union['MPSType', 'MPOType'], mps2: Union['MPSType', 'MPOType']):
 
 
 def ovlp_slow(mps1: Union['MPSType', 'MPOType'], mps2: Union['MPSType', 'MPOType']):
+    """Compute the overlap of two networks by an explicit site-by-site sweep.
+
+    A reference/debug variant of :func:`ovlp`: mangles ``mps2``'s inner bonds,
+    canonizes both about site 0, then contracts the environment one site at a
+    time. The result is scaled by ``10 ** (mps1.exponent + mps2.exponent)``.
+
+    Parameters
+    ----------
+    mps1 : MPSType or MPOType
+        First network.
+    mps2 : MPSType or MPOType
+        Second network.
+
+    Returns
+    -------
+    Numeric
+        The overlap value scaled by the combined exponent.
+    """
     mps2 = mps2.copy()
     mps2.mangle_inner_()
     canonize(mps1, i=0)
@@ -344,7 +649,25 @@ def ovlp_slow(mps1: Union['MPSType', 'MPOType'], mps2: Union['MPSType', 'MPOType
 
 
 def distance(tn1, tn2, method='auto'):
-    """ Frobenius norm of tn1-tn2
+    """Compute the Frobenius norm of the difference ``tn1 - tn2``.
+
+    Both networks are copied and their exponents distributed across tensors
+    before calling :func:`quimb.tensor.tensor_network_distance`.
+
+    Parameters
+    ----------
+    tn1 : qtn.TensorNetwork
+        First network.
+    tn2 : qtn.TensorNetwork
+        Second network.
+    method : str
+        Distance method passed to quimb (e.g. ``'auto'``, ``'dense'``,
+        ``'overlap'``). Default ``'auto'``.
+
+    Returns
+    -------
+    float
+        The Frobenius distance between the two networks.
     """
     tn1 = tn1.copy()
     tn2 = tn2.copy()
@@ -355,15 +678,56 @@ def distance(tn1, tn2, method='auto'):
 
 
 def max_inner_bond(mpx: 'qtn.TensorNetwork1D'):
+    """Return the largest interior bond dimension of a 1D tensor network.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork1D
+        The MPS/MPO whose bonds are inspected.
+
+    Returns
+    -------
+    int
+        The maximum size over all interior bonds.
+    """
     bond_sizes = [mpx.bond_size(i, i + 1) for i in range(mpx.L - 1)]
     return np.max(bond_sizes)
 
 
 def inner_bond_sizes(mpx: 'qtn.TensorNetwork1D'):
+    """Return the list of interior bond dimensions of a 1D tensor network.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork1D
+        The MPS/MPO whose bonds are inspected.
+
+    Returns
+    -------
+    list of int
+        Sizes of each interior bond, from left to right.
+    """
     return [mpx.bond_size(i, i + 1) for i in range(mpx.L - 1)]
 
 
 def add_rand_noise(mpx: 'qtn.TensorNetwork', strength=0.001, inplace=False):
+    """Add Gaussian random noise to every tensor in a network.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork
+        The network to perturb.
+    strength : float
+        Standard deviation of the normally distributed noise added to each
+        tensor's data. Default 0.001.
+    inplace : bool
+        Modify ``mpx`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.TensorNetwork
+        The perturbed network.
+    """
     mpx = mpx if inplace else mpx.copy()
     for t in mpx.tensors:
         rand_t = quimb.randn(t.shape, scale=strength)
@@ -373,7 +737,27 @@ def add_rand_noise(mpx: 'qtn.TensorNetwork', strength=0.001, inplace=False):
 
 
 def expectation_value(mpx: 'MPSType', obs_mpo: 'MPOType', bra: 'MPSType' = None):
-    """ return norm of mps/mpo
+    """Compute the expectation value ``<bra| obs_mpo |mpx>``.
+
+    Aligns the bra, observable MPO, and ket index ids, then contracts the
+    three-network sandwich site by site. The result is scaled by
+    ``10 ** (mpx.exponent + obs_mpo.exponent + bra.exponent)``. A length-1
+    observable with sparse data is handled by a direct matrix product.
+
+    Parameters
+    ----------
+    mpx : MPSType
+        The ket state.
+    obs_mpo : MPOType
+        The observable operator, applied between bra and ket.
+    bra : MPSType, optional
+        The bra state; defaults to the conjugate of ``mpx`` (with mangled inner
+        bonds) when None.
+
+    Returns
+    -------
+    Numeric
+        The expectation value scaled by the combined exponent.
     """
     # print('MEAS EXPEC HELPER QUIMB')
     if bra is None:  bra = mpx.conj(mangle_inner=True)
@@ -416,20 +800,40 @@ def expectation_value(mpx: 'MPSType', obs_mpo: 'MPOType', bra: 'MPSType' = None)
 
 
 def singular_values(mpx: Union['MPSType', 'MPOType'], i: int, cur_orthog=None):
-    """ measures EE at bond i (between site i-1, i)
-        von Neumann entropy:  S = -tr (rho*ln(rho)), where rho is s.t. <B> = tr(rho*B)
-        quantum:  - \sum_i |a_i|^2 ln( |a_i|^2 )
-        classical:  ...
+    """Return the singular values at bond ``i`` (between sites i-1 and i).
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to inspect.
+    i : int
+        Bond index at which the Schmidt/singular values are computed.
+    cur_orthog : int or tuple, optional
+        Current orthogonality center, passed to quimb to avoid recanonizing.
+
+    Returns
+    -------
+    numpy.ndarray
+        The singular values at bond ``i``.
     """
     sing_vals = mpx.singular_values(i, cur_orthog=cur_orthog)
     return sing_vals
 
 
 def singular_values_all(mpx: Union['MPSType', 'MPOType']) -> list:
-    """ measures EE at bond i (between site i-1, i)
-        von Neumann entropy:  S = -tr (rho*ln(rho)), where rho is s.t. <B> = tr(rho*B)
-        quantum:  - \sum_i |a_i|^2 ln( |a_i|^2 )
-        classical:  ...
+    """Return the singular values at every interior bond.
+
+    Right-canonizes ``mpx`` first, then collects singular values bond by bond.
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to inspect (right-canonized in place).
+
+    Returns
+    -------
+    list of numpy.ndarray
+        Singular values for each interior bond, from left to right.
     """
     sing_vals = []
     mpx.right_canonize()
@@ -439,10 +843,24 @@ def singular_values_all(mpx: Union['MPSType', 'MPOType']) -> list:
 
 
 def entanglement_entropy(mpx: Union['MPSType', 'MPOType'], i: int, cur_orthog=None):
-    """ measures EE at bond i (between site i-1, i)
-        von Neumann entropy:  S = -tr (rho*ln(rho)), where rho is s.t. <B> = tr(rho*B)
-        quantum:  - \sum_i |a_i|^2 ln( |a_i|^2 )
-        classical:  ...
+    """Compute the von Neumann entanglement entropy at bond ``i``.
+
+    Normalizes the singular values at bond ``i`` and returns
+    ``S = -sum_i p_i log2(p_i)`` with ``p_i = sigma_i^2`` (base-2 entropy).
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to inspect.
+    i : int
+        Bond index (between sites i-1 and i) at which entropy is measured.
+    cur_orthog : int or tuple, optional
+        Current orthogonality center, passed to quimb to avoid recanonizing.
+
+    Returns
+    -------
+    float
+        The entanglement entropy at bond ``i``.
     """
     sing_vals = mpx.singular_values(i, cur_orthog=cur_orthog)
     sing_vals *= 1. / np.linalg.norm(sing_vals)
@@ -452,10 +870,19 @@ def entanglement_entropy(mpx: Union['MPSType', 'MPOType'], i: int, cur_orthog=No
 
 
 def entanglement_entropy_all(mpx: Union['MPSType', 'MPOType']) -> list:
-    """ measures EE at bond i (between site i-1, i)
-        von Neumann entropy:  S = -tr (rho*ln(rho)), where rho is s.t. <B> = tr(rho*B)
-        quantum:  - \sum_i |a_i|^2 ln( |a_i|^2 )
-        classical:  ...
+    """Compute the von Neumann entanglement entropy at every interior bond.
+
+    Right-canonizes ``mpx`` first, then evaluates the entropy bond by bond.
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to inspect (right-canonized in place).
+
+    Returns
+    -------
+    list of float
+        Entanglement entropy for each interior bond, from left to right.
     """
     EEs = []
     mpx.right_canonize()
@@ -464,8 +891,27 @@ def entanglement_entropy_all(mpx: Union['MPSType', 'MPOType']) -> list:
     return EEs
 
 
-def check_left_orthog(mpx: Union[Sequence, 'TN1Type'], right_ancillas: tuple[str] = None) -> int:
-    """ returns index of first tensor that is not left canonical
+def check_left_orthog(mpx: Union[Sequence, 'TN1Type'], right_ancillas: tuple[str] = None, verbose=False) -> int:
+    """Find the index of the first tensor that is not left-canonical.
+
+    Sweeps left to right contracting each tensor with its conjugate over the
+    shared right bond and checks the result is the identity (within 1e-12).
+
+    Parameters
+    ----------
+    mpx : Sequence or TN1Type
+        The MPS/MPO (or list of tensors) to check.
+    right_ancillas : tuple[str], optional
+        Extra index labels on the last tensor to include when checking
+        right-canonicality of the final site.
+    verbose : bool
+        Print the offending site and error magnitude when a violation is found.
+
+    Returns
+    -------
+    int
+        Index of the first non-left-canonical tensor (or the last index if all
+        pass).
     """
     L = len(mpx) if isinstance(mpx, (list, tuple)) else mpx.L
     for i in range(L):
@@ -495,18 +941,39 @@ def check_left_orthog(mpx: Union[Sequence, 'TN1Type'], right_ancillas: tuple[str
 
         if ind_size == 0:
             if np.linalg.norm(check_tens - 1) > 1.0e-12:
-                print('left orthog error', i, np.linalg.norm(check_tens - 1))
+                if verbose:
+                    print('left orthog error', i, np.linalg.norm(check_tens - 1))
                 break
         else:
             if np.linalg.norm(check_tens.data.reshape(ind_size, ind_size) - np.eye(ind_size)) / ind_size > 1.0e-12:
-                print('left orthog error', i, np.linalg.norm(check_tens.data.reshape(ind_size, -1) - np.eye(ind_size)))
+                if verbose:
+                    print('left orthog error', i, np.linalg.norm(check_tens.data.reshape(ind_size, -1) - np.eye(ind_size)))
                 break
 
     return i
 
 
-def check_right_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas: tuple[str] = None) -> int:
-    """ returns index of first tensor that is not left canonical
+def check_right_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas: tuple[str] = None, verbose=False) -> int:
+    """Find the index of the first tensor that is not right-canonical.
+
+    Sweeps right to left contracting each tensor with its conjugate over the
+    shared left bond and checks the result is the identity (within 1e-12).
+
+    Parameters
+    ----------
+    mpx : Sequence or TN1Type
+        The MPS/MPO (or list of tensors) to check.
+    left_ancillas : tuple[str], optional
+        Extra index labels on the first tensor to include when checking
+        left-canonicality of the initial site.
+    verbose : bool
+        Print the offending site and error magnitude when a violation is found.
+
+    Returns
+    -------
+    int
+        Index of the first non-right-canonical tensor (or the first index if
+        all pass).
     """
     L = len(mpx) if isinstance(mpx, (list, tuple)) else mpx.L
     for i in range(L - 1, -1, -1):
@@ -534,28 +1001,75 @@ def check_right_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas: tuple[str
 
         if ind_size == 0:
             if np.linalg.norm(check_tens - 1) > 1.0e-12:
-                print('right orthog error', i, np.linalg.norm(check_tens - 1))
+                if verbose:
+                    print('right orthog error', i, np.linalg.norm(check_tens - 1))
                 break
         else:
             if np.linalg.norm(check_tens.data.reshape(ind_size, ind_size) - np.eye(ind_size)) / ind_size > 1.0e-12:
-                print('right orthog error', i, np.linalg.norm(check_tens.data.reshape(ind_size, -1) - np.eye(ind_size)))
+                if verbose:
+                    print('right orthog error', i, np.linalg.norm(check_tens.data.reshape(ind_size, -1) - np.eye(ind_size)))
                 # print('check_tens', check_tens.data)
                 break
     return i
 
 
-def check_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas=None, right_ancillas=None) -> tuple[int, int]:
-    print('DMRG check orthog')
+def check_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas=None, right_ancillas=None, verbose=False) -> tuple[int, int]:
+    """Return the orthogonality center bounds of an mpx as a (left, right) pair.
+
+    Combines :func:`check_left_orthog` and :func:`check_right_orthog` to report
+    how far left- and right-canonical forms extend.
+
+    Parameters
+    ----------
+    mpx : Sequence or TN1Type
+        The MPS/MPO (or list of tensors) to check.
+    left_ancillas : tuple[str], optional
+        Extra index labels on the first tensor for the right-orthogonality
+        check.
+    right_ancillas : tuple[str], optional
+        Extra index labels on the last tensor for the left-orthogonality check.
+    verbose : bool
+        Print a diagnostic header if True.
+
+    Returns
+    -------
+    tuple[int, int]
+        ``(left, right)`` indices delimiting the canonical region.
+    """
+    if verbose:
+        print('DMRG check orthog')
     left = check_left_orthog(mpx, right_ancillas=right_ancillas)
     right = check_right_orthog(mpx, left_ancillas=left_ancillas)
     return left, right
 
 
 def pad_mps(mps: 'MPSType', mps_inds: Sequence[int], mps_L: int, inplace=False, pad_ind_size=None):
-    """ pad mps (with 1's) where padded mps is of length mps_L
-        and original mps corresponds to indices specified by mps_inds
-        mps_inds needs to be in increasing order
-        not an inplace operation
+    """Pad an MPS up to length ``mps_L`` by inserting trivial sites.
+
+    The original sites are placed at positions ``mps_inds`` (which must be in
+    increasing order) and gaps are filled with padding tensors of ones
+    (selected to a single component when ``pad_ind_size`` is None, else of size
+    ``pad_ind_size``). Not an inplace operation unless ``inplace`` is set.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to pad.
+    mps_inds : Sequence[int]
+        Target positions (increasing) of the original sites within the padded
+        chain. If None or already ``range(mps_L)``, ``mps`` is returned as is.
+    mps_L : int
+        Length of the resulting padded MPS.
+    inplace : bool
+        Pass through to the underlying renumbering as in place if True.
+    pad_ind_size : int, optional
+        Physical dimension of padding sites; if None, padding sites carry a
+        trivial (selected) physical index.
+
+    Returns
+    -------
+    MPSType
+        The padded MPS of length ``mps_L``.
     """
     if mps_inds is None or list(mps_inds) == list(range(mps_L)):
         return mps
@@ -626,7 +1140,30 @@ def pad_mps(mps: 'MPSType', mps_inds: Sequence[int], mps_L: int, inplace=False, 
 
 
 def mps_outerproduct(mps1: 'MPSType', mps2: 'MPSType', site_ind_id=None, site_tag_id=None, return_mps=True):
-    """ take outer product of mps1, mps2; fuse physical bonds into new physical bonds
+    """Form the site-wise outer product of two MPS.
+
+    At each site the two physical legs are either fused into one new physical
+    leg (``return_mps=True``) or kept as separate upper/lower legs of an MPO
+    (``return_mps=False``). Inner bonds are fused and exponents are summed.
+
+    Parameters
+    ----------
+    mps1 : MPSType
+        First MPS (must equal ``mps2`` in length and differ in ``site_ind_id``).
+    mps2 : MPSType
+        Second MPS.
+    site_ind_id : str, optional
+        Site index id of the result; defaults to ``mps1.site_ind_id``.
+    site_tag_id : str, optional
+        Site tag id of the result; defaults to ``mps1.site_tag_id``.
+    return_mps : bool
+        If True, fuse the two physical legs into one and return an MPS; if
+        False, return an MPO with separate upper/lower legs.
+
+    Returns
+    -------
+    MPSType or MPOType
+        The outer-product network.
     """
     assert (mps1.L == mps2.L), 'mps1 and mps2 need to have the same length'
 
@@ -666,7 +1203,25 @@ def mps_outerproduct(mps1: 'MPSType', mps2: 'MPSType', site_ind_id=None, site_ta
 
 
 def mpo_transpose(mpo_, mangle_inner=True, inplace=False):
-    """ switch upper and lower ind labels + reindex tensors (does not actually take transpose...)
+    """Swap an MPO's upper and lower index id labels (relabel only).
+
+    Exchanges ``upper_ind_id`` and ``lower_ind_id`` via a temporary name; this
+    relabels the legs without permuting tensor data, so it does not actually
+    transpose the underlying matrices.
+
+    Parameters
+    ----------
+    mpo_ : MPOType
+        The MPO to relabel.
+    mangle_inner : bool
+        Mangle inner bond labels to keep them unique if True.
+    inplace : bool
+        Modify ``mpo_`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    MPOType
+        The relabeled MPO.
     """
     mpo_ = mpo_ if inplace else mpo_.copy()
     uid = mpo_.upper_ind_id
@@ -679,7 +1234,25 @@ def mpo_transpose(mpo_, mangle_inner=True, inplace=False):
 
 
 def mpo_flip_upper_lower(mpo_, mangle_inner=True, inplace=False):
-    """ switch upper and lower ind labels w/o reindexing tensors (actual transpose...)
+    """Swap an MPO's upper and lower index ids without reindexing tensors.
+
+    Sets the private ``_upper_ind_id``/``_lower_ind_id`` attributes directly so
+    the existing leg labels are reinterpreted, effecting an actual transpose of
+    the operator (the data stays put but the roles of the legs flip).
+
+    Parameters
+    ----------
+    mpo_ : MPOType
+        The MPO to transpose.
+    mangle_inner : bool
+        Mangle inner bond labels to keep them unique if True.
+    inplace : bool
+        Modify ``mpo_`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    MPOType
+        The transposed MPO.
     """
     mpo_ = mpo_ if inplace else mpo_.copy()
     uid = mpo_.upper_ind_id
@@ -692,12 +1265,47 @@ def mpo_flip_upper_lower(mpo_, mangle_inner=True, inplace=False):
 
 
 def mpo_conj_transpose(mpo_, mangle_inner=True, inplace=False):
+    """Return the conjugate transpose (adjoint) of an MPO.
+
+    Flips upper/lower legs via :func:`mpo_flip_upper_lower` and conjugates the
+    tensor data.
+
+    Parameters
+    ----------
+    mpo_ : MPOType
+        The MPO to take the adjoint of.
+    mangle_inner : bool
+        Mangle inner bond labels to keep them unique if True.
+    inplace : bool
+        Modify ``mpo_`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    MPOType
+        The conjugate-transposed MPO.
+    """
     mpo_ = mpo_flip_upper_lower(mpo_, mangle_inner=mangle_inner, inplace=inplace)
     mpo_.conj(inplace=True)
     return mpo_
 
 
 def mps_flip_lr(mps: 'qtn.MatrixProductState', inplace=True):
+    """Reverse the site ordering of an MPS (left-right flip).
+
+    Remaps every site tag and physical index id ``i -> L-1-i``.
+
+    Parameters
+    ----------
+    mps : qtn.MatrixProductState
+        The MPS to reverse; ``None`` returns ``None``.
+    inplace : bool
+        Modify ``mps`` in place if True (default), else operate on a copy.
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The site-reversed MPS.
+    """
     if mps is None:
         return
     mps = mps if inplace else mps.copy()
@@ -710,6 +1318,28 @@ def mps_flip_lr(mps: 'qtn.MatrixProductState', inplace=True):
 
 
 def mpo_flip_lr(mpo: 'qtn.MatrixProductOperator', upper_L=None, lower_L=None, inplace=True):
+    """Reverse the site ordering of an MPO (left-right flip).
+
+    Remaps site tags ``i -> L-1-i`` and independently remaps the upper and
+    lower physical index ids, allowing for MPOs where the upper and lower legs
+    span different numbers of sites.
+
+    Parameters
+    ----------
+    mpo : qtn.MatrixProductOperator
+        The MPO to reverse.
+    upper_L : int, optional
+        Number of upper-leg sites to remap; defaults to ``mpo.L``.
+    lower_L : int, optional
+        Number of lower-leg sites to remap; defaults to ``mpo.L``.
+    inplace : bool
+        Modify ``mpo`` in place if True (default), else operate on a copy.
+
+    Returns
+    -------
+    qtn.MatrixProductOperator
+        The site-reversed MPO.
+    """
     mpo = mpo if inplace else mpo.copy()
     ## in case not all mpo's have upper AND lower inds (but inds are indexed from 0, ..., upper/lower_L)
     upper_L = mpo.L if upper_L is None else upper_L
@@ -724,8 +1354,31 @@ def mpo_flip_lr(mpo: 'qtn.MatrixProductOperator', upper_L=None, lower_L=None, in
 
 
 def renumber_mps(tn: 'MPSType', old_inds, new_inds, site_tag_id=None, site_ind_id=None, inplace=False) -> 'MPSType':
-    """ eg. when some sites are removed/integrated out of mps, renumber tensors
-        note: not designed to change site_tag_id, site_ind_id
+    """Renumber selected MPS sites from old indices to new indices.
+
+    Useful, e.g., when some sites are removed/integrated out and the remaining
+    tensors must be renumbered. Not designed to change the ``site_tag_id`` /
+    ``site_ind_id`` format strings themselves.
+
+    Parameters
+    ----------
+    tn : MPSType
+        The MPS whose sites are renumbered.
+    old_inds : Sequence[int]
+        Current site numbers to remap.
+    new_inds : Sequence[int]
+        New site numbers (parallel to ``old_inds``).
+    site_tag_id : str, optional
+        Site tag id format; defaults to ``tn.site_tag_id``.
+    site_ind_id : str, optional
+        Site index id format; defaults to ``tn.site_ind_id``.
+    inplace : bool
+        Modify ``tn`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    MPSType
+        The renumbered MPS.
     """
     tn = tn if inplace else tn.copy()
     site_tag_id = tn.site_tag_id if site_tag_id is None else site_tag_id
@@ -741,8 +1394,33 @@ def renumber_mps(tn: 'MPSType', old_inds, new_inds, site_tag_id=None, site_ind_i
 
 def renumber_mpo(tn: 'MPOType', old_inds, new_inds, site_tag_id=None, upper_ind_id=None, lower_ind_id=None,
                  inplace=False) -> 'MPOType':
-    """ eg. when some sites are removed/integrated out of mps, renumber tensors
-        note: not designed to change site_tag_id, upper_ind_id, lower_ind_id
+    """Renumber selected MPO sites from old indices to new indices.
+
+    The MPO analogue of :func:`renumber_mps`; remaps both upper and lower legs
+    plus the site tag. Not designed to change the ``site_tag_id`` /
+    ``upper_ind_id`` / ``lower_ind_id`` format strings themselves.
+
+    Parameters
+    ----------
+    tn : MPOType
+        The MPO whose sites are renumbered.
+    old_inds : Sequence[int]
+        Current site numbers to remap.
+    new_inds : Sequence[int]
+        New site numbers (parallel to ``old_inds``).
+    site_tag_id : str, optional
+        Site tag id format; defaults to ``tn.site_tag_id``.
+    upper_ind_id : str, optional
+        Upper index id format; defaults to ``tn.upper_ind_id``.
+    lower_ind_id : str, optional
+        Lower index id format; defaults to ``tn.lower_ind_id``.
+    inplace : bool
+        Modify ``tn`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    MPOType
+        The renumbered MPO.
     """
     tn = tn if inplace else tn.copy()
     site_tag_id = tn.site_tag_id if site_tag_id is None else site_tag_id
@@ -759,7 +1437,26 @@ def renumber_mpo(tn: 'MPOType', old_inds, new_inds, site_tag_id=None, upper_ind_
 
 
 def match_inner_inds(mps, ref_mps, inplace=True, append=''):
-    """ match inner bond dimensions of mps to reference mps
+    """Relabel an MPS's inner bond indices to match a reference MPS.
+
+    For each interior bond, reindexes the bond of ``mps`` to the corresponding
+    bond label of ``ref_mps`` (optionally with ``append`` appended).
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS whose bond labels are changed.
+    ref_mps : MPSType
+        Reference MPS supplying the target bond labels.
+    inplace : bool
+        Modify ``mps`` in place if True (default), else operate on a copy.
+    append : str
+        Suffix appended to each reference bond label before assigning.
+
+    Returns
+    -------
+    MPSType
+        The MPS with matched inner bond labels.
     """
     mps = mps if inplace else mps.copy()
     for i in range(mps.L - 1):
@@ -771,7 +1468,23 @@ def match_inner_inds(mps, ref_mps, inplace=True, append=''):
 
 
 def replace_mps(mps: qtn.MatrixProductState, mps_new: qtn.MatrixProductState) -> 'MPSType':
-    """ replace data in mps with data of mps_new. inplace operation
+    """Copy the tensor data of ``mps_new`` into ``mps`` (in place).
+
+    For each site, aligns index ordering (bonds and physical leg) between the
+    two MPS and overwrites ``mps``'s data with that of ``mps_new``; the
+    exponent is copied too.
+
+    Parameters
+    ----------
+    mps : qtn.MatrixProductState
+        The MPS whose data is overwritten.
+    mps_new : qtn.MatrixProductState
+        The MPS supplying the new data and exponent.
+
+    Returns
+    -------
+    MPSType
+        ``mps`` with replaced data.
     """
     for i in range(mps.L):
         new = mps_new[i]
@@ -794,8 +1507,28 @@ def replace_mps(mps: qtn.MatrixProductState, mps_new: qtn.MatrixProductState) ->
 
 
 def mps_to_diag_mpo(mps: 'MPSType', upper_ind_id=None, lower_ind_id=None, sparse=False) -> 'MPOType':
-    """ change MPS to MPO with elements of MPS along the diagonal
-        TODO: make these sparse matrices?
+    """Convert an MPS into a diagonal MPO carrying the MPS entries on its diagonal.
+
+    Each physical leg is split into upper/lower legs through COPY (delta)
+    tensors so the resulting operator is diagonal in the physical basis. A
+    length-1 MPS can be built directly as a sparse CSR diagonal when
+    ``sparse=True``.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to embed on the diagonal.
+    upper_ind_id : str, optional
+        Upper index id of the output MPO; left at the derived default if None.
+    lower_ind_id : str, optional
+        Lower index id of the output MPO; left at the derived default if None.
+    sparse : bool
+        For a length-1 MPS, build the diagonal as a scipy.sparse CSR array.
+
+    Returns
+    -------
+    MPOType
+        The diagonal MPO.
     """
     bond_name = mps.site_ind_id
     tens_name = mps.site_tag_id
@@ -851,7 +1584,25 @@ def mps_to_diag_mpo(mps: 'MPSType', upper_ind_id=None, lower_ind_id=None, sparse
 
 
 def zipup_fuse(mpx, inplace=False, direction=1):
-    """ fuse bonds using zipup method
+    """Fuse/recompress multi-bonds between neighbouring tensors via a zip-up sweep.
+
+    Sweeps along the chain splitting each tensor (SVD, absorbing to the right,
+    using module ``CUTOFF``/``CUTOFF_MODE``) and contracting the remainder into
+    the neighbour, falling back to the eig method on linear-algebra failure.
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to fuse.
+    inplace : bool
+        Modify ``mpx`` in place if True, else operate on a copy.
+    direction : int
+        Sweep direction: ``> 0`` left-to-right, ``<= 0`` right-to-left.
+
+    Returns
+    -------
+    MPSType or MPOType
+        The fused network.
     """
     mpx = mpx if inplace else mpx.copy()
 
@@ -891,7 +1642,32 @@ def zipup_fuse(mpx, inplace=False, direction=1):
 
 # @profile
 def apply(mpo1, mpx2, compress=False, verbose=False, compress_opts: dict = None) -> Union['MPSType', 'MPOType']:
-    """ allows for mpo1, mpx2 to have different site_tag_id's, and be of length 1
+    """Apply an MPO to an MPS/MPO by exact contraction, optionally compressing.
+
+    Aligns the operator's lower legs with ``mpx2``'s physical legs and contracts
+    site by site (handling sparse length-1 operators and an IndexError fallback
+    in quimb). Exponents of the two networks are summed. ``mpo1.site_tag_id`` is
+    set to match ``mpx2``.
+
+    Parameters
+    ----------
+    mpo1 : MPOType
+        The operator to apply; may have a different ``site_tag_id`` or be
+        length 1.
+    mpx2 : MPSType or MPOType
+        The state/operator the MPO acts on.
+    compress : bool
+        Compress the result (via :func:`compress`) if True (only for L > 1).
+    verbose : bool
+        Print diagnostics during compression if True.
+    compress_opts : dict, optional
+        Options forwarded to :func:`compress` (reads keys such as
+        ``'max_bond'``, ``'cutoff'``, ``'cutoff_mode'``, ``'form'``).
+
+    Returns
+    -------
+    MPSType or MPOType
+        The result of the application.
     """
     mpo1.site_tag_id = mpx2.site_tag_id
 
@@ -984,7 +1760,33 @@ def apply(mpo1, mpx2, compress=False, verbose=False, compress_opts: dict = None)
 # @profile
 def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
                 compress=False, verbose=False, compress_opts: dict = None) -> Union['MPSType', 'MPOType']:
-    """ apply mpo1 to mpx2; perform approximate contraction
+    """Apply an MPO to an MPS/MPO using the approximate zip-up contraction.
+
+    Sweeps along the chain contracting operator and state tensors, splitting
+    (SVD, absorbing right) on the fly to bound the bond dimension, normalizing
+    each new tensor and accumulating ``log10`` norms into the exponent, with an
+    eig-based retry when nans appear. The starting/final canonical ``form`` is
+    chosen so the optional final compression yields the requested form.
+
+    Parameters
+    ----------
+    mpo1 : MPOType
+        The operator to apply.
+    mpx2 : MPSType or MPOType
+        The state/operator the MPO acts on.
+    compress : bool
+        Perform a final :func:`compress` pass if True.
+    verbose : bool
+        Print diagnostics (e.g. nan retries) if True.
+    compress_opts : dict, optional
+        Options forwarded to the splits and final compression; ``'cutoff'`` and
+        ``'cutoff_mode'`` default to the module constants and ``'form'`` (default
+        ``'right'``) controls sweep direction.
+
+    Returns
+    -------
+    MPSType or MPOType or None
+        The contracted result, or ``None`` if a zero norm is encountered.
     """
     mpo1.site_tag_id = mpx2.site_tag_id
 
@@ -1069,7 +1871,8 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
                 tensL, tensR = new_tens.split(lix, method='eig', absorb='right', cutoff_mode=CUTOFF_MODE,
                                               right_inds=A_idx + x_idx,
                                               cutoff=compress_opts.get('cutoff', CUTOFF), ltags=(x.site_tag(0)))
-                print('apply zipup split yielded nans', 0, new_tens.norm())
+                if verbose:
+                    print('apply zipup split yielded nans', 0, new_tens.norm())
                 it += 1
                 if it > 10:
                     raise ValueError('apply zipup split yielding nans')
@@ -1101,7 +1904,8 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
                     tensL, tensR = new_tens.split(lix, method='eig', absorb='right', cutoff_mode=CUTOFF_MODE,
                                                   right_inds=A_idx + x_idx,
                                                   cutoff=compress_opts.get('cutoff', CUTOFF), ltags=(x.site_tag(i)))
-                    print('apply zipup split yielded nans', i, new_tens.norm())
+                    if verbose:
+                        print('apply zipup split yielded nans', i, new_tens.norm())
                     it += 1
                     if it > 10:
                         raise ValueError('apply zipup split yielding nans')
@@ -1133,7 +1937,8 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
                 tensL, tensR = new_tens.split(lix, method='eig', absorb='right', cutoff_mode=CUTOFF_MODE,
                                               right_inds=A_idx + x_idx,
                                               cutoff=compress_opts.get('cutoff', CUTOFF), ltags=(x.site_tag(x.L - 1)))
-                print('apply zipup split yielded nans: site', x.L - 1, new_tens.norm())
+                if verbose:
+                    print('apply zipup split yielded nans: site', x.L - 1, new_tens.norm())
                 it += 1
                 if it > 10:
                     raise ValueError('apply zipup split yielding nans')
@@ -1165,7 +1970,8 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
                     tensL, tensR = new_tens.split(lix, method='eig', absorb='right', cutoff_mode=CUTOFF_MODE,
                                                   right_inds=A_idx + x_idx,
                                                   cutoff=compress_opts.get('cutoff', CUTOFF), ltags=(x.site_tag(i)))
-                    print('apply zipup split yielded nans: site', i, new_tens.norm())
+                    if verbose:
+                        print('apply zipup split yielded nans: site', i, new_tens.norm())
                     it += 1
                     if it > 10:
                         raise ValueError('apply zipup split yielding nans')
@@ -1195,9 +2001,47 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
 def apply_rdm(mpo1: 'MPOType', mps2: 'MPSType', bra_mpo1: 'MPOType' = None, bra_mps2: 'MPSType' = None,
               direction=1, left_env=None, right_env=None, open_end=False, compress_opts: dict = None,
               compress=True, verbose=False) -> Union['MPSType', tuple['MPSType', 'qtn.Tensor']]:
-    """ direction < 0:  l2r.  end is left canonical.  needs left_rdm if have left ancilla
-        direction > 0:  r2l.  end is right canonical  needs right_rdm if have right ancilla
-        compress:  do compression in reverse sweep
+    """Apply an MPO to an MPS using the reduced-density-matrix (RDM) scheme.
+
+    Builds environment tensors from one end, forms a reduced density matrix at
+    each site, diagonalizes it to obtain truncated isometries (eigenvectors of
+    the largest eigenvalues, capped by ``max_bond`` / ``cutoff``), and strings
+    them into the result MPS. When ``compress`` is True the sweep direction is
+    reversed and a final compression puts the state in the matching canonical
+    form. A length-1 MPO falls back to :func:`apply`.
+
+    Parameters
+    ----------
+    mpo1 : MPOType
+        The operator to apply.
+    mps2 : MPSType
+        The state acted on.
+    bra_mpo1 : MPOType, optional
+        Bra-side operator; internally regenerated as the conjugate of ``mpo1``.
+    bra_mps2 : MPSType, optional
+        Bra-side state; internally regenerated as the conjugate of ``mps2``.
+    direction : int
+        ``< 0``: left-to-right, result left-canonical; ``> 0``: right-to-left,
+        result right-canonical. Negated internally when ``compress`` is True.
+    left_env : qtn.Tensor, optional
+        Precomputed left environment (used when ``direction < 0``).
+    right_env : qtn.Tensor, optional
+        Precomputed right environment (used when ``direction > 0``).
+    open_end : bool
+        If True, leave the terminal site open and also return the carry tensor
+        ``C_tens``.
+    compress_opts : dict, optional
+        Compression options; reads ``'cutoff'`` (default CUTOFF) and
+        ``'max_bond'`` (default None) and sets ``'form'`` for the final pass.
+    compress : bool
+        Perform the reverse-sweep compression if True.
+    verbose : bool
+        Print environment/RDM diagnostics if True.
+
+    Returns
+    -------
+    MPSType or tuple[MPSType, qtn.Tensor]
+        The new MPS, plus the carry tensor when ``open_end`` is True.
     """
     if mpo1.L == 1:
         return apply(mpo1, mps2)
@@ -1209,7 +2053,8 @@ def apply_rdm(mpo1: 'MPOType', mps2: 'MPSType', bra_mpo1: 'MPOType' = None, bra_
     cutoff = compress_opts.get('cutoff', CUTOFF)
     max_bond = compress_opts.get('max_bond', None)
 
-    print('mpo1', mpo1.max_bond(), 'mps2', mps2.max_bond())
+    if verbose:
+        print('mpo1', mpo1.max_bond(), 'mps2', mps2.max_bond())
     if verbose:
         print('mpo1', mpo1.max_bond(), 'mps2', mps2.max_bond())
         print('apply rdm mpo1', mpo1)
@@ -1379,6 +2224,30 @@ def apply_rdm(mpo1: 'MPOType', mps2: 'MPSType', bra_mpo1: 'MPOType' = None, bra_
 
 def sum_list(*mpxes: Union[qtn.MatrixProductState, qtn.MatrixProductOperator], zipup=False, inplace=False,
              compress=False, compress_opts: dict = None):
+    """Sum an arbitrary number of MPS/MPO operands, skipping ``None`` terms.
+
+    Accumulates the terms with :func:`add_MPO` or :func:`add_MPS` depending on
+    type, optionally compressing the running total after each addition.
+
+    Parameters
+    ----------
+    *mpxes : qtn.MatrixProductState or qtn.MatrixProductOperator
+        The operands to sum; ``None`` entries are ignored.
+    zipup : bool
+        Accepted for signature compatibility (passed through is not used here).
+    inplace : bool
+        Accepted for signature compatibility.
+    compress : bool
+        Compress the running total after each addition if True.
+    compress_opts : dict, optional
+        Options forwarded to :func:`compress` (e.g. ``'max_bond'``,
+        ``'cutoff'``).
+
+    Returns
+    -------
+    qtn.MatrixProductState or qtn.MatrixProductOperator or None
+        The summed network, or ``None`` if all operands were ``None``.
+    """
     tot_mpx = None
     for mpx in mpxes:
         if mpx is None:  continue
@@ -1400,10 +2269,37 @@ def sum_list(*mpxes: Union[qtn.MatrixProductState, qtn.MatrixProductOperator], z
 
 def add_MPS_target(mps1: qtn.MatrixProductState, mps2: qtn.MatrixProductState, inplace=False,
                    direction=1, do_final_update=True,
-                   compress_opts: dict = None, ):
-    """ add MPS while accounting for their norms contained in mps.exponent
-        if do_final_update = False, don't actually add mps2 to mps1, but instead
-            only expands mps1 basis to include mps2
+                   compress_opts: dict = None, verbose=False, ):
+    """Add two MPS via a DMRG-style sweep that targets ``mps1``'s basis.
+
+    Accounts for the norms stored in each ``mps.exponent``, canonizes both
+    operands, then sweeps updating one site at a time (``loc.update_1site``) and
+    projecting ``mps2`` onto the growing ``mps1`` basis (``loc.decimate``). With
+    ``do_final_update=False`` the terminal site is not updated, so ``mps1``'s
+    basis is merely expanded to include ``mps2`` rather than the sum formed.
+
+    Parameters
+    ----------
+    mps1 : qtn.MatrixProductState
+        First MPS; ``None``/``-inf`` exponent returns a copy of ``mps2``.
+    mps2 : qtn.MatrixProductState
+        Second MPS; ``None``/``-inf`` exponent returns ``mps1``.
+    inplace : bool
+        Modify ``mps1`` in place if True, else operate on a copy.
+    direction : int
+        ``>= 0`` sweeps left-to-right (end left-canonical); ``< 0`` sweeps
+        right-to-left (end right-canonical).
+    do_final_update : bool
+        Whether to perform the final-site update (form the actual sum).
+    compress_opts : dict, optional
+        Reads ``'cutoff'`` (default CUTOFF) and ``'max_bond'`` (default MAXBOND).
+    verbose : bool
+        Print exponent/orthogonality diagnostics if True.
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The summed (or basis-expanded) MPS.
     """
     cutoff = compress_opts.get('cutoff', CUTOFF) if compress_opts is not None else CUTOFF
     max_bond = compress_opts.get('max_bond', MAXBOND) if compress_opts is not None else MAXBOND
@@ -1416,7 +2312,8 @@ def add_MPS_target(mps1: qtn.MatrixProductState, mps2: qtn.MatrixProductState, i
             return mps1.copy()
 
     out = mps1 if inplace else mps1.copy()
-    print('mps1', mps1.exponent, out.exponent)
+    if verbose:
+        print('mps1', mps1.exponent, out.exponent)
     tmp = mps2.reindex_sites(mps1.site_ind_id)
     tmp = match_inner_inds(tmp, mps1, inplace=True)
 
@@ -1462,7 +2359,28 @@ def add_MPS_target(mps1: qtn.MatrixProductState, mps2: qtn.MatrixProductState, i
 
 def target_MPS(mps: qtn.MatrixProductState, target_mps: qtn.MatrixProductState, inplace=False,
                site: int = 0):
-    """ project mps onto space defined by target_mps
+    """Project an MPS onto the subspace spanned by ``target_mps``.
+
+    Computes the left and right overlap environments between ``mps`` and the
+    (conjugated, canonized) ``target_mps`` about ``site``, contracts them with
+    ``mps[site]`` to form the projected central tensor, and rebuilds the MPS
+    using ``target_mps``'s tensors away from ``site``.
+
+    Parameters
+    ----------
+    mps : qtn.MatrixProductState
+        The MPS to project.
+    target_mps : qtn.MatrixProductState
+        The MPS defining the target subspace.
+    inplace : bool
+        Modify ``mps`` in place if True, else operate on a copy.
+    site : int
+        The central site about which the projection is performed.
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The projected MPS.
     """
 
     target_mps = target_mps.conj(inplace=False)
@@ -1517,9 +2435,34 @@ def target_MPS(mps: qtn.MatrixProductState, target_mps: qtn.MatrixProductState, 
 def add_MPS_list(mps_list: Sequence[qtn.MatrixProductState], inplace=False,
                  direction=1, do_final_update=True, do_canonize=True,
                  compress_opts: dict = None, ):
-    """ add MPS while accounting for their norms contained in mps.exponent
-        if do_final_update = False, don't actually add mps2 to mps1, but instead
-            only expands mps1 basis to include mps2
+    """Add a list of MPS together via a single DMRG-style sweep.
+
+    Generalizes :func:`add_MPS_target` to many operands: all terms are reindexed
+    and matched to the first non-trivial term ``out``, optionally canonized, then
+    a single sweep updates each site of ``out`` from all operands
+    (``loc.update_1site``) while projecting the rest onto ``out``'s basis
+    (``loc.decimate``); a final compression sets the canonical form. With
+    ``do_final_update=False`` only the basis is expanded.
+
+    Parameters
+    ----------
+    mps_list : Sequence[qtn.MatrixProductState]
+        The MPS operands to sum; leading ``None``/``-inf`` terms are skipped.
+    inplace : bool
+        Modify the first operand in place if True.
+    direction : int
+        ``< 0``: final form right-canonical; otherwise left-canonical.
+    do_final_update : bool
+        Whether to perform the final-site update and compression.
+    do_canonize : bool
+        Whether to canonize operands before sweeping.
+    compress_opts : dict, optional
+        Reads ``'cutoff'`` (default CUTOFF) and ``'max_bond'`` (default MAXBOND).
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The summed (or basis-expanded) MPS.
     """
     cutoff = compress_opts.get('cutoff', CUTOFF) if compress_opts is not None else CUTOFF
     max_bond = compress_opts.get('max_bond', MAXBOND) if compress_opts is not None else MAXBOND
@@ -1604,7 +2547,34 @@ def add_MPS_list(mps_list: Sequence[qtn.MatrixProductState], inplace=False,
 
 def add_MPS(mps1: qtn.MatrixProductState, mps2: qtn.MatrixProductState, zipup=False, inplace=False,
             compress=False, compress_opts: dict = None, verbose=False):
-    """ add MPS while accounting for their norms contained in mps.exponent
+    """Add two MPS directly (or via zip-up), accounting for their exponents.
+
+    Canonizes both operands, rescales ``mps2``'s exponent relative to ``mps1``,
+    then either uses :func:`add_zipup` or quimb's ``add_MPS`` followed by an
+    optional :func:`compress`.
+
+    Parameters
+    ----------
+    mps1 : qtn.MatrixProductState
+        First MPS; ``None``/``-inf`` exponent returns a copy of ``mps2``.
+    mps2 : qtn.MatrixProductState
+        Second MPS; ``None``/``-inf`` exponent returns ``mps1``.
+    zipup : bool
+        Use the zip-up addition (:func:`add_zipup`) instead of direct addition.
+    inplace : bool
+        Modify ``mps1`` in place if True, else operate on a copy.
+    compress : bool
+        Compress the result if True.
+    compress_opts : dict, optional
+        Options forwarded to compression (e.g. ``'max_bond'``, ``'cutoff'``,
+        ``'form'``).
+    verbose : bool
+        Print diagnostics during compression if True.
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The summed MPS.
     """
     if mps1 is None or np.isneginf(mps1.exponent):   return mps2.copy()
     if mps2 is None or np.isneginf(mps2.exponent):
@@ -1642,7 +2612,31 @@ def add_MPS(mps1: qtn.MatrixProductState, mps2: qtn.MatrixProductState, zipup=Fa
 
 def add_MPO(mpo1: qtn.MatrixProductOperator, mpo2: qtn.MatrixProductOperator,
             zipup=False, inplace=False, compress=False, compress_opts: dict = None):
-    """ add MPOs while accounting for their norms contained in mps.exponent
+    """Add two MPOs, aligning their leg ids and accounting for their exponents.
+
+    Reconciles ``mpo2``'s upper/lower index ids with ``mpo1`` (transposing if
+    they are swapped), rescales its exponent, then adds via :func:`add_zipup`,
+    quimb's ``add_MPO``, or a direct sparse sum for length-1 sparse operators.
+
+    Parameters
+    ----------
+    mpo1 : qtn.MatrixProductOperator
+        First MPO; ``None``/``-inf`` exponent returns a copy of ``mpo2``.
+    mpo2 : qtn.MatrixProductOperator
+        Second MPO; ``None``/``-inf`` exponent returns ``mpo1``.
+    zipup : bool
+        Use the zip-up addition (:func:`add_zipup`) instead of direct addition.
+    inplace : bool
+        Modify ``mpo1`` in place if True, else operate on a copy.
+    compress : bool
+        Compress the result if True.
+    compress_opts : dict, optional
+        Options forwarded to compression (e.g. ``'max_bond'``, ``'cutoff'``).
+
+    Returns
+    -------
+    qtn.MatrixProductOperator
+        The summed MPO.
     """
     if mpo1 is None or np.isneginf(mpo1.exponent):   return mpo2.copy()
     if mpo2 is None or np.isneginf(mpo2.exponent):
@@ -1688,10 +2682,36 @@ def add_submpx(mpx1: qtn.TensorNetwork1D,
                mpx2: qtn.TensorNetwork1D,
                mpx2_ind_range: tuple[int, int], open_bc=False,
                inplace=False, compress=False, compress_opts: dict = None):
-    """ add mpx1 + mpx2, where mpx2 < mpx1 (projected onto subspace)
-        (must have same order, mpx2 must be a continuous chunk within range
-        specified by mps
-        mpx1 should be in canonical form around the chunk on which mpx2 acts
+    """Add a shorter mpx2 into a contiguous sub-range of a longer mpx1.
+
+    ``mpx2`` acts on the continuous site range ``mpx2_ind_range`` of ``mpx1``
+    (same site ordering). Tensors are combined with direct products over the
+    physical (and boundary) indices; ``mpx1`` should be in canonical form
+    around that chunk. With ``open_bc`` the boundary ancilla bonds are handled
+    by direct-producting the neighbouring tensors and extending the active range.
+
+    Parameters
+    ----------
+    mpx1 : qtn.TensorNetwork1D
+        The longer host network.
+    mpx2 : qtn.TensorNetwork1D
+        The shorter network added into ``mpx1``'s sub-range.
+    mpx2_ind_range : tuple[int, int]
+        ``(min_ind, max_ind)`` site range of ``mpx1`` that ``mpx2`` covers.
+    open_bc : bool
+        If True, treat the chunk boundaries as open rather than summing over the
+        boundary ancilla bonds.
+    inplace : bool
+        Modify ``mpx1`` in place if True, else operate on a copy.
+    compress : bool
+        Canonize and compress the active range after adding if True.
+    compress_opts : dict, optional
+        Options forwarded to :func:`compress_tens_list`.
+
+    Returns
+    -------
+    qtn.TensorNetwork1D
+        The combined network.
     """
     new_mpx1 = mpx1 if inplace else mpx1.copy()
     mpx2 = mpx2.copy()
@@ -1708,6 +2728,20 @@ def add_submpx(mpx1: qtn.TensorNetwork1D,
     # print('add submpx active range', active_range)
 
     def get_ancilla_ind(tens, shared_inds):
+        """Return the single index of ``tens`` not in ``shared_inds`` (an ancilla).
+
+        Parameters
+        ----------
+        tens : qtn.Tensor
+            The tensor to inspect.
+        shared_inds : sequence of str
+            Index labels considered shared (physical or bond legs).
+
+        Returns
+        -------
+        str or None
+            The leftover ancilla index label, or None if none remain.
+        """
         anc_ind = None
         for ind in tens.inds:
             if not ind in shared_inds:
@@ -1718,6 +2752,20 @@ def add_submpx(mpx1: qtn.TensorNetwork1D,
         return anc_ind
 
     def get_phys_inds(mpx, site_ind):
+        """Return the physical index labels of ``mpx`` at a given site.
+
+        Parameters
+        ----------
+        mpx : qtn.TensorNetwork1D
+            The MPS or MPO.
+        site_ind : int
+            Site number whose physical leg(s) are requested.
+
+        Returns
+        -------
+        list of str
+            ``[upper, lower]`` for an MPO, ``[site]`` for an MPS.
+        """
         if isinstance(mpx, qtn.MatrixProductOperator):
             return [mpx.upper_ind_id.format(site_ind), mpx.lower_ind_id.format(site_ind)]
         elif isinstance(mpx, qtn.MatrixProductState):
@@ -1825,7 +2873,31 @@ def add_submpx(mpx1: qtn.TensorNetwork1D,
 def add_zipup(mpx1: Union[qtn.MatrixProductState, qtn.MatrixProductOperator],
               mpx2: Union[qtn.MatrixProductState, qtn.MatrixProductOperator],
               inplace=False, compress=False, compress_opts: dict = None):
-    """ apply mpo1 to mpx2; perform approximate contraction
+    """Add two MPS/MPO of equal length via a zip-up (direct-product + compress) sweep.
+
+    Sweeps along the chain forming the direct product of corresponding tensors
+    over the physical legs and compressing each adjacent pair on the fly
+    (:func:`compress_tens_list`), accumulating norms into the exponent. The
+    pre-compression ``form`` is flipped when ``compress`` is True so the final
+    pass yields the requested form.
+
+    Parameters
+    ----------
+    mpx1 : qtn.MatrixProductState or qtn.MatrixProductOperator
+        First operand; the result is built from a copy (or in place).
+    mpx2 : qtn.MatrixProductState or qtn.MatrixProductOperator
+        Second operand (must match ``mpx1`` in length).
+    inplace : bool
+        Modify ``mpx1`` in place if True, else operate on a copy.
+    compress : bool
+        Perform a final :func:`compress` pass if True.
+    compress_opts : dict, optional
+        Reads ``'form'`` (default ``'right'``) and is forwarded to compression.
+
+    Returns
+    -------
+    qtn.MatrixProductState or qtn.MatrixProductOperator or None
+        The summed network, or ``None`` if a tensor collapses to empty.
     """
     if mpx1.L != mpx2.L:
         raise ValueError("Can't add MPS with another of different length.")
@@ -1881,6 +2953,23 @@ def add_zipup(mpx1: Union[qtn.MatrixProductState, qtn.MatrixProductOperator],
 
 
 def regularize(mpx: Union['MPSType', 'MPOType'], inplace=True):
+    """Reset an mpx's exponent to its actual norm and spread it over the tensors.
+
+    Sets ``mpx.exponent = log10(norm(mpx))`` and then distributes that exponent
+    evenly across the constituent tensors.
+
+    Parameters
+    ----------
+    mpx : MPSType or MPOType
+        The network to regularize.
+    inplace : bool
+        Modify ``mpx`` in place if True (default), else operate on a copy.
+
+    Returns
+    -------
+    MPSType or MPOType
+        The regularized network.
+    """
     mpx = mpx if inplace else mpx.copy()
     mpx_norm = norm(mpx)
     mpx._exponent = np.log10(mpx_norm)
@@ -1889,7 +2978,39 @@ def regularize(mpx: Union['MPSType', 'MPOType'], inplace=True):
 
 
 def canonize(mps: Union['MPSType', 'MPOType'], scale=True, form='right', i=None, cur_orthog=None, bra=None):
-    """ canonize MPS around site i. inplace operation
+    """Canonicalize an MPS/MPO around a site, optionally absorbing the norm (in place).
+
+    Left- and right-compresses sites to move the orthogonality center to ``i``
+    (using :func:`left_compress_site`/:func:`right_compress_site`, which catch
+    linear-algebra errors). When ``scale`` is True the center site is normalized
+    and its norm absorbed into ``mps.exponent`` (via the nested
+    ``site_norm_to_exponent``). Returns ``None`` when the state is numerically
+    zero or its exponent drops below ``-30``. A length-1 network is returned
+    unchanged.
+
+    Parameters
+    ----------
+    mps : MPSType or MPOType
+        The network to canonize.
+    scale : bool
+        Absorb the center-site norm into the exponent if True.
+    form : {'right', 'left'}
+        Default canonical form used to pick the center when ``i`` is None
+        (``'right'`` -> i=0, ``'left'`` -> i=L-1).
+    i : int, optional
+        Target orthogonality center site.
+    cur_orthog : int, tuple, or 'calc', optional
+        Current orthogonality center to start from; ``'calc'`` recomputes it via
+        :func:`check_orthog`, an int is treated as ``(i, i)``, None as the full
+        range.
+    bra : MPSType, optional
+        If given, its tensors are overwritten with the conjugate of the
+        canonized ``mps`` and its exponent synced.
+
+    Returns
+    -------
+    MPSType or MPOType or None
+        The canonized network, or ``None`` if it is effectively zero.
     """
     if mps.L == 1:
         return mps
@@ -1929,6 +3050,18 @@ def canonize(mps: Union['MPSType', 'MPOType'], scale=True, form='right', i=None,
 
             ## helper function to normalize site i, shift weight into mps.exponent
             def site_norm_to_exponent(ix):
+                """Normalize site ``ix`` of ``mps`` and add its norm to the exponent.
+
+                Parameters
+                ----------
+                ix : int
+                    Site index to normalize; raises ``LinAlgError`` (and sets the
+                    exponent to ``-inf``) if the tensor norm is zero.
+
+                Returns
+                -------
+                None
+                """
                 # print('canon remove site norm', ix)
                 tag = mps.site_tag(ix)
                 tens = mps[tag]
@@ -1994,9 +3127,47 @@ def canonize(mps: Union['MPSType', 'MPOType'], scale=True, form='right', i=None,
 
 def compress(mps: Union[MPSType, MPOType], scale=True, verbose=False, canonize=True, compress_opts: dict = None,
              bra: Optional[Union[MPSType, MPOType]] = None, norm_cutoff=None, ref_norm=1.0, renorm: bool = None):
-    """ canonicalize and then compress MPS while absorbing norm of singular values/tensors
-        into mps.exponent norm
-        inplace operation
+    """Canonicalize and compress an MPS/MPO, absorbing the norm into the exponent.
+
+    Canonizes (unless ``canonize=False``) and then compresses site by site in
+    the requested ``form``, normalizing the boundary site and accumulating its
+    norm into ``mps.exponent`` (via the nested ``site_norm_to_exponent``). An
+    inplace operation. If ``do_midpt`` is set in ``compress_opts`` the work is
+    delegated to :func:`compress_midpt`. May return ``None`` when the norm falls
+    below ``norm_cutoff * ref_norm`` or the state is numerically zero. A
+    length-1 network is returned unchanged.
+
+    Parameters
+    ----------
+    mps : MPSType or MPOType
+        The network to compress.
+    scale : bool
+        Absorb the boundary-site norm into the exponent if True.
+    verbose : bool
+        Print compression diagnostics (singular values, errors) if True.
+    canonize : bool
+        Canonicalize before compressing if True.
+    compress_opts : dict, optional
+        Compression options (copied internally). Reads/sets ``'cutoff'``
+        (default CUTOFF), ``'cutoff_mode'`` (default CUTOFF_MODE), ``'form'``
+        (default ``'right'``), ``'renorm'``, ``'max_bond'``, ``'adapt'``, and
+        the popped keys ``'norm_cutoff'``, ``'ref_norm'``, ``'do_midpt'`` and
+        ``'midpt'``.
+    bra : MPSType or MPOType, optional
+        If given, its tensors are overwritten with the conjugate of the
+        compressed ``mps`` and its exponent synced.
+    norm_cutoff : float, optional
+        Relative norm threshold below which the result is discarded (returns
+        None); enables the norm check when not None.
+    ref_norm : float
+        Reference norm against which ``norm_cutoff`` is measured. Default 1.0.
+    renorm : bool, optional
+        Renormalization flag passed through to the underlying compression.
+
+    Returns
+    -------
+    MPSType or MPOType or None
+        The compressed network, or ``None`` if it falls below tolerance.
     """
     if mps.L == 1:
         return mps
@@ -2054,6 +3225,18 @@ def compress(mps: Union[MPSType, MPOType], scale=True, verbose=False, canonize=T
 
             ## helper function to normalize site i, shift weight into mps.exponent
             def site_norm_to_exponent(ix):
+                """Normalize site ``ix`` of ``mps`` and add its norm to the exponent.
+
+                Parameters
+                ----------
+                ix : int
+                    Site index to normalize; raises ``LinAlgError`` (and sets the
+                    exponent to ``-inf``) if the tensor norm is zero.
+
+                Returns
+                -------
+                None
+                """
                 tag = mps.site_tag_id.format(ix)
                 tens = mps[tag]
                 if tens.norm() == 0.0:
@@ -2129,7 +3312,8 @@ def compress(mps: Union[MPSType, MPOType], scale=True, verbose=False, canonize=T
                 if scale:  site_norm_to_exponent(0)
 
     except np.linalg.LinAlgError or ZeroDivisionError:
-        print('compress error', i, mps.singular_values(i), mps.exponent)
+        if verbose:
+            print('compress error', i, mps.singular_values(i), mps.exponent)
         if np.isinf(mps.exponent):
             mps = None
         elif mps.singular_values(i) == [0]:
@@ -2139,9 +3323,11 @@ def compress(mps: Union[MPSType, MPOType], scale=True, verbose=False, canonize=T
 
     if verbose:
         if mps is not None:
-            print('mps exp', mps.exponent)
+            if verbose:
+                print('mps exp', mps.exponent)
         else:
-            print('mps None')
+            if verbose:
+                print('mps None')
 
     if mps is None or (check_norm and mps.exponent < np.log10(norm_cutoff * ref_norm)):
         # pdb.set_trace()
@@ -2161,15 +3347,45 @@ def compress(mps: Union[MPSType, MPOType], scale=True, verbose=False, canonize=T
 
     if verbose:  # verbose:
         if mps is not None:
-            print('compression error', distance(mps_copy, mps) / norm(mps_copy))
+            if verbose:
+                print('compression error', distance(mps_copy, mps) / norm(mps_copy))
         else:
-            print('mps norm is 0?', mps_copy.norm())
+            if verbose:
+                print('mps norm is 0?', mps_copy.norm())
 
     return mps
 
 
 def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'] = None,
-                          proj_vals: Optional[list[Numeric]] = None, compress_opts=None, canonize=True):
+                          proj_vals: Optional[list[Numeric]] = None, compress_opts=None, canonize=True, verbose=False):
+    """Compress an MPS while preserving its projections onto given basis MPS.
+
+    Projects out the ``bases`` components from ``mps`` (measuring or using
+    supplied projection values), compresses the orthogonal remainder with a
+    reduced ``max_bond`` (max_bond - 2 to leave room), then adds the basis
+    contributions back so the chosen projections are retained.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to compress.
+    bases : Sequence[qtn.MatrixProductState], optional
+        Basis MPS whose overlaps with ``mps`` are preserved.
+    proj_vals : list[Numeric], optional
+        Projection coefficients to impose; if None, they are measured from
+        ``mps`` via overlaps.
+    compress_opts : dict, optional
+        Compression options; ``'max_bond'`` is reduced by 2 for the remainder.
+    canonize : bool
+        Accepted for signature compatibility (not used directly here).
+    verbose : bool
+        Print orthogonality/error diagnostics if True.
+
+    Returns
+    -------
+    MPSType
+        The compressed MPS with preserved projections.
+    """
     # L = mps.L
     # iden = qtn.MPO_identity(mps.L)
 
@@ -2184,7 +3400,8 @@ def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'
     # ## get projectors of normalized and orthogonalized bases
     # sum_bases = add_MPS_list(bases, inplace=False, do_final_update=False)
 
-    print('compress opts', compress_opts)
+    if verbose:
+        print('compress opts', compress_opts)
     compress_opts_mod = {k: v for k, v in compress_opts.items()}
     max_bond = compress_opts_mod.get('max_bond', None)
     if max_bond is not None:
@@ -2193,18 +3410,23 @@ def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'
     meas_proj_vals = []
     remainder_mps = mps
     for b in bases:
-        print('b norm', ovlp(b, b))
+        if verbose:
+            print('b norm', ovlp(b, b))
         meas_proj_val = ovlp(remainder_mps, b)
         meas_proj_vals += [meas_proj_val]
         remainder_mps = add_MPS(remainder_mps, scalar_multiply(b, -meas_proj_val))
-        print('orthogonal?', ovlp(b, remainder_mps))
+        if verbose:
+            print('orthogonal?', ovlp(b, remainder_mps))
     compress(remainder_mps, compress_opts=compress_opts_mod)
-    print('remainder max bond', remainder_mps.max_bond())
+    if verbose:
+        print('remainder max bond', remainder_mps.max_bond())
 
     ## check
     for b in bases:
-        print('b max bond', b.max_bond())
-        print('still orthogonal?', ovlp(b, remainder_mps))
+        if verbose:
+            print('b max bond', b.max_bond())
+        if verbose:
+            print('still orthogonal?', ovlp(b, remainder_mps))
 
     mps_list = [remainder_mps]
     for ix, b in enumerate(bases):
@@ -2217,10 +3439,13 @@ def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'
     ## check
     for ix, b in enumerate(bases):
         coeff = meas_proj_vals[ix] if proj_vals is None else proj_vals[ix]
-        print('proj val diff', ovlp(b, out), ovlp(b, out) - coeff)
+        if verbose:
+            print('proj val diff', ovlp(b, out), ovlp(b, out) - coeff)
 
-    print('compress err', distance(mps, out))
-    print('total max bond', out.max_bond())
+    if verbose:
+        print('compress err', distance(mps, out))
+    if verbose:
+        print('total max bond', out.max_bond())
 
     return out
 
@@ -2228,9 +3453,44 @@ def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'
 def compress_rdm(mps: MPSType, scale=True, verbose=False, direction=1, compress_opts: dict = None,
                  bra: Optional[Union[MPSType, MPOType]] = None,
                  open_end=False, back_compress=True, right_env=None, left_env=None):
-    """ compress using the rdm scheme.
-        absorb norm into mps.exponent if scale is True
-        NOT inplace
+    """Compress an MPS using the reduced-density-matrix (RDM) scheme (not in place).
+
+    Builds environments from one end, diagonalizes the per-site reduced density
+    matrix to obtain truncated isometries (largest-eigenvalue eigenvectors,
+    bounded by ``max_bond`` / ``cutoff``), and strings them into a new MPS. With
+    ``back_compress`` the direction is reversed and a final :func:`compress`
+    pass sets the canonical form. MPO inputs are delegated to :func:`compress`.
+    The norm is absorbed into ``mps.exponent`` when ``scale`` is True.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS (or MPO) to compress.
+    scale : bool
+        Absorb the norm into the exponent if True.
+    verbose : bool
+        Print environment/RDM diagnostics if True.
+    direction : int
+        ``> 0``: build right-to-left; ``< 0``: left-to-right. Negated internally
+        when ``back_compress`` is True.
+    compress_opts : dict, optional
+        Reads ``'cutoff'`` (default CUTOFF), ``'cutoff_mode'`` (default
+        CUTOFF_MODE), ``'max_bond'``; ``'form'`` is set from ``direction``.
+    bra : MPSType or MPOType, optional
+        Bra-side network; internally regenerated as the conjugate of ``mps``.
+    open_end : bool
+        If True, leave the terminal site open and also return the carry tensor.
+    back_compress : bool
+        Reverse the sweep and perform a final compression to the target form.
+    right_env : qtn.Tensor, optional
+        Precomputed right environment (used when ``direction > 0``).
+    left_env : qtn.Tensor, optional
+        Precomputed left environment (used when ``direction < 0``).
+
+    Returns
+    -------
+    MPSType or tuple[MPSType, qtn.Tensor]
+        The compressed MPS, plus the carry tensor when ``open_end`` is True.
     """
     if compress_opts is None:
         compress_opts = {}
@@ -2389,8 +3649,10 @@ def compress_rdm(mps: MPSType, scale=True, verbose=False, direction=1, compress_
 
     if back_compress:
         compress_opts['form'] = 'left' if idx1 < idx0 else 'right'
-        print('back compress')
-        print('check orthog', check_orthog(new_mpx), new_mpx.exponent, compress_opts['form'])
+        if verbose:
+            print('back compress')
+        if verbose:
+            print('check orthog', check_orthog(new_mpx), new_mpx.exponent, compress_opts['form'])
         ## recall that we switched direction at beginnong of function
         new_mpx = compress_func(new_mpx, scale=True, canonize=False, compress_opts=compress_opts)
 
@@ -2404,8 +3666,39 @@ compress_func = compress
 
 
 def compress_midpt(mps, mid_pt, scale=True, verbose=False, timeit=False, mid_compress_opts=None, compress_opts=None):
-    """ compress MPS while absorbing norm of singular values/tensors into mps.exponent norm
-        inplace operation
+    """Compress an MPS by canonizing toward a midpoint and sweeping outward (in place).
+
+    Left-canonizes the left half and right-canonizes the right half toward
+    ``mid_pt``, compresses the central bond extracting singular values, inserts
+    ``diag(svals)``/``diag(1/svals)`` operators, then compresses each half
+    outward and re-contracts the singular-value operators. Norms are absorbed
+    into ``mps.exponent`` when ``scale`` is True. Returns ``None`` when the
+    exponent drops below ``-30`` or the state is numerically zero.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to compress.
+    mid_pt : int
+        The midpoint site about which the two-sided sweep is organized.
+    scale : bool
+        Absorb site norms into the exponent if True.
+    verbose : bool
+        Print shape/orthogonality diagnostics if True.
+    timeit : bool
+        If True, also collect and return per-step canonize and compress timings.
+    mid_compress_opts : dict, optional
+        Compression options for the central-bond split; defaults to
+        ``compress_opts``.
+    compress_opts : dict, optional
+        Compression options for the outward sweeps (the ``'form'`` key is
+        popped and ignored).
+
+    Returns
+    -------
+    MPSType or tuple or None
+        The compressed MPS, or ``(mps, canon_times, comp_times)`` when
+        ``timeit`` is True, or ``None`` if it falls below tolerance.
     """
     # print('compress midpt')
     if mps is None or np.isneginf(mps.exponent):   return None
@@ -2431,6 +3724,17 @@ def compress_midpt(mps, mid_pt, scale=True, verbose=False, timeit=False, mid_com
 
         ## helper function to normalize site i, shift weight into mps.exponent
         def site_norm_to_exponent(i):
+            """Normalize site ``i`` of ``mps`` and add its norm to the exponent.
+
+            Parameters
+            ----------
+            i : int
+                Site index to normalize.
+
+            Returns
+            -------
+            None
+            """
             tag = mps.site_tag(i)
             tens = mps[tag]
             mps.strip_exponent(tens)  # normalizes tensor, adds norm to exponent
@@ -2498,7 +3802,8 @@ def compress_midpt(mps, mid_pt, scale=True, verbose=False, timeit=False, mid_com
 
 
     except(np.linalg.LinAlgError, ValueError):
-        print('error', i, mps.singular_values(i), mps.exponent)
+        if verbose:
+            print('error', i, mps.singular_values(i), mps.exponent)
         if np.isinf(mps.exponent):
             mps = None
         elif mps.singular_values(i)[0] <= 1e-12:
@@ -2515,8 +3820,34 @@ def compress_midpt(mps, mid_pt, scale=True, verbose=False, timeit=False, mid_com
     return mps
 
 
-def left_compress_site(mps, i, return_svals=False, **compress_opts):
-    """ inplace compression of ith site of mps
+def left_compress_site(mps, i, return_svals=False, verbose=False, **compress_opts):
+    """In-place left compression of site ``i`` into site ``i+1`` of an MPS.
+
+    Splits site ``i`` (SVD) and absorbs the right factor into site ``i+1``. With
+    ``adapt`` (or ``return_svals``) the bond is trimmed adaptively relative to
+    the largest singular value; otherwise quimb's ``left_compress_site`` is used
+    with eig and random-restart fallbacks on linear-algebra / zero-division
+    errors and nan results.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to modify.
+    i : int
+        Site index to compress (paired with ``i+1``).
+    return_svals : bool
+        If True, force adaptive splitting and return the singular values.
+    verbose : bool
+        Print diagnostics on zero-division fallback if True.
+    **compress_opts
+        Compression options. Reads ``'max_bond'`` (default -1), ``'cutoff'``
+        (default CUTOFF), and the popped ``'adapt'`` / ``'adapt_cutoff'``
+        (fraction below the largest singular value, default 0.1).
+
+    Returns
+    -------
+    numpy.ndarray or None
+        The singular values if ``return_svals`` is True, else None.
     """
     max_bond = compress_opts.get('max_bond', -1)
     # renorm = compress_opts.get('renorm', 1)
@@ -2585,7 +3916,8 @@ def left_compress_site(mps, i, return_svals=False, **compress_opts):
             if np.any(np.isnan(mps[i].data)):
                 raise np.linalg.LinAlgError(f'left compress (eig) site {i} yielded nan')
         except ZeroDivisionError:
-            print('left canon zero division error')
+            if verbose:
+                print('left canon zero division error')
             # tens = site_i1.copy()
             # tens.modify(data=np.random.random(tens.shape))
             mps[i].modify(data=np.random.random(site_i1.shape))
@@ -2594,8 +3926,34 @@ def left_compress_site(mps, i, return_svals=False, **compress_opts):
             # return None
 
 
-def right_compress_site(mps, i, return_svals=False, **compress_opts):
-    """ inplace compression of ith site of mps
+def right_compress_site(mps, i, return_svals=False, verbose=False, **compress_opts):
+    """In-place right compression of site ``i`` into site ``i-1`` of an MPS.
+
+    Splits site ``i`` (SVD) and absorbs the left factor into site ``i-1``. With
+    ``adapt`` (or ``return_svals``) the bond is trimmed adaptively relative to
+    the largest singular value; otherwise quimb's ``right_compress_site`` is
+    used with eig and random-restart fallbacks on linear-algebra /
+    zero-division errors and nan results.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to modify.
+    i : int
+        Site index to compress (paired with ``i-1``).
+    return_svals : bool
+        If True, force adaptive splitting and return the singular values.
+    verbose : bool
+        Print diagnostics on zero-division fallback if True.
+    **compress_opts
+        Compression options. Reads ``'max_bond'`` (default -1), ``'cutoff'``
+        (default CUTOFF), and the popped ``'adapt'`` / ``'adapt_cutoff'``
+        (fraction below the largest singular value, default 0.1).
+
+    Returns
+    -------
+    numpy.ndarray or None
+        The singular values if ``return_svals`` is True, else None.
     """
     max_bond = compress_opts.get('max_bond', -1)
     # renorm = int(compress_opts.get('renorm', 1))
@@ -2666,7 +4024,8 @@ def right_compress_site(mps, i, return_svals=False, **compress_opts):
             if np.any(np.isnan(mps[i].data)):
                 raise np.linalg.LinAlgError(f'right compress (eig) site {i} yielded nan')
         except ZeroDivisionError:
-            print('right canon zero division error')
+            if verbose:
+                print('right canon zero division error')
             # tens = site_i1.copy()
             # tens.modify(data=np.random.random(tens.shape))
             mps[i].modify(data=np.random.random(site_i1.shape))
@@ -2676,7 +4035,25 @@ def right_compress_site(mps, i, return_svals=False, **compress_opts):
 
 
 def canonize_tens_list(*tens, inplace=False, full_matrices=False):
-    """ canonize this list of tensors from left to right
+    """Left-canonicalize a free list of tensors from left to right.
+
+    With ``full_matrices`` a complete QR is performed at each step (preserving
+    the full column space); otherwise the work is delegated to
+    :func:`compress_tens_list` with an SVD at module ``CUTOFF``/``CUTOFF_MODE``.
+
+    Parameters
+    ----------
+    *tens : qtn.Tensor
+        The ordered tensors to canonize (chained by shared bonds).
+    inplace : bool
+        Modify the given tensors in place if True, else operate on copies.
+    full_matrices : bool
+        Use a full (complete) QR rather than an SVD-based compression.
+
+    Returns
+    -------
+    tuple or list of qtn.Tensor
+        The canonized tensors.
     """
     if full_matrices:
         tens = tens if inplace else [t.copy() for t in tens]
@@ -2696,9 +4073,32 @@ def canonize_tens_list(*tens, inplace=False, full_matrices=False):
                                                                          'cutoff_mode': CUTOFF_MODE})
 
 
-def compress_tens_list(*tens, inplace=False, compress_opts=None, two_site=False):
-    """ compress this list of tensors from left to right
-        assumes already in canonical form
+def compress_tens_list(*tens, inplace=False, compress_opts=None, two_site=False, verbose=False):
+    """Compress a free list of tensors from left to right (assumed canonical).
+
+    At each adjacent pair, splits the left tensor (absorbing singular values to
+    the right) and contracts the right factor into the next tensor; with
+    ``two_site`` the pair is contracted before splitting. Falls back to the eig
+    method on failure or nan results.
+
+    Parameters
+    ----------
+    *tens : qtn.Tensor
+        The ordered tensors to compress (assumed already canonicalized).
+    inplace : bool
+        Modify the given tensors in place if True, else operate on copies.
+    compress_opts : dict, optional
+        Split options (copied internally); ``'absorb'`` is forced to ``'right'``
+        and ``'cutoff'``/``'cutoff_mode'`` default to the module constants.
+    two_site : bool
+        Contract each adjacent pair into one tensor before splitting if True.
+    verbose : bool
+        Print diagnostics on eig fallback / nan results if True.
+
+    Returns
+    -------
+    tuple of qtn.Tensor
+        The compressed tensors.
     """
     if compress_opts is None:
         compress_opts = {}
@@ -2743,13 +4143,15 @@ def compress_tens_list(*tens, inplace=False, compress_opts=None, two_site=False)
                 TL, TR = tens[i].split(bonds_L, **compress_opts)
             except (ZeroDivisionError, ValueError):
                 # TL, TR = tens[i].split(bonds_L, method='eig', **compress_opts)
-                print('eig split; tens i norm', tens[i].norm())
+                if verbose:
+                    print('eig split; tens i norm', tens[i].norm())
                 compress_opts.pop('method', None)
                 TL, TR = qtn.tensor_split(tens[i], bonds_L, method='eig', **compress_opts)
 
             it, max_it = 0, 10
             while np.any(np.isnan(TL.data)) and it < max_it:
-                print('TL is nan')
+                if verbose:
+                    print('TL is nan')
                 compress_opts.pop('method', None)
                 TL, TR = tens[i].split(bonds_L, method='eig', **compress_opts)
                 it += 1
@@ -2770,7 +4172,25 @@ def compress_tens_list(*tens, inplace=False, compress_opts=None, two_site=False)
 
 
 def scalar_multiply(mps: 'qtn.TensorNetwork', scalar_const: Numeric, inplace=False):
-    """ scalar multiplication
+    """Multiply a network by a scalar, storing magnitude in the exponent.
+
+    The magnitude ``log10(|scalar_const|)`` is added to ``mps.exponent`` while
+    the sign (or complex phase) is spread over a single tensor. Plain
+    arrays/floats are multiplied directly.
+
+    Parameters
+    ----------
+    mps : qtn.TensorNetwork
+        The network (or ndarray/float) to scale; ``None`` returns ``None``.
+    scalar_const : Numeric
+        The scalar multiplier (real or complex).
+    inplace : bool
+        Modify ``mps`` in place if True, else operate on a copy.
+
+    Returns
+    -------
+    qtn.TensorNetwork or ndarray or float or None
+        The scaled network/value.
     """
     if mps is None:
         return None
@@ -2802,7 +4222,28 @@ def scalar_multiply(mps: 'qtn.TensorNetwork', scalar_const: Numeric, inplace=Fal
 
 
 def scalar_add(mps, scalar_val, inplace=False, compress=False, compress_opts: dict = None):
-    """ add scalar value to mps
+    """Add a constant scalar to every element represented by an MPS.
+
+    Builds a rank-1 "all ones" network scaled by ``scalar_val`` (via
+    :func:`sum_tensornetwork`) and adds it to ``mps`` with :func:`add_MPS`.
+
+    Parameters
+    ----------
+    mps : MPSType
+        The MPS to which the scalar is added.
+    scalar_val : Numeric
+        The constant to add to every element.
+    inplace : bool
+        Modify ``mps`` in place if True, else operate on a copy.
+    compress : bool
+        Compress the result of the addition if True.
+    compress_opts : dict, optional
+        Options forwarded to compression.
+
+    Returns
+    -------
+    MPSType
+        The MPS with the scalar added.
     """
     mps = mps if inplace else mps.copy()
 
@@ -2923,10 +4364,33 @@ def scalar_add(mps, scalar_val, inplace=False, compress=False, compress_opts: di
 
 def tn1D_from_dense(tensor: qtn.Tensor, ns: int, site_nlegs: Sequence[int], site_tag_id='I{}',
                     direction=0, split_opts=None) -> qtn.TensorNetwork:
-    """ qtn.Tensor with correctly order inds --> MPX with nlegs for all ns sites
-        site_nlegs:  can dictate where splitting
-        site_inds:  for labeling tensors via site_tag_id (from left to right)
-        inds are determined from tensor
+    """Split a dense tensor into a 1D tensor network of ``ns`` sites.
+
+    Index labels are taken from ``tensor`` (in order); ``site_nlegs`` dictates
+    how many legs each site receives, hence where the SVD splits occur. The
+    tensor norm is factored into ``tn.exponent``; a near-zero norm yields an
+    all-zero chain.
+
+    Parameters
+    ----------
+    tensor : qtn.Tensor
+        The dense tensor to decompose (indices already ordered by site).
+    ns : int
+        Number of sites in the resulting network.
+    site_nlegs : Sequence[int]
+        Number of physical legs assigned to each site.
+    site_tag_id : str
+        Format string for site tags. Default ``'I{}'``.
+    direction : int
+        ``0`` splits left-to-right; nonzero splits right-to-left.
+    split_opts : dict, optional
+        Split options (copied); ``'absorb'`` forced to ``'right'`` and
+        ``'cutoff'``/``'cutoff_mode'`` default to the module constants.
+
+    Returns
+    -------
+    qtn.TensorNetwork
+        The resulting 1D tensor network with norm carried in ``exponent``.
     """
     tensor_list = []
 
@@ -2999,9 +4463,40 @@ def tn1D_from_dense(tensor: qtn.Tensor, ns: int, site_nlegs: Sequence[int], site
 
 def mpx_from_dense(tensor: qtn.Tensor, ns: int, site_inds_list: Sequence[str], site_tag_id='I{}',
                    direction=0, return_mpx=True, split_opts=None, left_anc: list[str] = None, left_ind=0):
-    """ ndarray block with legs ordered by site --> MPX with nlegs for all ns sites
-        site_inds:  for labeling tensors via site_tag_id (from left to right)
-        inds are determined from tensor
+    """Decompose a dense tensor (legs ordered by site) into an MPS/MPO.
+
+    Successively SVD-splits the tensor site by site using ``site_inds_list`` to
+    name the physical legs; the norm is carried in ``tn.exponent``. Returns
+    ``None`` if the norm is near zero. The result is viewed as an MPS (one
+    physical leg) or MPO (two legs) when ``return_mpx`` is True.
+
+    Parameters
+    ----------
+    tensor : qtn.Tensor
+        The dense tensor to decompose.
+    ns : int
+        Number of sites.
+    site_inds_list : Sequence[str]
+        Physical index id format strings (1 for MPS, 2 for MPO).
+    site_tag_id : str
+        Format string for site tags. Default ``'I{}'``.
+    direction : int
+        ``>= 0`` splits left-to-right; ``< 0`` right-to-left.
+    return_mpx : bool
+        Return a viewed MPS/MPO if True; else return the raw tensor list scaled
+        by ``norm**(1/ns)``.
+    split_opts : dict, optional
+        Split options (copied); ``'absorb'`` forced to ``'right'`` and
+        ``'cutoff'``/``'cutoff_mode'`` default to the module constants.
+    left_anc : list[str], optional
+        Ancilla index labels carried on the leftmost split.
+    left_ind : int
+        Starting site number for tagging. Default 0.
+
+    Returns
+    -------
+    qtn.TensorNetwork or list[qtn.Tensor] or None
+        The MPS/MPO (or raw tensor list), or ``None`` for a near-zero norm.
     """
     tensor_list = []
     errs = []
@@ -3088,9 +4583,39 @@ def mpx_from_dense(tensor: qtn.Tensor, ns: int, site_inds_list: Sequence[str], s
 def mpx_from_dense_new(tensor: 'qtn.Tensor', ns: int, site_inds_list: list['str'], site_tag_id='I{}', left_ind=0,
                        left_anc=None, right_anc=None, direction=0, split_opts=None
                        ) -> Union['qtn.MatrixProductState', 'qtn.MatrixProductOperator', 'qtn.TensorNetwork']:
-    """ ndarray block with legs ordered by site --> MPX with nlegs for all ns sites
-        site_inds:  for labeling tensors via site_tag_id (from left to right)
-        inds are determined from tensor
+    """Decompose a dense tensor into an MPS/MPO (variant with left/right ancillas).
+
+    Like :func:`mpx_from_dense` but supports both left and right ancilla legs and
+    folds the norm back into the terminal tensor rather than the exponent.
+    Returns ``None`` for a near-zero norm. The result is always viewed as an MPS
+    (one physical leg) or MPO (two legs).
+
+    Parameters
+    ----------
+    tensor : qtn.Tensor
+        The dense tensor to decompose.
+    ns : int
+        Number of sites.
+    site_inds_list : list[str]
+        Physical index id format strings (1 for MPS, 2 for MPO).
+    site_tag_id : str
+        Format string for site tags. Default ``'I{}'``.
+    left_ind : int
+        Starting site number for tagging. Default 0.
+    left_anc : str, optional
+        Ancilla index carried at the left end (used when ``direction >= 0``).
+    right_anc : str, optional
+        Ancilla index carried at the right end (used when ``direction < 0``).
+    direction : int
+        ``>= 0`` splits left-to-right; ``< 0`` right-to-left.
+    split_opts : dict, optional
+        Split options (copied); ``'absorb'`` forced to ``'right'`` and
+        ``'cutoff'``/``'cutoff_mode'`` default to the module constants.
+
+    Returns
+    -------
+    qtn.MatrixProductState or qtn.MatrixProductOperator or qtn.TensorNetwork or None
+        The decomposed network, or ``None`` for a near-zero norm.
     """
     tensor_list = []
     errs = []
@@ -3146,8 +4671,33 @@ def mpx_from_dense_new(tensor: 'qtn.Tensor', ns: int, site_inds_list: list['str'
     return tn
 
 
-def mps_to_gamma_lambda(mps: 'qtn.MatrixProductState', cur_orthog=None, cutoff=CUTOFF,
+def mps_to_gamma_lambda(mps: 'qtn.MatrixProductState', cur_orthog=None, cutoff=CUTOFF, verbose=False,
                         ) -> tuple[list[qtn.Tensor], list[qtn.Tensor], Numeric]:
+    """Convert an MPS to the Vidal Gamma-Lambda (canonical) form.
+
+    Sweeps left to right performing SVDs, accumulating the (normalized)
+    singular-value tensors as ``lambdas`` and the gauge-transformed site tensors
+    as ``gammas`` (multiplying in the inverse of the previous lambda), with the
+    total ``log10`` norm carried separately. A round-trip check via
+    :func:`gamma_lambda_to_mps` is run for diagnostics.
+
+    Parameters
+    ----------
+    mps : qtn.MatrixProductState
+        The MPS to convert.
+    cur_orthog : int or tuple, optional
+        Current orthogonality center passed to the initial canonization.
+    cutoff : float
+        SVD truncation threshold. Default module const CUTOFF.
+    verbose : bool
+        Print norm/round-trip-error diagnostics if True.
+
+    Returns
+    -------
+    tuple[list[qtn.Tensor], list[qtn.Tensor], Numeric]
+        ``(gammas, lambdas, tot_norm)`` where ``tot_norm`` is the base-10 log
+        norm.
+    """
     mps = mps.canonize(where=0, cur_orthog=cur_orthog)
     # s_tag = '_S_{}_'
 
@@ -3222,16 +4772,41 @@ def mps_to_gamma_lambda(mps: 'qtn.MatrixProductState', cur_orthog=None, cutoff=C
         # tens_i.modify(data=tens_i_invS.data)
 
     gammas += [tens_i.copy()]
-    print('gl tot norm', tot_norm)
+    if verbose:
+        print('gl tot norm', tot_norm)
 
     check = gamma_lambda_to_mps(gammas, lambdas, view_like=mps_copy)
     mps_copy.exponent = tot_norm
-    print('GL ERR', distance(check, mps_copy), check.norm(), mps_copy.norm())
+    if verbose:
+        print('GL ERR', distance(check, mps_copy), check.norm(), mps_copy.norm())
 
     return gammas, lambdas, tot_norm
 
 
 def gamma_lambda_to_mps(gammas, lambdas, canon_site=0, view_like=None) -> 'qtn.TensorNetwork1D':
+    """Reconstruct an MPS from Vidal Gamma-Lambda tensors, canonical at a site.
+
+    Builds left-canonical tensors to the left of ``canon_site`` and
+    right-canonical tensors to its right by contracting each gamma with the
+    appropriate neighbouring lambda, then assembles the central site.
+
+    Parameters
+    ----------
+    gammas : list[qtn.Tensor]
+        The Gamma (site) tensors.
+    lambdas : list[qtn.Tensor]
+        The Lambda (singular-value) tensors between sites.
+    canon_site : int
+        Site about which the reconstructed MPS is canonical. Default 0.
+    view_like : qtn.TensorNetwork1D, optional
+        Template network to copy index/tag ids from; if None the result is
+        viewed as a generic MPS.
+
+    Returns
+    -------
+    qtn.TensorNetwork1D
+        The reconstructed MPS.
+    """
     L = len(gammas)
     new_mpx = qtn.TensorNetwork([])
     for i in range(canon_site):
@@ -3283,7 +4858,29 @@ def gamma_lambda_to_mps(gammas, lambdas, canon_site=0, view_like=None) -> 'qtn.T
     return new_mpx
 
 
-def check_gamma_lambda_to_mps(gammas, lambdas, mps):
+def check_gamma_lambda_to_mps(gammas, lambdas, mps, verbose=False):
+    """Diagnostic: verify Gamma-Lambda tensors reproduce a reference MPS.
+
+    For every choice of canonical center, reconstructs the left-, right-, and
+    central-canonical tensors from ``gammas``/``lambdas`` and compares them
+    (canonicality and per-tensor distance) against the canonized reference
+    ``mps``, printing the results when ``verbose``.
+
+    Parameters
+    ----------
+    gammas : list[qtn.Tensor]
+        The Gamma (site) tensors.
+    lambdas : list[qtn.Tensor]
+        The Lambda (singular-value) tensors.
+    mps : qtn.MatrixProductState
+        Reference MPS to compare against (compressed/canonized internally).
+    verbose : bool
+        Print per-site canonicality and distance diagnostics if True.
+
+    Returns
+    -------
+    None
+    """
     L = len(gammas)
     mps = compress_func(mps, scale=False)
 
@@ -3314,7 +4911,8 @@ def check_gamma_lambda_to_mps(gammas, lambdas, mps):
                 tens_cc = tens_i.conj()
                 tens_cc.reindex({bR: bR + '_'}, inplace=True)
                 out = tens_i.contract(tens_cc)
-                print('tens i canon L?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
+                if verbose:
+                    print('tens i canon L?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
 
             mps_tens = mps[i]
             inds = []
@@ -3328,19 +4926,25 @@ def check_gamma_lambda_to_mps(gammas, lambdas, mps):
             inds += [bi]
             mps_tens = mps_tens.transpose(*inds)
 
-            print('mps tens', mps_tens)
-            print('tnes i', tens_i)
+            if verbose:
+                print('mps tens', mps_tens)
+            if verbose:
+                print('tnes i', tens_i)
 
             if i > 0:
-                print('bL', bL, bLm)
+                if verbose:
+                    print('bL', bL, bLm)
                 # tens_cc = mps_tens.conj()
                 # tens_cc.reindex({bR: bR + '_'}, inplace=True)
                 tens_cc.reindex({bL: bLm}, inplace=True)
                 out = mps_tens.contract(tens_cc)
-                print('out', out.data)
-                print('mps tens canon L?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
+                if verbose:
+                    print('out', out.data)
+                if verbose:
+                    print('mps tens canon L?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
 
-            print('mps dist L', i, np.linalg.norm(tens_i.data - mps_tens.data))
+            if verbose:
+                print('mps dist L', i, np.linalg.norm(tens_i.data - mps_tens.data))
 
         ## right canonical tensors
         for i in range(L - 1, canon_site, -1):
@@ -3366,8 +4970,10 @@ def check_gamma_lambda_to_mps(gammas, lambdas, mps):
                 tens_cc = tens_i.conj()
                 tens_cc.reindex({bL: bL + '_'}, inplace=True)
                 out = tens_i.contract(tens_cc)
-                print('out', out)
-                print('tens i canon R?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
+                if verbose:
+                    print('out', out)
+                if verbose:
+                    print('tens i canon R?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
 
             mps_tens = mps[i]
             inds = []
@@ -3385,9 +4991,11 @@ def check_gamma_lambda_to_mps(gammas, lambdas, mps):
                 tens_cc = mps_tens.conj()
                 tens_cc.reindex({bL: bL + '_'}, inplace=True)
                 out = mps_tens.contract(tens_cc)
-                print('mps tens canon R?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
+                if verbose:
+                    print('mps tens canon R?', i, np.linalg.norm(out.data - np.eye(out.shape[0])))
 
-            print('mps dist R', i, np.linalg.norm(tens_i.data - mps_tens.data))
+            if verbose:
+                print('mps dist R', i, np.linalg.norm(tens_i.data - mps_tens.data))
 
         i = canon_site
         contract_tens_list = [gammas[canon_site]]
@@ -3421,12 +5029,34 @@ def check_gamma_lambda_to_mps(gammas, lambdas, mps):
         inds += [bi]
         mps_tens = mps_tens.transpose(*inds)
 
-        print('mps dist M', i, np.linalg.norm(tens_i.data - mps_tens.data))
+        if verbose:
+            print('mps dist M', i, np.linalg.norm(tens_i.data - mps_tens.data))
 
     return
 
 
 def get_submpx(mpx: Union[qtn.MatrixProductState, qtn.MatrixProductOperator], ind1: int, ind2: int, reindex=True):
+    """Extract a contiguous sub-network of sites ``[ind1, ind2)`` from an mpx.
+
+    Copies the selected tensors and, when ``reindex`` is True, renumbers their
+    site tags and physical legs to start from 0; the exponent is preserved.
+
+    Parameters
+    ----------
+    mpx : qtn.MatrixProductState or qtn.MatrixProductOperator
+        The source network.
+    ind1 : int
+        First site (inclusive) of the sub-range.
+    ind2 : int
+        End site (exclusive); negative values count from the end.
+    reindex : bool
+        Renumber the extracted sites/legs to start at 0 if True.
+
+    Returns
+    -------
+    qtn.TensorNetwork
+        The extracted sub-network of length ``ind2 - ind1``.
+    """
     ind2 = mpx.L + ind2 + 1 if ind2 < 0 else ind2
 
     new_tens_list = []
@@ -3449,13 +5079,32 @@ def get_submpx(mpx: Union[qtn.MatrixProductState, qtn.MatrixProductOperator], in
 
 
 def append_mpx(mpx1, mpx2, inplace=False, mps_use_lower=True):
-    """ append mpx2 to the end of mpx1. 
-        generate bond of bond dimension 1 between last tensor of mpx1, first tensor of mpx2
-        retag all tensors in mpx
-        return mpx object
-        mpx1 and mpx2 have to both be MatrixProductOperators or MatrixProductStates
-        mps_use_lower: if one is an mpo and the other is an mpo, the mps site_ind_id is
-        set to the mpo's lower_ind_id  (e.g., for partial integration)
+    """Append ``mpx2`` to the end of ``mpx1``, joining them into one mpx.
+
+    Retags ``mpx2``'s sites to continue after ``mpx1``, reconciles the physical
+    index ids (resolving collisions), creates a bond-dimension-1 link between
+    the junction tensors when needed, and views the result as an MPO if either
+    operand is an MPO. Both operands must be the same kind, except that a mixed
+    MPS/MPO case is supported with the MPS leg aligned to the MPO's lower (or
+    upper) leg.
+
+    Parameters
+    ----------
+    mpx1 : qtn.TensorNetwork1D
+        The leading network.
+    mpx2 : qtn.TensorNetwork1D
+        The network appended after ``mpx1`` (returns ``mpx1`` if empty).
+    inplace : bool
+        Modify ``mpx1`` in place if True, else operate on a copy.
+    mps_use_lower : bool
+        For a mixed MPS/MPO append, align the MPS ``site_ind_id`` with the MPO's
+        ``lower_ind_id`` (True) or ``upper_ind_id`` (False); e.g. for partial
+        integration.
+
+    Returns
+    -------
+    qtn.TensorNetwork1D
+        The concatenated network of length ``L1 + L2``.
     """
     L1, L2 = mpx1.num_tensors, mpx2.num_tensors
 
@@ -3513,11 +5162,23 @@ def append_mpx(mpx1, mpx2, inplace=False, mps_use_lower=True):
 
 
 def split_mpx(mpx, split_ind) -> tuple[Optional['qtn.TensorNetwork1D'], Optional['qtn.TensorNetwork1D']]:
-    """ append mpx2 to the end of mpx1.
-        generate bond of bond dimension 1 between last tensor of mpx1, first tensor of mpx2
-        retag all tensors in mpx
-        return mpx object
-        mpx1 and mpx2 have to both be MatrixProductOperators or MatrixProductStates
+    """Split an mpx into two sub-networks at ``split_ind``.
+
+    Returns the left part (sites ``[0, split_ind)``) and right part (sites
+    ``[split_ind, L)``); the right part's sites are renumbered to start at 0 and
+    the exponent is split evenly (halved) between the two parts.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork1D
+        The network to split.
+    split_ind : int
+        The site index at which to split.
+
+    Returns
+    -------
+    tuple[Optional[qtn.TensorNetwork1D], Optional[qtn.TensorNetwork1D]]
+        ``(left, right)``; one element is ``None`` for the degenerate splits.
     """
     L1, L2 = split_ind, mpx.L - split_ind
 
@@ -3543,7 +5204,23 @@ def split_mpx(mpx, split_ind) -> tuple[Optional['qtn.TensorNetwork1D'], Optional
 
 
 def ones_mps(L, q, site_ind_id='i{}', site_tag_id='T{}'):
-    """ make an MPS of 1's
+    """Construct an MPS whose dense vector is all ones.
+
+    Parameters
+    ----------
+    L : int
+        Number of sites.
+    q : int or tuple or list
+        Physical dimension per site (a scalar is broadcast to all sites).
+    site_ind_id : str
+        Format string for physical index ids. Default ``'i{}'``.
+    site_tag_id : str
+        Format string for site tags. Default ``'T{}'``.
+
+    Returns
+    -------
+    qtn.MatrixProductState
+        The all-ones MPS.
     """
     if not (isinstance(q, tuple) or isinstance(q, list)):  q = (q,) * L
     ones = sum_tensornetwork(L=L, qs=q, inds=site_ind_id, tags=site_tag_id)
@@ -3560,7 +5237,33 @@ def ones_mps(L, q, site_ind_id='i{}', site_tag_id='T{}'):
 
 
 def sum_tensornetwork(like_tn=None, scale=1., L=1, qs=None, inds=None, tags=None):
-    """ tensor product of just one vectors (scaled by scale**(1./L))
+    """Build a rank-1 "summing" tensor network of all-ones vectors.
+
+    Produces a chain of all-ones rank-1 tensors (joined by trivial bonds) whose
+    contraction with another network sums its elements. When ``like_tn`` is
+    given the outer indices/tags are taken from it; otherwise they are derived
+    from ``L``, ``qs``, ``inds`` and ``tags``. The whole network is scaled by
+    ``scale`` (spread as ``scale**(1/L)`` per tensor via :func:`scalar_multiply`).
+
+    Parameters
+    ----------
+    like_tn : qtn.TensorNetwork, optional
+        Template whose outer dims/inds/tags define the result's legs.
+    scale : float
+        Overall scalar applied to the network. Default 1.0.
+    L : int
+        Number of sites when no template is given. Default 1.
+    qs : int or sequence of int, optional
+        Physical dimension(s) per site.
+    inds : str or list of str, optional
+        Physical index id format or explicit labels.
+    tags : str or list of str, optional
+        Site tag format or explicit tags.
+
+    Returns
+    -------
+    qtn.TensorNetwork
+        The summing tensor network.
     """
     if like_tn is not None:
         inds_dims_list = like_tn.outer_dims_inds()
@@ -3608,6 +5311,35 @@ def sum_tensornetwork(like_tn=None, scale=1., L=1, qs=None, inds=None, tags=None
 
 def apply_gate(mpx: qtn.TensorNetwork1D, sites: Sequence[int], gate: np.ndarray,
                compress_opts=None, inplace=False, invert_gate=False, direction=1):
+    """Apply a dense gate to one site of an MPS/MPO.
+
+    Canonizes around the target site if needed, contracts the gate tensor onto
+    the site, redecomposes it via :func:`mpx_from_dense_new`, and writes the new
+    tensors back. Only single-site gates are currently supported (multi-site
+    raises NotImplementedError).
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork1D
+        The MPS/MPO to act on.
+    sites : Sequence[int]
+        Site index(es) the gate acts on (length 1 only).
+    gate : np.ndarray
+        The dense gate array.
+    compress_opts : dict, optional
+        Split options forwarded to :func:`mpx_from_dense_new`.
+    inplace : bool
+        Modify ``mpx`` in place if True, else operate on a copy.
+    invert_gate : bool
+        Apply the conjugate (inverse) gate with swapped in/out legs if True.
+    direction : int
+        Decomposition sweep direction passed to :func:`mpx_from_dense_new`.
+
+    Returns
+    -------
+    qtn.TensorNetwork1D
+        The network with the gate applied.
+    """
     mpo = mpx if inplace else mpx.copy()
     cur_orthog: Optional[tuple[int, int]] = None  # mpx._cur_orthog
 
@@ -3670,6 +5402,20 @@ def apply_gate(mpx: qtn.TensorNetwork1D, sites: Sequence[int], gate: np.ndarray,
 #     return out_tens
 
 def to_dense(mpx: qtn.TensorNetwork, inds_seq: Sequence[str] = None) -> np.ndarray:
+    """Contract a network to a dense array, applying its exponent factor.
+
+    Parameters
+    ----------
+    mpx : qtn.TensorNetwork
+        The network to densify.
+    inds_seq : Sequence[str], optional
+        Desired output index ordering; defaults to quimb's natural ordering.
+
+    Returns
+    -------
+    numpy.ndarray
+        The dense array scaled by ``10 ** mpx.exponent``.
+    """
     inds_seq = [] if inds_seq is None else inds_seq
     out_data = mpx.to_dense(*inds_seq)
     out_data = out_data * 10 ** mpx.exponent
@@ -3678,6 +5424,26 @@ def to_dense(mpx: qtn.TensorNetwork, inds_seq: Sequence[str] = None) -> np.ndarr
 
 
 def partition_1D_mps(mps: 'qtn.MatrixProductState', i: int, do_canonize=True):
+    """Split an MPS at bond ``i`` and plot the left/right Schmidt bases.
+
+    Optionally canonizes about site ``i``, splits site ``i`` (absorbing singular
+    values to the left), contracts each side into a single dense tensor, and
+    plots the resulting left and right basis vectors with matplotlib.
+
+    Parameters
+    ----------
+    mps : qtn.MatrixProductState
+        The MPS to partition (operates on a copy).
+    i : int
+        Bond/site index to split at; must satisfy ``0 <= i < mps.L - 1``.
+    do_canonize : bool
+        Canonize about site ``i`` before splitting if True.
+
+    Returns
+    -------
+    tuple[qtn.Tensor, qtn.Tensor]
+        The contracted left and right partition tensors.
+    """
     assert (0 <= i < mps.L - 1), f'i should be within mps of length {mps.L}, not {i}'
 
     mps = mps.copy()

@@ -47,39 +47,43 @@ DEEP_GRID_CHECK = False     ## True for debugging
 #### parameters that can be set by command line flags
 flags = {}
 def _set_args(argv):
-    opts, args = getopt.getopt(argv,
-                               "hP:D:c:k:A:L:o:l:s:d:b:",     # help, MP, DMAX, cutoff, k, A, L, order, layout, sqrt, dir
-                               ["use_mp=",      # use multiprocessing versions of some functions
-                                "max_bond=",    # maximum TT rank
-                                "cutoff=",      # TT cutoff
-                                "norm_cutoff=", # TT norm cutoff
-                                "k=",           # perturbation wavevector
-                                "A=",           # perturbation strength
-                                "branch=",      # branch of wave being targeted
-                                "Lx=",          # QTT length in real space
-                                "Lve=",         # QTT length in velocity space for electrons
-                                "Lvi=",         # QTT length in velocity space for ions
-                                "layout=",      # layout string for QTT
-                                "order=",       # order of spatial derivatives
-                                "te_order=",    # time integration scheme for Vlasov/Boltzmann
-                                "te_order_EM=", # time integration scheme for Maxwell's eqn
-                                "dt=",          # time step (do_adapt_dt=False)
-                                "cfl=",         # cfl time step (do_adapt_dt=True)
-                                "T=",           # simulation run time
-                                "order=",       # order when computing spatial derivatives
-                                "sqrt",         # flag signaling to take sqrt of f
-                                "do_tt",        # flag signaling to do TT (not quantized) calc
-                                "do_full",      # flag signaling to do full calc (parallel_group TT)
-                                "no_save",      # save data
-                                "clear_checkpoints",    # flag signaling to delete checkpoints and restart from T=0
-                                "load_from_T="          # load data (specify T if not the current value of T)
-                                "restart_from_nt=",     # restart (specify nt if not the default (last available))
-                                "save_every_nt=",       # save_every_nt
-                                "fdir_iden=",           # fdir identifying string/number
-                                "no_evolve_ion",        # evolve_ion=False
-                                "dissipation=", # amount of dissipation (eta)
-                                "upwind",       # do upwind (if not specified by te_order)
-                                ] )
+    try:
+        opts, args = getopt.getopt(argv,
+                                   "hP:D:c:k:A:L:o:l:s:d:b:",     # help, MP, DMAX, cutoff, k, A, L, order, layout, sqrt, dir
+                                   ["use_mp=",      # use multiprocessing versions of some functions
+                                    "max_bond=",    # maximum TT rank
+                                    "cutoff=",      # TT cutoff
+                                    "norm_cutoff=", # TT norm cutoff
+                                    "k=",           # perturbation wavevector
+                                    "A=",           # perturbation strength
+                                    "branch=",      # branch of wave being targeted
+                                    "Lx=",          # QTT length in real space
+                                    "Lve=",         # QTT length in velocity space for electrons
+                                    "Lvi=",         # QTT length in velocity space for ions
+                                    "layout=",      # layout string for QTT
+                                    "order=",       # order of spatial derivatives
+                                    "te_order=",    # time integration scheme for Vlasov/Boltzmann
+                                    "te_order_EM=", # time integration scheme for Maxwell's eqn
+                                    "dt=",          # time step (do_adapt_dt=False)
+                                    "cfl=",         # cfl time step (do_adapt_dt=True)
+                                    "T=",           # simulation run time
+                                    "order=",       # order when computing spatial derivatives
+                                    "sqrt",         # flag signaling to take sqrt of f
+                                    "do_tt",        # flag signaling to do TT (not quantized) calc
+                                    "do_full",      # flag signaling to do full calc (parallel_group TT)
+                                    "no_save",      # save data
+                                    "clear_checkpoints",    # flag signaling to delete checkpoints and restart from T=0
+                                    "load_from_T="          # load data (specify T if not the current value of T)
+                                    "restart_from_nt=",     # restart (specify nt if not the default (last available))
+                                    "save_every_nt=",       # save_every_nt
+                                    "fdir_iden=",           # fdir identifying string/number
+                                    "no_evolve_ion",        # evolve_ion=False
+                                    "dissipation=", # amount of dissipation (eta)
+                                    "upwind",       # do upwind (if not specified by te_order)
+                                    ] )
+    except getopt.GetoptError:
+        return
+
     print('in func')
     print('opts', opts, args)
     for opt, arg in opts:

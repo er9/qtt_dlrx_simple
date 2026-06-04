@@ -35,6 +35,7 @@ def local_mixed_evaluator(terms: Sequence['Term_Mixed'],
                           init_guess: Optional['qtn.MatrixProductState'] = None,
                           max_bond=None, cutoff=None, combine_terms_func:Callable=None,
                           nsites=1, direction: SweepDirection = SweepDirection.RIGHT,
+                          verbose: bool = False,
                           ):
     """ terms are sequences of ((A, B, ...), x)
         where A, B are operators or functions that are applied to x in
@@ -46,9 +47,11 @@ def local_mixed_evaluator(terms: Sequence['Term_Mixed'],
     """
     init_guess = terms[0].ket.copy() if init_guess is None else init_guess
 
-    print('nsites', nsites)
+    if verbose:
+        print('nsites', nsites)
     solver = MixedEvaluator(init_guess, terms, combine_terms_func=combine_terms_func,
                             direction=direction, max_bond=max_bond, cutoff=cutoff)
+    solver.verbose = verbose
     solver.solve(nsites)
 
     # out_gtn = GridTN1D(ref_x.grid, solver.ket)
@@ -116,7 +119,8 @@ class MixedEvaluator(CrossEvaluator):
         """
         sites: int or slice(start, stop, step)
         """
-        print('in MIXED site solve')
+        if self.verbose:
+            print('in MIXED site solve')
 
         direction = self.direction
         at_end = (left_site_pos == self.L - nsites) if direction == SweepDirection.RIGHT else (left_site_pos == 0)
@@ -239,7 +243,8 @@ class MixedEvaluator(CrossEvaluator):
             site_tens.modify(apply=lambda x: x * 10 ** (-self.out.exponent))  ## remove self.ket exponent
             out_tensors = [site_tens]
             target_rdm_list = out_tensors + target_rdm_list
-            print('target rdm list', target_rdm_list)
+            if self.verbose:
+                print('target rdm list', target_rdm_list)
 
 
         else:
@@ -302,7 +307,8 @@ class MixedEvaluator(CrossEvaluator):
             site_err = np.linalg.norm(x_eff.data - current_x_x.data) / np.linalg.norm(current_x_x.data)
         except ValueError:  ## shape mismatch
             site_err = np.nan
-        print('site err', site_err)
+        if self.verbose:
+            print('site err', site_err)
 
         # ### plot out
         # coords = helper_cross.get_selectors(self.out, left_site_pos, nsites)
@@ -371,7 +377,8 @@ class MixedEvaluator(CrossEvaluator):
         """ update ket, bra with new_site
             i: mps_site
         """
-        print('UPDATE2', i)
+        if self.verbose:
+            print('UPDATE2', i)
 
         ket, tensors = self.out, [site_i] if not isinstance(site_i, (list, tuple)) else site_i
         # for term in self.terms:

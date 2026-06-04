@@ -156,7 +156,7 @@ class Term(ABC):
                 if mpo_poly == -1:
                     cgd_func = tc.get_cgd_func()
                     out_tens, err = cgd_func(site_tens, eff_ops[0], output_to_input_inds)
-                    print('cgd err', err)
+                    # print('cgd err', err)  # debug (no verbose flag in scope)
                 elif mpo_poly == 0:
                     out_tens = site_tens    ## technically this should return 1??
                     raise NotImplementedError
@@ -484,13 +484,15 @@ class Term(ABC):
         self.canonize(cur_orthog)
         self.cur_orthog = cur_orthog
 
-        print('term init?')
+        if getattr(self, 'verbose', 0):
+            print('term init?')
         try:
             check_func = self.check_func
             check_func(self.bra)
         except:
             self.canonize_func(self.bra, cur_orthog)
-        print('term init bra checked')
+        if getattr(self, 'verbose', 0):
+            print('term init bra checked')
 
         self.initialize_blocks()
 
@@ -668,7 +670,8 @@ class Term(ABC):
             plt.plot(self.ket.to_dense(), label='ket')
             plt.plot(self.bra.to_dense(), label='bra/out')
             if self.num_tiers > 1:
-                print(len(self._intermediate_kets))
+                if getattr(self, 'verbose', 0):
+                    print(len(self._intermediate_kets))
                 plt.plot(self.get_intermediate_ket(0).to_dense(), label='inter')
 
             plt.title('init get evaluated site')
@@ -1163,7 +1166,7 @@ class Term_Cross(Term):
 
     @classmethod
     def canonize_func(cls, mps: MPS, orthog: int, cur_orthog: int=None, select_inds=None):
-        print('X canonize mps cur orthog', mps._cur_orthog, cur_orthog)
+        # print('X canonize mps cur orthog', mps._cur_orthog, cur_orthog)  # debug (no verbose flag in scope)
         select_inds = mps.select_inds if select_inds is None else select_inds
         if select_inds is None:
             select_inds = {}

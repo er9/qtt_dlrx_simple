@@ -188,7 +188,7 @@ def iso_right_inds(mps: Union['MPS', Sequence['qtn.Tensor']], ind: int, site_ind
 
 
 def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Tensor', select_inds=None, ref_kets=None,
-                plt_title=''):
+                plt_title='', verbose=False):
 
     ref_kets = [mps] if ref_kets is None else ref_kets
 
@@ -221,7 +221,8 @@ def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Ten
         inds += [mps.site_ind(left_site_pos + i) for i in range(nsites)]
         if left_site_pos + nsites < mps.L:
             inds += [mps.bond(left_site_pos + nsites - 1, left_site_pos + nsites)]
-        print('inds', inds)
+        if verbose:
+            print('inds', inds)
 
     site_tens = site_tens.transpose(*inds, inplace=False)
     # print('site tens', site_tens.data.reshape(-1))
@@ -235,7 +236,7 @@ def plot_submat(mps: 'MPS', left_site_pos: int, nsites: int, site_tens: 'qtn.Ten
 
 
 def check_left_orthog(mpx: Union['qtn.MatrixProductState', Sequence[qtn.Tensor]],
-                      select_inds: dict[int, Sequence[int]], site_ind_ids: Sequence[str]) -> int:
+                      select_inds: dict[int, Sequence[int]], site_ind_ids: Sequence[str], verbose=False) -> int:
     """ returns index of first tensor that is not left canonical
     """
     mpx = mpx.copy()
@@ -257,11 +258,13 @@ def check_left_orthog(mpx: Union['qtn.MatrixProductState', Sequence[qtn.Tensor]]
             env = tens.data[select_inds[i], :]
             err = np.linalg.norm(env - np.eye(env.shape[0]))
         except (KeyError, ValueError, IndexError):
-            print(f'left: select ind not defined or incompatible for {i}')
+            if verbose:
+                print(f'left: select ind not defined or incompatible for {i}')
             return i
 
         if err > 1.0e-8:
-            print('not left orthog', i, err) #, env)
+            if verbose:
+                print('not left orthog', i, err) #, env)
             if err > 1.0e-5:
                 break
 
@@ -269,7 +272,7 @@ def check_left_orthog(mpx: Union['qtn.MatrixProductState', Sequence[qtn.Tensor]]
 
 
 def check_right_orthog(mpx: Union['qtn.MatrixProductState', Sequence['qtn.Tensor']],
-                       select_inds: dict[int, Sequence[int]], site_ind_ids: Sequence[str]) -> int:
+                       select_inds: dict[int, Sequence[int]], site_ind_ids: Sequence[str], verbose=False) -> int:
     """ returns index of first tensor that is not left canonical
     """
     mpx = mpx.copy()
@@ -291,20 +294,23 @@ def check_right_orthog(mpx: Union['qtn.MatrixProductState', Sequence['qtn.Tensor
             env = tens.data[select_inds[i], :]
             err = np.linalg.norm(env - np.eye(env.shape[0]))
         except (KeyError, ValueError, IndexError):
-            print(f'right: select ind not defined or incompatible for {i} ')
+            if verbose:
+                print(f'right: select ind not defined or incompatible for {i} ')
             return i
 
         if err > 1.0e-8:
-            print('not right orthog', i, err) #, env)
+            if verbose:
+                print('not right orthog', i, err) #, env)
             if err > 1.0e-5:
                 break
 
     return i
 
-def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog: int, ref_tens=None) -> bool:
+def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog: int, ref_tens=None, verbose=False) -> bool:
 
     mpx = mpx.copy()
-    print('check center')
+    if verbose:
+        print('check center')
 
     select_inds = mpx.select_inds
     site_ind_ids = [mpx.site_ind_id]
@@ -330,7 +336,8 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
             tens_left = qtn.Tensor(data=sel_data, inds=tens.inds)
 
         except (KeyError, ValueError, IndexError):
-            print(f'left: select ind not defined or incompatible for {i}')
+            if verbose:
+                print(f'left: select ind not defined or incompatible for {i}')
             return False
 
     tens_right = None
@@ -352,7 +359,8 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
             tens_right = qtn.Tensor(data=sel_data, inds=tens.inds)
 
         except (KeyError, ValueError, IndexError):
-            print(f'right: select ind not defined or incompatible for {i} ')
+            if verbose:
+                print(f'right: select ind not defined or incompatible for {i} ')
             return False
 
     tens = mpx[cur_orthog]
@@ -373,17 +381,19 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
     ## verify that projection yields the same tensor
     proj_tens.transpose_like(ref_tens, inplace=True)
     diff_tens = helper_quimb.add_tensors(proj_tens * -1, ref_tens)
-    print('difference norm', diff_tens.norm() / ref_tens.norm() )
+    if verbose:
+        print('difference norm', diff_tens.norm() / ref_tens.norm() )
 
     return diff_tens.norm() / ref_tens.norm() < 1.0e-13
 
 
 def check_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], select_inds: dict[int, Sequence[int]] = None,
-                 site_ind_ids: Sequence[str] = None) -> tuple[int, int]:
+                 site_ind_ids: Sequence[str] = None, verbose=False) -> tuple[int, int]:
 
     mpx = mpx.copy()
 
-    print('check orthog')
+    if verbose:
+        print('check orthog')
     if select_inds is None:
         select_inds = mpx.select_inds
     if site_ind_ids is None:
@@ -439,10 +449,14 @@ def tensor_compress(tens: qtn.Tensor, phys_inds: list[str], right_inds: list[str
                                               include_inds_r=include_inds_r)
 
     if False: # len(inds_r) > tens_.shape[-1]:
-        print("TENSOR SPLIT")
-        print('tens', tens.shape, fuse_inds, right_inds)
-        print('select inds', inds_r)
-        print('check canon', tens_.shape, len(inds_r), [q[inds_r[i], i] for i in range(len(inds_r))])
+        if verbose:
+            print("TENSOR SPLIT")
+        if verbose:
+            print('tens', tens.shape, fuse_inds, right_inds)
+        if verbose:
+            print('select inds', inds_r)
+        if verbose:
+            print('check canon', tens_.shape, len(inds_r), [q[inds_r[i], i] for i in range(len(inds_r))])
         # verbose =True
         # pdb.set_trace()
 
@@ -465,7 +479,7 @@ def tensor_compress(tens: qtn.Tensor, phys_inds: list[str], right_inds: list[str
 
 
 def tensor_select_rows(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, solver_type=DEFAULT_SOLVER,
-                       oversample=False):
+                       oversample=False, verbose=False):
     """ matricize tensor (phys_bond, lbond) x r bond
         obtain selection indices via deim
     """
@@ -478,7 +492,8 @@ def tensor_select_rows(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str,
     tens_copy = tens_.copy()
     if oversample:
         diff_r = min(tens_copy.shape[0] - tens_copy.shape[1], 5)
-        print('over sampling?', tens_copy.shape, diff_r)
+        if verbose:
+            print('over sampling?', tens_copy.shape, diff_r)
         if diff_r > 0:
             add_rand = np.random.random((tens_copy.shape[0], diff_r)) * 1.0e-08
             tens_copy.modify(data=np.hstack([tens_copy.data, add_rand]))
@@ -568,16 +583,18 @@ def tensor_canonize_with_inds_1site(tens1: qtn.Tensor, tens2: qtn.Tensor, select
 
 
 def tensor_canonize_with_inds_2site(tens1: qtn.Tensor, tens2: qtn.Tensor, phys_inds: list[str], right_inds: list[str],
-                                    inplace=False, do_qr=False, solver_type = DEFAULT_SOLVER):
+                                    inplace=False, do_qr=False, solver_type = DEFAULT_SOLVER, verbose=False):
     """ combine tens1 * tens2 before doing decomposition, for when len(select_inds) > size of remaining rank
     """
 
-    print('in tensor canonize with inds 2site')
+    if verbose:
+        print('in tensor canonize with inds 2site')
     raise RuntimeError
 
     tens1 = tens1 if inplace else tens1.copy()
     tens2 = tens2 if inplace else tens2.copy()
-    print('tens1', tens1.shape, tens2.shape, do_qr)
+    if verbose:
+        print('tens1', tens1.shape, tens2.shape, do_qr)
 
     left_inds = [ind for ind in tens1.inds if (ind not in phys_inds + right_inds)]
     assert (len(left_inds) <= 1), 'not specific enough if have multiple virtual "left inds"'
@@ -607,8 +624,10 @@ def tensor_canonize_with_inds_2site(tens1: qtn.Tensor, tens2: qtn.Tensor, phys_i
     o2 = o2.reshape(-1, *shape2)
     tens2.modify(data=o2)
 
-    print("CANONIZE SELECT")
-    print('tens1', tens1.fuse({f'xx': fuse_inds, f'oo': right_inds}).data)
+    if verbose:
+        print("CANONIZE SELECT")
+    if verbose:
+        print('tens1', tens1.fuse({f'xx': fuse_inds, f'oo': right_inds}).data)
 
     # print('final Q Q^-1', (Q @ np.linalg.inv(submat))[inds, :])
 
@@ -920,7 +939,7 @@ def add_MPS_list(mps_list: Sequence[MPS], inplace=False, direction=1, do_final_u
 
 def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection',
                  select_inds: Sequence[int] = None, max_bond:int = None, decimate_only=False,
-                 solver_type=DEFAULT_SOLVER, plot_verbosity:int = 0):
+                 solver_type=DEFAULT_SOLVER, plot_verbosity:int = 0, verbose=False):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         don't actually do the update--just select indices
@@ -986,7 +1005,8 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
         else:
 
             if plot_verbosity:
-                print('ind 1', ind1)
+                if verbose:
+                    print('ind 1', ind1)
                 check_orthog(mps)
 
                 plt.figure()
@@ -1191,7 +1211,7 @@ def decimate_1site(mps: 'MPS', left_site_pos: int, select_inds: Sequence[int], d
 
 
 def decimate_2site(mps: 'MPS', left_site_pos: int, inds_r: Sequence[int], inds_c: Sequence[int],
-                   direction: 'SweepDirection'):
+                   direction: 'SweepDirection', verbose=False):
     """ update ket, bra with new_site
         i: mps_site
         only decimate / only keep select inds --- can't guarantee select_inds are consistent?
@@ -1215,7 +1235,8 @@ def decimate_2site(mps: 'MPS', left_site_pos: int, inds_r: Sequence[int], inds_c
     mps.select_inds[ind1] = inds_r
     mps.select_inds[ind2] = inds_c
 
-    print('ind1', ind1, ind2, direction)
+    if verbose:
+        print('ind1', ind1, ind2, direction)
     check_orthog(mps)
 
     return
@@ -1560,7 +1581,7 @@ def maxvol_inds(A: 'np.ndarray', max_iters=DEFAULT_MAX_TOT_ITER, conv_tol=DEFAUL
 
 
 def cross_split(A: np.ndarray, do_qr=False, cutoff: float=None, max_iters=DEFAULT_MAX_TOT_ITER, return_inds=False,
-                sel_inds_guess:Sequence[int]=None):
+                sel_inds_guess:Sequence[int]=None, verbose=False):
     ### decompose matrix using cross interpolation; obtain low-rank approximation
 
     # raise RuntimeError
@@ -1579,8 +1600,9 @@ def cross_split(A: np.ndarray, do_qr=False, cutoff: float=None, max_iters=DEFAUL
             cum_sum = np.cumsum((s[::-1]) ** 2 / np.linalg.norm(s) ** 2)  # ordered smallest to largest
             cut_ind = np.argmin(cum_sum < cutoff)
             if cut_ind != 0:
-                print('cross split cutoff', cutoff, 'cut ind', -cut_ind,
-                      'err', np.linalg.norm(s[-cut_ind:]) / np.linalg.norm(s))
+                if verbose:
+                    print('cross split cutoff', cutoff, 'cut ind', -cut_ind,
+                          'err', np.linalg.norm(s[-cut_ind:]) / np.linalg.norm(s))
                 u = u[:, :-cut_ind]
                 s = s[:-cut_ind]
                 vt = vt[:-cut_ind, :]
@@ -1653,7 +1675,7 @@ def cross_split(A: np.ndarray, do_qr=False, cutoff: float=None, max_iters=DEFAUL
 
 def cross_compress(A: np.ndarray, max_bond, do_qr=True, max_iters=DEFAULT_MAX_TOT_ITER, return_inds=False,
                    cutoff: float = None, conv_tol=DEFAULT_CONV_TOL, include_inds_r=None,
-                   inds_r_guess: Sequence[int] = None, inds_c_guess: Sequence[int] = None):
+                   inds_r_guess: Sequence[int] = None, inds_c_guess: Sequence[int] = None, verbose=False):
     ### decompose matrix using cross interpolation; obtain low-rank approximation
 
     # raise RuntimeError
@@ -1689,7 +1711,8 @@ def cross_compress(A: np.ndarray, max_bond, do_qr=True, max_iters=DEFAULT_MAX_TO
 
         CA = A[:, inds_c]
         if cutoff is not None:
-            print('Warning: finite cutoff being used in cross split', cutoff)
+            if verbose:
+                print('Warning: finite cutoff being used in cross split', cutoff)
         T1, submat, inds_r = cross_split(CA, do_qr=do_qr, cutoff=cutoff, max_iters=max_iters, return_inds=True,
                                          sel_inds_guess=inds_r)
 
@@ -1701,7 +1724,8 @@ def cross_compress(A: np.ndarray, max_bond, do_qr=True, max_iters=DEFAULT_MAX_TO
 
         if it == max_iters:
             T2 = A[inds_r, :]
-            print('compress err', err)
+            if verbose:
+                print('compress err', err)
 
         if err < conv_tol:
             T2 = A[inds_r, :]
@@ -1851,13 +1875,14 @@ def deim_inds_1(W: 'np.ndarray', max_r: int = None, include_inds=None):
 
     return indices
 
-def deim_inds(W: 'np.ndarray', max_r: int = None, include_inds=None):
+def deim_inds(W: 'np.ndarray', max_r: int = None, include_inds=None, verbose=False):
     """Q-DEIM: QR-based DEIM for better numerical stability."""
     max_r = min(max_r, W.shape[1]) if max_r is not None else W.shape[1]
 
     add_rand_noise = False
     if add_rand_noise:
-        print('adding random noise')
+        if verbose:
+            print('adding random noise')
         noise = np.random.random(W.shape) * 1.0e-09
         W = W + noise
 
@@ -1973,7 +1998,7 @@ def deim_split(A: np.ndarray, return_inds=False, max_bond=None, expand_u=False):
         return T1, T2
 
 
-def approx_svd(A: np.ndarray, max_bond=None, cutoff=CUTOFF, full_matrices=False):
+def approx_svd(A: np.ndarray, max_bond=None, cutoff=CUTOFF, full_matrices=False, verbose=False):
     ### full_matrices --> really only want full u
     u, s, vt = np.linalg.svd(A, full_matrices=full_matrices and A.shape[1] <= A.shape[0])
     # u0, s0, vt0 = u.copy(), s.copy(), vt.copy()
@@ -1997,14 +2022,15 @@ def approx_svd(A: np.ndarray, max_bond=None, cutoff=CUTOFF, full_matrices=False)
             cut_ind = min(cut_ind, min_ind)     ## cut fewer elements from the end
         # print('cut ind', cut_ind)
         if cut_ind != 0:
-            print('deim cutoff', cutoff, 'cut ind', -cut_ind, 'err', np.linalg.norm(s[-cut_ind:]) / np.linalg.norm(s))
+            if verbose:
+                print('deim cutoff', cutoff, 'cut ind', -cut_ind, 'err', np.linalg.norm(s[-cut_ind:]) / np.linalg.norm(s))
             u = u[:, :-cut_ind]
             s = s[:-cut_ind]
             vt = vt[:-cut_ind, :]
     return u, s, vt
 
 def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
-                  include_inds_r: Sequence[int]=None, expand_u=False):
+                  include_inds_r: Sequence[int]=None, expand_u=False, verbose=False):
     """
     decompose matrix using DEIM; obtain low-rank approximation
     truncate via singular values, and then perform DEIM?
@@ -2036,7 +2062,8 @@ def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
     if expand_u:
         add_size = submat_u.shape[1] - R_dmp.shape[0]
         R_dmp = np.vstack([R_dmp, np.zeros((add_size, R_dmp.shape[1]))])
-        print('add size', add_size)
+        if verbose:
+            print('add size', add_size)
 
     use_new_method = False
     if use_new_method:
@@ -2061,18 +2088,22 @@ def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
         # T2 = submat_u @ R_dmp
 
         if False:  # len(inds_r) > r:
-            print('len inds', len(inds_r), r)
-            print('T1', [(submat_u @ np.linalg.pinv(submat_u))[i, i] for i in range(len(inds_r))], np.linalg.cond(submat_u))
+            if verbose:
+                print('len inds', len(inds_r), r)
+            if verbose:
+                print('T1', [(submat_u @ np.linalg.pinv(submat_u))[i, i] for i in range(len(inds_r))], np.linalg.cond(submat_u))
             # print('T1', submat_u @ np.linalg.pinv(submat_u))
             # print('canon error', np.linalg.norm(T1[inds_r, :] @ T2 - submat_u @ R_dmp))
-            print('canon error', np.linalg.norm(A[inds_r, :] - submat_u @ R_dmp))
+            if verbose:
+                print('canon error', np.linalg.norm(A[inds_r, :] - submat_u @ R_dmp))
 
             R0_dmp = R_dmp.copy()
             R0_dmp[:, A.shape[1]//2:] *= 0.5
             T2_0 = submat_u @ R0_dmp
             A_0 = A.copy()
             A_0[:, A.shape[1]//2:] *= 0.5
-            print('canon error', np.linalg.norm(A_0[inds_r, :] - T2_0))
+            if verbose:
+                print('canon error', np.linalg.norm(A_0[inds_r, :] - T2_0))
 
             # pdb.set_trace()
 

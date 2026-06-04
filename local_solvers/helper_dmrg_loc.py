@@ -57,10 +57,11 @@ def get_tens_rdm(tens: 'qtn.Tensor', ket_iso: Sequence[str], bra_iso: Optional[S
     return rdm
 
 
-def get_expanded_qr(tens_list, left_inds, max_bond=MAXBOND, min_bond=MINBOND, cutoff=CUTOFF, bond_ind:str=None):
+def get_expanded_qr(tens_list, left_inds, max_bond=MAXBOND, min_bond=MINBOND, cutoff=CUTOFF, bond_ind:str=None, verbose=False):
     """ tens_list[0] is the main one to keep; rest are set to zero
     """
-    print('get expanded qr')
+    if verbose:
+        print('get expanded qr')
     T1 = tens_list[0].copy()
     r_inds = [ind for ind in T1.inds if ind not in left_inds]
     r_size = [T1.ind_size(ind) for ind in r_inds]
@@ -198,7 +199,7 @@ def get_rdm_eig_filtered(tot_rdm: 'qtn.Tensor',
                          partition: 'qtn.MatrixProductState', site_inds: Sequence[int],
                          ket_iso: Sequence[str], bra_iso: Optional[Sequence[str]]=None,
                          filter_range: int = 1,
-                         new_ind: str=None, max_bond=None, return_weights=False
+                         new_ind: str=None, max_bond=None, return_weights=False, verbose=False
                          ) -> Union[tuple[qtn.Tensor,np.ndarray], qtn.Tensor]:
     """ A = Q Lambda Q.T  --> return Q
         filter eigvecs also based on frequency of basis fct on partition
@@ -267,12 +268,15 @@ def get_rdm_eig_filtered(tot_rdm: 'qtn.Tensor',
     # plt.show()
 
     ovlp.modify(data=np.sum(ovlp.data, axis=ind), inds=(new_ind,))
-    print('ovlp', ovlp.data)
+    if verbose:
+        print('ovlp', ovlp.data)
     ## penalize large overlaps; if no overlap, scale by 1
     ovlp.modify(apply=lambda data: np.exp(-data))
-    print('exo ovlp', ovlp.data)
+    if verbose:
+        print('exo ovlp', ovlp.data)
     ovlp_weights = ovlp.data  # np.where(eigval / np.max(np.abs(eigval)) > 1.0e-3, 1, ovlp.data)  # ovlp.data
-    print('exo ovlp', ovlp_weights)
+    if verbose:
+        print('exo ovlp', ovlp_weights)
 
     # plt.figure()
     # plt.plot(np.abs(eigval)/np.max(np.abs(eigval)), label='eigval')
@@ -288,7 +292,8 @@ def get_rdm_eig_filtered(tot_rdm: 'qtn.Tensor',
     if max_bond is not None:
         sort_inds = np.argsort(np.abs(eigval))[::-1]
         eigvec = eigvec[:, sort_inds[:max_bond]]
-        print('eig trunc', np.sum(np.abs(eigval[sort_inds[max_bond:]])))
+        if verbose:
+            print('eig trunc', np.sum(np.abs(eigval[sort_inds[max_bond:]])))
 
         if True: # return_weights:
             eigval = eigval[sort_inds[:max_bond]]

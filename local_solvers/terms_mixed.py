@@ -184,7 +184,8 @@ class Term_Mixed(Term):
             plt.plot(self.ket.to_dense(), label='ket')
             plt.plot(self.bra.to_dense(), label='bra/out')
             if self.num_tiers > 1:
-                print(len(self._intermediate_kets))
+                if getattr(self, 'verbose', 0):
+                    print(len(self._intermediate_kets))
                 plt.plot(self.get_intermediate_ket(0).to_dense(), label='inter')
 
             plt.title('init get evaluated site')
@@ -246,7 +247,8 @@ class Term_Mixed(Term):
                                                                     return_intermediates=True,
                                                                     site_tens=site_tens if self.bra is self.vec_block.ket else None,
                                                                     version_=version_)
-            print('vec block get proj X')
+            if getattr(self, 'verbose', 0):
+                print('vec block get proj X')
 
         # if len(self.operators) > 0:
         #     print('got basis proj')     ## ket_ind
@@ -406,7 +408,8 @@ class Term_Mixed(Term):
 
     def update_intermediate_kets(self, i: int, nsites: int, direction: SweepDirection,):
 
-        print('update intermediate kets')
+        if getattr(self, 'verbose', 0):
+            print('update intermediate kets')
 
         if nsites == 1 or direction == SweepDirection.RIGHT:
             left_site_pos = i

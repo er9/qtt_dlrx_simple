@@ -61,7 +61,7 @@ def cur_split(tens: qtn.Tensor, inds_r: Sequence[int], cu_bond=None, ur_bond=Non
 
 
 def check_left_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int, Sequence[int]],
-                           select_tens: dict[int, qtn.Tensor], select_tens_inv: dict[int, qtn.Tensor]) -> int:
+                           select_tens: dict[int, qtn.Tensor], select_tens_inv: dict[int, qtn.Tensor], verbose=False) -> int:
     """ returns index of first tensor that is not left canonical
     """
     mpx = mpx.copy()
@@ -97,12 +97,15 @@ def check_left_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int,
             # err2 = np.linalg.norm(sel_tens.data @ sel_tens_inv.data - np.eye(r))
             # print('inverse err2', err2)
         except (KeyError, ValueError, IndexError):
-            print(f'left: select ind not defined or incompatible for {i}')
+            if verbose:
+                print(f'left: select ind not defined or incompatible for {i}')
             return i
 
         if err > 1.0e-8 or err1 > 1.0e-08:
-            print('check sel inds not left orthog', i, err) #, env)
-            print('inverse issues', i, err1)
+            if verbose:
+                print('check sel inds not left orthog', i, err) #, env)
+            if verbose:
+                print('inverse issues', i, err1)
             if err > 1.0e-5 or err1 > 1.0e-05:
                 break
 
@@ -110,7 +113,7 @@ def check_left_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int,
 
 
 def check_right_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int, Sequence[int]],
-                            select_tens: dict[int, qtn.Tensor], select_tens_inv: dict[int, qtn.Tensor]) -> int:
+                            select_tens: dict[int, qtn.Tensor], select_tens_inv: dict[int, qtn.Tensor], verbose=False) -> int:
     """ returns index of first tensor that is not left canonical
     """
     mpx = mpx.copy()
@@ -145,12 +148,15 @@ def check_right_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int
             # err2 = np.linalg.norm(sel_tens.data @ sel_tens_inv.data - np.eye(r))
             # print('inverse err2', err2)
         except (KeyError, ValueError, IndexError):
-            print(f'right: select ind not defined or incompatible for {i}')
+            if verbose:
+                print(f'right: select ind not defined or incompatible for {i}')
             return i
 
         if err > 1.0e-8 or err1 > 1.0e-08:
-            print('check sel inds not right orthog', i, err)  # , env)
-            print('inverse issues', i, err1)
+            if verbose:
+                print('check sel inds not right orthog', i, err)  # , env)
+            if verbose:
+                print('inverse issues', i, err1)
             if err > 1.0e-5 or err1 > 1.0e-5:
                 break
 
@@ -194,7 +200,7 @@ def check_right_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int
 
 def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection',
                  max_bond:int = None, cutoff:float=CUTOFF, solver_type=DEFAULT_SOLVER, version=None,
-                 verbose_plot=False):
+                 verbose_plot=False, verbose=False):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         get row/column selected inds
@@ -202,7 +208,8 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
     """
     version = flags.get('version', 'X') if version is None else version
     # mps_copy = mps.copy()
-    print('mixed update 1 site', 'max_bond', max_bond, 'cutoff', cutoff)
+    if verbose:
+        print('mixed update 1 site', 'max_bond', max_bond, 'cutoff', cutoff)
 
     if not isinstance(site_i, (list, tuple)):
         site_i = [site_i]
@@ -228,7 +235,8 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
                 tmp1[left_site_pos].transpose_like(tens_g, inplace=True)
                 tmp1[left_site_pos].modify(data=tens_g.data)
                 tmp1_data = helper_quimb.to_dense(tmp1)
-                print('diff', np.linalg.norm(tmp1_data - ref_data))
+                if verbose:
+                    print('diff', np.linalg.norm(tmp1_data - ref_data))
                 plt.figure()
                 plt.plot((tmp1_data - ref_data).reshape(-1))
                 plt.show()
@@ -250,9 +258,12 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
 
     from local_solvers.helper_dmrg_loc import update_1site as update_1site_dmrg
-    print('cutoff', cutoff)
-    print('left site pos', left_site_pos)
-    print('check orthog', check_orthog(mps))
+    if verbose:
+        print('cutoff', cutoff)
+    if verbose:
+        print('left site pos', left_site_pos)
+    if verbose:
+        print('check orthog', check_orthog(mps))
     update_1site_dmrg(mps, left_site_pos, site_i, direction=direction, max_bond=max_bond, cutoff=cutoff)
     out = mps
 
@@ -293,7 +304,7 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
 
 def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], direction: 'SweepDirection',
-                 max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None):
+                 max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None, verbose=False):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         inplace operation
@@ -315,17 +326,21 @@ def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
             proj_sites += [out]
         site_i = proj_sites
 
-    print('version', version)
-    print('update 2 site', site_i)
+    if verbose:
+        print('version', version)
+    if verbose:
+        print('update 2 site', site_i)
 
     copy_mps = mps.copy()
 
     from local_solvers.helper_dmrg_loc import update_2site as update_2site_dmrg
-    print('dmrg update 2-site update', max_bond, cutoff)
+    if verbose:
+        print('dmrg update 2-site update', max_bond, cutoff)
     update_2site_dmrg(mps, left_site_pos, site_i, direction=direction, max_bond=max_bond, cutoff=cutoff)
     out = mps
 
-    print('difference', helper_quimb.distance(mps, copy_mps))
+    if verbose:
+        print('difference', helper_quimb.distance(mps, copy_mps))
 
     # plt.figure()
     # plt.plot(np.real(helper_quimb.to_dense(copy_mps).reshape(-1)))
@@ -388,7 +403,7 @@ def update_ket(mps: 'MPS', tensors: Union[qtn.Tensor, Sequence[qtn.Tensor]], i: 
 
 
 def update_and_replace_2site(mps: MPS, left_site_pos: int, site_tens: qtn.Tensor, direction: 'SweepDirection',
-                             max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None):
+                             max_bond: int = None, cutoff: float = CUTOFF, solver_type=DEFAULT_SOLVER, version=None, verbose=False):
     """ update ket, bra with new_site; list of sites --> target these separately.
         i: int of mps site
         inplace operation
@@ -407,7 +422,8 @@ def update_and_replace_2site(mps: MPS, left_site_pos: int, site_tens: qtn.Tensor
 
     copy_mps = mps.copy()
 
-    print('version', version)
+    if verbose:
+        print('version', version)
     # print('update + replace 2 site', site_tens)
 
     # i = left_site_pos if direction > 0 else left_site_pos + 1
@@ -429,7 +445,8 @@ def update_and_replace_2site(mps: MPS, left_site_pos: int, site_tens: qtn.Tensor
     r.transpose_like(mps[ind2], inplace=True)
     mps[ind2].modify(data=r.data)
 
-    print('difference', helper_quimb.distance(mps, copy_mps))
+    if verbose:
+        print('difference', helper_quimb.distance(mps, copy_mps))
 
     # plt.figure()
     # plt.plot(np.real(helper_quimb.to_dense(mps).reshape(-1)), '--')
@@ -730,7 +747,7 @@ def deim_inds(W: 'np.ndarray', max_r: int = None):
 #     return inds_r
 
 def tensor_get_submat(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, solver_type=DEFAULT_SOLVER,
-                      oversample=False):
+                      oversample=False, verbose=False):
     """ matricize tensor (phys_bond, lbond) x r bond
         obtain selection indices via deim
     """
@@ -743,7 +760,8 @@ def tensor_get_submat(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, 
     tens_copy = tens_.copy()
     if oversample:
         diff_r = min(tens_copy.shape[0] - tens_copy.shape[1], 1)
-        print('over sampling?', tens_copy.shape, diff_r)
+        if verbose:
+            print('over sampling?', tens_copy.shape, diff_r)
         if diff_r > 0:
             add_rand = np.random.random((tens_copy.shape[0], diff_r)) * 1.0e-08
             tens_copy.modify(data=np.hstack([tens_copy.data, add_rand]))
@@ -764,9 +782,10 @@ def tensor_get_submat(tens: qtn.Tensor, lbond: str, rbond: str, phys_bond: str, 
     return inds_r, TC, TU, TR
 
 
-def check_orthog(mps: 'MPS'):
+def check_orthog(mps: 'MPS', verbose=False):
     import local_solvers.helper_cross_2 as helper_cross
-    print('check X orthog', mps.cur_orthog)
+    if verbose:
+        print('check X orthog', mps.cur_orthog)
     # if mps.cur_orthog is None:
     #     indL1, indR1 = mps.check_select_inds()
     # else:
@@ -778,7 +797,8 @@ def check_orthog(mps: 'MPS'):
         indL1, indR1 = (ind1, ind1) if is_canon else (-1, mps.L)
     except KeyError:
         indL1, indR1 = mps.check_select_inds()
-    print('check G orthog')
+    if verbose:
+        print('check G orthog')
     indL2, indR2 = helper_quimb.check_orthog(mps)
     indL = min(indL1, indL2)
     indR = max(indR1, indR2)

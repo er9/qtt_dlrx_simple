@@ -1077,7 +1077,8 @@ class BlockPowerKet_DMRG(BlockVector_DMRG):
             includes ket exponent
             removes bra exponent
         """
-        print('PowerKet get projected')
+        if getattr(self, 'verbose', 0):
+            print('PowerKet get projected')
         site_inds = list(range(left_site_pos, left_site_pos + nsites))
         assert (left_site_pos <= self.cur_orthog < left_site_pos + nsites), \
             'orthogonality center not within unprojected sites'
@@ -1389,8 +1390,10 @@ class BlockPowerOpKet_DMRG(BlockPowerKet_DMRG):
             includes ket exponent
             removes bra exponent
         """
-        print('PowerOpKet get projected')
-        print(self.ket.exponent, self.operator_k.exponent)
+        if getattr(self, 'verbose', 0):
+            print('PowerOpKet get projected')
+        if getattr(self, 'verbose', 0):
+            print(self.ket.exponent, self.operator_k.exponent)
 
         site_inds = list(range(left_site_pos, left_site_pos + nsites))
         assert (left_site_pos <= self.cur_orthog < left_site_pos + nsites), \

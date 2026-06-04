@@ -200,6 +200,7 @@ class BlockVector_Mixed(BlockMixed, BlockVector_DMRG):
         new_env_orthog = super().extend_env(i, direction)
 
         x_version = flags.get('x_version', 'select')  #  'select' or 'proj'; override via flags['x_version']
+        print('x version', x_version)
 
         if x_version == 'proj':
             g2x = self.bra.select_tens.get(i, None)

@@ -188,7 +188,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
         term_sources = [LocalTerm(source, bra=ket_state, cur_orthog=cur_orthog, **compress_opts) for source in self.sources]
         # term_sources = [LocalTerm(source, bra=self.ket) for source in self.sources]
         self.source_terms = term_sources
-        if self.verbose > 2:
+        if self.verbose > 4:
             print('self.source terms', self.source_terms)
 
         nl_terms = []
@@ -244,7 +244,8 @@ class TimeIntegrator(LocalEvaluator, ABC):
                 elif isinstance(ops_list[0], qtn.MatrixProductState):
                     self.extra_terms_dict[key] = [LocalTerm(mps, bra=ket_state, **compress_opts) for mps in ops_list]
                 else:
-                    print('type', type(ops_list[0]))
+                    if self.verbose > 2:
+                        print('type', type(ops_list[0]))
                     raise TypeError
                 extra_terms_list += self.extra_terms_dict[key]
 
@@ -420,7 +421,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
                    ) -> 'qtn.Tensor':
         """ compute df/dt = Af + sources + nonlinear terms O[f]
         """
-        if self.verbose > 1:
+        if self.verbose > 3:
             print('deriv time', time, self.time)
 
         # print('site tens', site_tens.norm() if site_tens is not None else None)
@@ -448,13 +449,13 @@ class TimeIntegrator(LocalEvaluator, ABC):
             #     print('backwards TE * -1')
             #     site_tens_list[-1].modify(apply=lambda x: x * -1)
 
-        if self.verbose > 2:
+        if self.verbose > 4:
             print('evaluate nonlinear terms and sources')
         for term in self.nonlinear_terms + self.sources:
             site_tens_list += [term.get_evaluated_site(left_site_pos, nsites, site_tens=site_tens,
                                                        verbose_plot=self.verbose_plot)]
 
-            if self.verbose > 2:
+            if self.verbose > 4:
                 print('term intermediate', term._intermediate_kets)
                 print('term blocks', term.blocks)
             # from local_solvers import helper_cross
@@ -557,7 +558,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
 
         intermediate_tens = [ket_x_orig]
 
-        if self.verbose:
+        if self.verbose > 2:
             print('LW', left_site_pos, nsites)
 
         for it in [0, 1]:  # , op_terms in self.extra_terms_dict.items():
@@ -641,7 +642,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
 
         dt = self.dt if dt is None else dt      ## already included in terms
         dt_ = dt / 2
-        if self.verbose:
+        if self.verbose > 2:
             print('LWSO', left_site_pos, nsites)
 
         if site_tens is None:
@@ -838,7 +839,8 @@ class TimeIntegrator(LocalEvaluator, ABC):
 
             phi1 = None
             if tot_sources is not None:
-                print('tot sources is not None')
+                if self.verbose > 1:
+                    print('tot sources is not None')
 
                 ## phi_1(J) = J^{-1} (exp(J) - I)
                 ## phi_2(J) = J^{-2} (exp(J) - I - J)
@@ -881,7 +883,8 @@ class TimeIntegrator(LocalEvaluator, ABC):
                   dt: Numeric=None, time: Numeric=None, site_tens: 'qtn.Tensor'=None) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
         dt = self.dt if dt is None else dt
-        print('EULER DT', dt, left_site_pos)
+        if self.verbose:
+            print('EULER DT', dt, left_site_pos)
 
         if self.local_euler_func is not None:
             self.combine_terms_func = self.local_euler_func
@@ -993,7 +996,8 @@ class TimeIntegrator(LocalEvaluator, ABC):
 
         dt = self.dt if dt is None else dt
         time = self.time if time is None else time
-        print(f'RK{te_order} DT', dt, time, left_site_pos, nsites)
+        if self.verbose:
+            print(f'RK{te_order} DT', dt, time, left_site_pos, nsites)
 
         if te_order == 1:
             rk_func = helper_TE.euler
@@ -1198,7 +1202,8 @@ class TimeIntegrator(LocalEvaluator, ABC):
                              dt: Numeric = None, time: Numeric = None, site_tens: 'qtn.Tensor' = None,
                              **solver_kwargs) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
-        print('implicit solver', solver_kwargs)
+        if self.verbose:
+            print('implicit solver', solver_kwargs)
 
         if site_tens is None:
             state0 = self.self_term.get_evaluated_site(left_site_pos, nsites)
@@ -1260,7 +1265,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
     def local_euler(self, left_site_pos: int, nsites: int, return_intermediates=False, dt: Numeric = None,
                   time: Numeric = None, site_tens=None) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
-        print('TDDMRG local Euler', self.time)
+        if self.verbose > 1:
+            print('TDDMRG local Euler', self.time)
         dt = self.dt if dt is None else dt
 
         if return_intermediates:
@@ -1268,7 +1274,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
                                                  site_tens=site_tens)
             s0, = rk_states      ## initial x, stage 1, stage 2, stage 3
 
-            print('targeting 0, dt state')
+            if self.verbose > 1:
+                print('targeting 0, dt state')
             return out, (s0, out)
         else:
             # exit()
@@ -1280,7 +1287,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
                   time: Numeric = None, site_tens=None) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
 
 
-        print('TDDMRG local RK3', self.time)
+        if self.verbose > 1:
+            print('TDDMRG local RK3', self.time)
         dt = self.dt if dt is None else dt
 
         if return_intermediates:
@@ -1291,7 +1299,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
             k1.transpose_like(s0, inplace=True)
             k2.transpose_like(s0, inplace=True)
 
-            print('targeting 0, dt state')
+            if self.verbose > 1:
+                print('targeting 0, dt state')
             return out, (s0, out)
 
         else:
@@ -1304,7 +1313,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
         # s0 = self.terms[0].vec_block.get_projected(left_site_pos, nsites, return_combined=True)
         # s0.reindex(self.terms[0].vec_block.projected_bra_to_ket(left_site_pos, nsites), inplace=True)
 
-        print('TDDMRG local RK4', self.time)
+        if self.verbose > 1:
+            print('TDDMRG local RK4', self.time)
         # exit()
 
         dt = self.dt if dt is None else dt
@@ -1343,7 +1353,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
 
             ## out and psi33 are the same thing, but psi33 is scaled
 
-            print('classic TD-DMRG')
+            if self.verbose:
+                print('classic TD-DMRG')
             return out, (psi03, psi13, psi23, psi33)
             # print('only 0, dt target')
             # return out, (psi03, psi33)
@@ -1382,7 +1393,8 @@ class TDDMRG(TimeIntegrator, DMRGEvaluator):
         if return_intermediates:
             # return out, (out)  # (out0, out1, out2)
             # return out, (out0, out1, out2, out3)
-            print('only 0, dt target')
+            if self.verbose > 1:
+                print('only 0, dt target')
             return out, (out0, out3)
         else:
             return out
@@ -1468,7 +1480,8 @@ class TDDMRG_mod1(TimeIntegrator, DMRGEvaluator):
         # s0 = self.terms[0].vec_block.get_projected(left_site_pos, nsites, return_combined=True)
         # s0.reindex(self.terms[0].vec_block.projected_bra_to_ket(left_site_pos, nsites), inplace=True)
 
-        print('new local RK4')
+        if self.verbose > 1:
+            print('new local RK4')
         # exit()
 
         dt = self.dt if dt is None else dt
@@ -1521,7 +1534,8 @@ class TDDMRG_mod1(TimeIntegrator, DMRGEvaluator):
 
             # print('classic TD-DMRG')
             # return out, (psi03, psi13, psi23, psi33)
-            print('only 0, dt target')
+            if self.verbose > 1:
+                print('only 0, dt target')
             return out, (psi03, psi33)
             # print('only 0, 2 dt/3 target')
             # return out, (psi03, psi23)
@@ -1652,7 +1666,7 @@ class TDVP_DMRG(TimeIntegrator, DMRGEvaluator):
     def _site_solve(self, left_site_pos: int, nsites: int, site_tens: 'qtn.Tensor' = None, return_intermediates=False
                     ) -> tuple[Sequence[qtn.Tensor], Numeric]:
 
-        if self.verbose:
+        if self.verbose > 2:
             print("TDVP SITE SOLVE", left_site_pos, nsites, self.te_order_target)
 
         self._set_local_solve_func(self.te_order_target)
@@ -1681,7 +1695,7 @@ class TDVP_DMRG(TimeIntegrator, DMRGEvaluator):
     def _bond_solve(self, left_site_pos: int, site_tens: 'qtn.Tensor' = None, return_intermediates=False
                     ) -> tuple[Sequence[qtn.Tensor], Numeric]:
 
-        if self.verbose:
+        if self.verbose > 2:
             print("TDVP BOND SOLVE", left_site_pos, self.te_order_target)
 
         self._set_local_solve_func(self.te_order_target)
@@ -1710,7 +1724,7 @@ class TDVP_DMRG(TimeIntegrator, DMRGEvaluator):
             i: int of mps site
             canonicalize and then back-propagate "bond" (if not at end)
         """
-        if self.verbose:
+        if self.verbose > 2:
             print('new TDVP update 1 site', i, direction)
 
         at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
@@ -1770,7 +1784,7 @@ class TDVP_DMRG(TimeIntegrator, DMRGEvaluator):
         """ update ket, bra with new_site
             i: mps_site
         """
-        if self.verbose:
+        if self.verbose > 2:
             print('new TDVP update 2 site', i, direction)
 
         ## canonicalize and then back-propagate "site" (if not at end)
@@ -1862,7 +1876,8 @@ class TDVP_Krylov_DMRG(TDVP_DMRG, DMRGEvaluator):
             i: int of mps site
             canonicalize and then back-propagate "bond" (if not at end)
         """
-        print('Krylov TDDMRG UPDATE 1 site', i, self.L, direction)
+        if self.verbose > 1:
+            print('Krylov TDDMRG UPDATE 1 site', i, self.L, direction)
 
         at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
         if at_end:
@@ -1918,7 +1933,8 @@ class TDVP_Krylov_DMRG(TDVP_DMRG, DMRGEvaluator):
         """ update ket, bra with new_site
             i: mps_site
         """
-        print('Kyrlov TDDMRG UPDATE 2 site', i, self.L, direction)
+        if self.verbose > 1:
+            print('Kyrlov TDDMRG UPDATE 2 site', i, self.L, direction)
 
         ## canonicalize and then back-propagate "site" (if not at end)
         at_end = (i == 1 if direction == SweepDirection.LEFT else i == self.L - 2)

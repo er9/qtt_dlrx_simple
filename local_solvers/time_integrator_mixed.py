@@ -198,7 +198,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
                 elif isinstance(ops_list[0], qtn.MatrixProductState):
                     self.extra_terms_dict[key] = [LocalTerm(mps, bra=ket_state, **compress_opts) for mps in ops_list]
                 else:
-                    print('type', type(ops_list[0]))
+                    if self.verbose > 2:
+                        print('type', type(ops_list[0]))
                     raise TypeError
                 extra_terms_list += self.extra_terms_dict[key]
 
@@ -238,7 +239,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
                 term2:  nonlinear terms
                 term3:  source terms
         """
-        if self.verbose:
+        if self.verbose > 2:
             print('CROSS EULER FUNC')
 
         if deriv is None:
@@ -258,7 +259,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             ket_x0 = site_tens
         # exit()
 
-        print('euler left site pos add num evals', left_site_pos)
+        if self.verbose > 1:
+            print('euler left site pos add num evals', left_site_pos)
         self.num_evals += ket_x0.size
 
         ## ket exponent already removed
@@ -298,7 +300,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
     def local_euler(self, left_site_pos: int, nsites: int, return_intermediates=False,
                     dt: Numeric = None, time: Numeric = None, site_tens: 'qtn.Tensor'=None
                     ) -> Union[qtn.Tensor, Sequence['qtn.Tensor']]:
-        if self.verbose:
+        if self.verbose > 2:
             print('local EULER', self.time)
         return self.local_rk(1, left_site_pos, nsites, return_intermediates=return_intermediates,
                              dt=dt, time=time, site_tens=site_tens)
@@ -379,7 +381,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             up_tens.modify(apply=lambda x: x * 10 ** self.out.exponent)
             upwind_submats[key] = up_tens  # deriv  # up_tens
 
-        if self.verbose:
+        if self.verbose > 2:
             print('call upwind func')
         out_x = self.upwind_func(dt, self.init_ket, ket_x, selectors, upwind_submats,
                                  left_site_pos=left_site_pos, nsites=nsites, select_inds=self.out.select_inds)
@@ -406,7 +408,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
 
         # site_tens = None  ## was uncommented... seems ok with burgers tho?
         if site_tens is None:
-            print('self', self.self_term)
+            if self.verbose > 2:
+                print('self', self.self_term)
             ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
         else:
             # ket_x = self.self_term.get_evaluated_site(left_site_pos, nsites).copy()
@@ -464,7 +467,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             up_tens.modify(apply=lambda x: x * 10 ** self.out.exponent)
             upwind_submats[key] = up_tens  # deriv  # up_tens
 
-        if self.verbose:
+        if self.verbose > 2:
             print('call deriv upwind func')
 
         out_x = self.upwind_deriv_func(dt, self.init_ket, ket_x, selectors, upwind_submats,
@@ -522,7 +525,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             ## different from DMRG, final output is the first target
             ## bc we're usually working on self.out; init ket is kept untouched.
 
-            print('(X) classic TD-DMRG')
+            if self.verbose:
+                print('(X) classic TD-DMRG')
             return out, (psi03, psi13, psi23, psi33)
 
             # print('only 0, dt target')
@@ -546,13 +550,15 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             ########## return output and intermediate stages #########
             ## different from DMRG, final output is the first target
             ## bc we're usually working on self.out; init ket is kept untouched.
-            print('target all states')   ## assume returning intermediate stages
+            if self.verbose > 1:
+                print('target all states')   ## assume returning intermediate stages
             return out, (*rk_states, out)
 
             # print('only 0, dt target')
             # return out, (out, psi03)
         else:
-            print('x2 site tens', site_tens)
+            if self.verbose > 2:
+                print('x2 site tens', site_tens)
             out = super().local_rk(te_order, left_site_pos, nsites, return_intermediates=False, dt=dt, time=time,
                                    site_tens=site_tens)
             return out
@@ -574,7 +580,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         """ update ket, bra with new_site
             i: int of mps site
         """
-        print('TE cross update 1')
+        if self.verbose > 1:
+            print('TE cross update 1')
         # exit()
         #
         # helper_cross.plot_submat(self.out, i, 1, self.out[i],
@@ -648,7 +655,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
 
         ## CHECK ORTHOG
         ind1 = i if at_end else i + direction
-        print('site i check orthog', ind1)
+        if self.verbose > 1:
+            print('site i check orthog', ind1)
 
         tmp1, tmp2 = helper_mixed.check_orthog(self.out)
         if tmp1 != tmp2:
@@ -669,9 +677,11 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         """ update ket, bra with new_site
             i: mps_site
         """
-        print('TE cross update 2')
+        if self.verbose > 1:
+            print('TE cross update 2')
 
-        print('UPDATE2', i)
+        if self.verbose > 1:
+            print('UPDATE2', i)
         # print('self.out select inds', self.out.select_inds)
 
         # coords = helper_cross.get_selectors(self.out, left_site_pos, 2)
@@ -853,7 +863,8 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
     def _bond_solve(self, left_site_pos: int, site_tens: 'qtn.Tensor' = None, return_intermediates=False
                     ) -> tuple[Sequence[qtn.Tensor], Numeric]:
 
-        print("TDVP MIXED BOND SOLVE", left_site_pos, self.te_order_target)
+        if self.verbose > 1:
+            print("TDVP MIXED BOND SOLVE", left_site_pos, self.te_order_target)
         # self._set_local_solve_func(self.te_order_target)
         # self._set_local_solve_func(TimeIntegMethod.RK4)
         # if self.te_order_target in [223, 226, 0]:
@@ -871,7 +882,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
             i: int of mps site
             canonicalize and then back-propagate "bond" (if not at end)
         """
-        if self.verbose:
+        if self.verbose > 2:
             print('new TDVP Cross update 1 site', i, direction)
 
         at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
@@ -960,7 +971,8 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
 
 
         ## CHECK ORTHOG
-        print("tdvp 1 site")
+        if self.verbose > 1:
+            print("tdvp 1 site")
         tmp1, tmp2 = helper_mixed.check_orthog(self.out)
         if tmp1 != tmp2:
             raise ValueError
@@ -973,7 +985,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
         """ update ket, bra with new_site
             i: mps_site
         """
-        if self.verbose:
+        if self.verbose > 2:
             print('new TDVP Cross update 2 site', i, direction)
 
         ## canonicalize and then back-propagate "site" (if not at end)
@@ -989,7 +1001,8 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
                                               version=self.version)
 
         ## CHECK ORTHOG
-        print("tdvp 2 site (1)")
+        if self.verbose > 1:
+            print("tdvp 2 site (1)")
         tmp1, tmp2 = helper_mixed.check_orthog(self.out)
         if tmp1 != tmp2:
             raise ValueError
@@ -1049,7 +1062,8 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
             pass
 
         ## CHECK ORTHOG
-        print("tdvp 2 site (2)", i)
+        if self.verbose > 1:
+            print("tdvp 2 site (2)", i)
         tmp1, tmp2 = helper_mixed.check_orthog(self.out)
         if tmp1 != tmp2:
             raise ValueError
@@ -1221,7 +1235,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
 
 
 def global_rk_cross(dt, te_order, ket_state, deriv_func, nsites: int = 1, max_bond=None, cutoff=None,
-                    time:Numeric=None):
+                    time:Numeric=None, verbose: int = 0):
     """
     state1 = state0 + deriv0(state0) * 0.5 * dt  --> sel inds x; sel inds 0 -> x
     state2 = state0 + deriv1(state1) * 0.5 * dt  --> sel inds x; sel inds x -> x
@@ -1231,7 +1245,8 @@ def global_rk_cross(dt, te_order, ket_state, deriv_func, nsites: int = 1, max_bo
 
     state0 = ket_state.copy()
 
-    print(f'global cross RK{te_order} DT', dt, 'nsites', nsites)
+    if verbose:
+        print(f'global cross RK{te_order} DT', dt, 'nsites', nsites)
 
     if te_order == 1:
         rk_func = helper_TE.euler
