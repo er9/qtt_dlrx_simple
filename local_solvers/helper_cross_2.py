@@ -451,14 +451,11 @@ def tensor_compress(tens: qtn.Tensor, phys_inds: list[str], right_inds: list[str
     if False: # len(inds_r) > tens_.shape[-1]:
         if verbose:
             print("TENSOR SPLIT")
-        if verbose:
             print('tens', tens.shape, fuse_inds, right_inds)
-        if verbose:
             print('select inds', inds_r)
-        if verbose:
             print('check canon', tens_.shape, len(inds_r), [q[inds_r[i], i] for i in range(len(inds_r))])
-        # verbose =True
-        # pdb.set_trace()
+            # verbose =True
+            # pdb.set_trace()
 
 
     q = q.reshape(*shape_left, -1)
@@ -626,7 +623,6 @@ def tensor_canonize_with_inds_2site(tens1: qtn.Tensor, tens2: qtn.Tensor, phys_i
 
     if verbose:
         print("CANONIZE SELECT")
-    if verbose:
         print('tens1', tens1.fuse({f'xx': fuse_inds, f'oo': right_inds}).data)
 
     # print('final Q Q^-1', (Q @ np.linalg.inv(submat))[inds, :])
@@ -1005,8 +1001,7 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
         else:
 
             if plot_verbosity:
-                if verbose:
-                    print('ind 1', ind1)
+                print('ind 1', ind1)
                 check_orthog(mps)
 
                 plt.figure()
@@ -2090,11 +2085,9 @@ def deim_compress(A: np.ndarray, max_bond, cutoff=CUTOFF, return_inds=False,
         if False:  # len(inds_r) > r:
             if verbose:
                 print('len inds', len(inds_r), r)
-            if verbose:
                 print('T1', [(submat_u @ np.linalg.pinv(submat_u))[i, i] for i in range(len(inds_r))], np.linalg.cond(submat_u))
-            # print('T1', submat_u @ np.linalg.pinv(submat_u))
-            # print('canon error', np.linalg.norm(T1[inds_r, :] @ T2 - submat_u @ R_dmp))
-            if verbose:
+                # print('T1', submat_u @ np.linalg.pinv(submat_u))
+                # print('canon error', np.linalg.norm(T1[inds_r, :] @ T2 - submat_u @ R_dmp))
                 print('canon error', np.linalg.norm(A[inds_r, :] - submat_u @ R_dmp))
 
             R0_dmp = R_dmp.copy()

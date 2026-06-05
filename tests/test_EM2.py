@@ -37,15 +37,8 @@ restart_from_T = 0  ## to restart from an output file (vs a saved restart file)
 use_mask = 'box'  # 'box'
 
 if restart or save_data or save_figs:
-    # sdir = '/pool001/erikaye/tns_data/VM-TM/'
-    # if not os.path.exists(sdir):
-    #     os.makedirs(sdir)
-
-    # fdir = 'data_cross/EM2_251013/'
-    fdir = 'data_cross/EM2_251104_xx1/'
-    # fdir = 'data_cross/EM2_251020/'
+    fdir = 'data_cross/EM2/'
     os.makedirs(fdir, exist_ok=True)
-
     print('fdir', fdir)
 
 #######################
@@ -74,6 +67,7 @@ cfl = 0.75
 order = 1
 te_order = flags.get('te_order', 441)
 te_order = flags.get('te_order_EM', te_order)
+## 31: Euler (finite volume)
 ## 331:  orthogonal td-dmrg + Euler
 ## 771:  mixed td-dmrg + Euler
 ## 441:  cross td-dmrg + Euler

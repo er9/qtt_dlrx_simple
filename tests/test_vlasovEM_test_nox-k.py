@@ -1,42 +1,24 @@
 """Driver: Vlasov-Maxwell test-particle distribution in a time-dependent E field.
 
-Evolves a Vlasov-Maxwell distribution function in the presence of a prescribed
-time-dependent electric field, comparing tensor-train (DLR) and full solves.
+Evolves a electron distribution function in the presence of a prescribed
+time-dependent electric field and fixed magnetic field, comparing tensor-train (DLR) and full solves.
 Reference: http://ammar-hakim.org/sj/je/je32/je32-vlasov-test-ptcl.html
 """
-import os, sys, pickle, time, glob
-import pdb
-
-import scipy.optimize
-
+import os, sys, time
 sys.path.append('../')
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-# from defaults import *
 from setup_.paths import save_dir, main_dir
 from setup_.configs import *
 import setup_.helper as helper_test
-import helper_quimb as helper
 import setup_test as test_setup
 
-from axis import Axis
 from basis.basis_spatial import SpatialBasis
 from basis.basis_k import FourierBasis
-from coord.coord_sys import Coordinate
-from coord.cartesian import CartesianCoordinateSpace
-from grid1D import Grid1D
-from gridTN_1D import GridTN1D
 from field import Field, ScalarField
 from pde_EM import Maxwell
 from pde_vlasovEM import VlasovMaxwell
 from vlasov_tests import VlasovTest
 
-"""
-test distribution in the presence of time dependent electric field
-http://ammar-hakim.org/sj/je/je32/je32-vlasov-test-ptcl.html
-"""
 
 save_figs = False
 save_data = flags.get('save_data', True)

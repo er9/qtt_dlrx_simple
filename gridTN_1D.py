@@ -3548,10 +3548,11 @@ class GridTN1D(GridTN):
         GridTN1D
             The evolved state.
         """
-        max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
-        compress_opts = compress_config.get_compress_opts(1)
-
+        max_bond = compress_config.get_compress_opts(2)['max_bond'] if compress_config is not None else None
         cutoff = compress_config.get_compress_opts(2).get('cutoff', None) if compress_config is not None else None
+        if verbose:
+            print('tdvp max bond, cutoff', max_bond, cutoff)
+        compress_opts = compress_config.get_compress_opts(1)
 
         if verbose:
             print('tdvp 1D new', 'direction', direction, 'te order', te_order)
@@ -3562,7 +3563,7 @@ class GridTN1D(GridTN):
         for mpo in linear_mpo_list:
             mpo.data.distribute_exponent()
 
-        # helper.canonize(dist_mpx, i=0, scale=False)
+        helper.canonize(dist_mpx, i=0, scale=False)
 
         sources = [s.data for s in sources] if sources is not None else None
 
@@ -3571,9 +3572,7 @@ class GridTN1D(GridTN):
             from local_solvers.time_integrator import TDVP_DMRG as TimeInteg
 
             # max_bond, max_bond_2 = None, None
-            cutoff = cutoff if cutoff is not None else CUTOFF
-            if verbose:
-                print('tdvp max bond, cutoff', max_bond, cutoff)
+            # cutoff = cutoff if cutoff is not None else CUTOFF
 
             solver = TimeInteg(dist_mpx, [mpo.data for mpo in linear_mpo_list],
                                sources=sources, nonlinear_terms=nonlinear_terms,
@@ -3585,6 +3584,8 @@ class GridTN1D(GridTN):
 
             solver.upwind_func = upwind_func
             solver.upwind_deriv_func = upwind_deriv_func
+            solver.dt = dt / 2
+            solver.time = time
 
             nsites = 2 if max_bond is None else (3 if do_adapt else 1)
             if verbose:
@@ -3663,17 +3664,25 @@ class GridTN1D(GridTN):
 
         else:
             if te_order == 3:   ## 68
-                from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
+                solver_type = LocalSolverType.MIXED
+                # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
                 te_order = 4
             elif te_order == 2:   ## 67
-                from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
+                solver_type = LocalSolverType.MIXED
+                # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
                 te_order = 223
-            else:   ## 65, 69
-                from local_solvers.time_integrator_cross_2 import TDVPCross as TimeInteg
+            # else:   ## 65, 69
+            #     from local_solvers.time_integrator_cross_2 import TDVPCross as TimeInteg
+
+            if solver_type is LocalSolverType.MIXED:
+                from local_solvers.time_integrator_mixed import TDMixed as TimeInteg
+            else:
+                from local_solvers.time_integrator_cross_2 import TDCross as TimeInteg
+
 
             # max_bond, max_bond_2 = None, None
             # cutoff = CUTOFF   # cutoff * 1.0e-2 if cutoff is not None else CUTOFF
-            cutoff = cutoff if cutoff is not None else CUTOFF
+            # cutoff = cutoff if cutoff is not None else CUTOFF
             if verbose:
                 print('tdvp-x max bond, cutoff', max_bond, cutoff)
 
@@ -3685,6 +3694,8 @@ class GridTN1D(GridTN):
                                **kwargs)
             solver.upwind_func = upwind_func
             solver.upwind_deriv_func = upwind_deriv_func
+            solver.dt = dt / 2
+            solver.time = time
 
             # print('local tdvp new', solver.dt, 'per sweep')
             nsites = 2 if max_bond is None or dist_mpx.max_bond() < max_bond else 1 # (3 if do_adapt else 1)
@@ -3905,8 +3916,8 @@ class GridTN1D(GridTN):
             from local_solvers.time_integrator import TDDMRG as TimeInteg
 
             # max_bond, max_bond_2 = None if max_bond is None else max_bond * 2, None
-            # max_bond, max_bond_2 = None, None
-            cutoff = cutoff if cutoff is not None else CUTOFF
+            max_bond, max_bond_2 = None, None
+            # cutoff = cutoff if cutoff is not None else CUTOFF
             if verbose:
                 print('tddmrg max bond, cutoff', max_bond, cutoff)
 
@@ -3954,17 +3965,23 @@ class GridTN1D(GridTN):
             # gtn.data = solver.out
         else:
 
+            ## for advection problem?
             if te_order == 3:   ## 88
-                from local_solvers.time_integrator_mixed import TDMixed as TimeInteg
+                solver_type = LocalSolverType.MIXED
                 te_order = 4
             elif te_order == 2:   ## 87
+                solver_type = LocalSolverType.MIXED
+                te_order = 0
+            # else:   ## 85, 89
+            #     from local_solvers.time_integrator_cross_2 import TDCross as TimeInteg
+
+            if solver_type is LocalSolverType.MIXED:
                 from local_solvers.time_integrator_mixed import TDMixed as TimeInteg
-                te_order = 223
-            else:   ## 85, 89
+            else:
                 from local_solvers.time_integrator_cross_2 import TDCross as TimeInteg
 
-            max_bond, max_bond_2 = None, None
-            cutoff = cutoff if cutoff is not None else CUTOFF
+            # max_bond, max_bond_2 = None, None
+            # cutoff = cutoff if cutoff is not None else CUTOFF
             if verbose:
                 print('tddmrg-x modified max bond, cutoff', max_bond, cutoff)
 
@@ -3976,6 +3993,9 @@ class GridTN1D(GridTN):
             # max_bond = compress_config.get_compress_opts(1)['max_bond'] if compress_config is not None else None
 
             ## to do second order time step, would need to reinitialize...
+            if verbose:
+                print('time integ', TimeInteg)
+
             solver = TimeInteg(dist_mpx.copy(), [mpo.data for mpo in linear_mpo_list],
                                direction=direction,
                                sources=sources, nonlinear_terms=nonlinear_terms,

@@ -74,10 +74,12 @@ def block_tddmrg(dt: float, ncomps: int, A_mats: dict[tuple[int, int], Sequence[
                  init_direction=SweepDirection.RIGHT,
                  constraints: dict[int, 'qtn.MatrixProductOperator'] = None,
                  constraint_vals: dict[int, 'qtn.MatrixProductState'] = None,
+                 verbose=0,
                  shared_projs: list[set] = None,
                  backward_weights: dict[tuple[int, int], float]=None,
                  te_order=4, grid=None, return_info=False, **solver_kwargs):
-    print('BLOCK TD-DMRG 3')
+    if verbose:
+        print('BLOCK TD-DMRG 3')
 
 
     # x_vecs = {k: x for k, x in x_vecs.items() if helper_quimb.norm(x) > np.sqrt(CUTOFF)}
@@ -166,9 +168,10 @@ def block_tddmrgx(dt: float, ncomps: int, A_mats: dict[tuple[int, int], Sequence
                   constraint_vals: dict[int, 'qtn.MatrixProductState'] = None,
                   shared_projs: list[set] = None,
                   backward_weights: dict[tuple[int, int], float]=None,
-                  verbose_plot=False,
+                  verbose_plot=False, verbose=0,
                   te_order=4, grid=None, return_info=False, **solver_kwargs):
-    print('BLOCK TD-DMRG-X 3')
+    if verbose:
+        print('BLOCK TD-DMRG-X 3')
 
     # x_vecs_ = {}
     # for k, v in x_vecs.items():
@@ -204,7 +207,7 @@ def block_tddmrgx(dt: float, ncomps: int, A_mats: dict[tuple[int, int], Sequence
     solver = BlockTDDMRGXSolver(ncomps, x_vecs, sources=b_vecs, operators=A_mats, masks=masks,
                                 te_order=te_order, direction=init_direction,
                                 constraints=constraints, constraint_vals=constraint_vals,
-                                grid=grid,
+                                grid=grid, verbose=verbose,
                                 **solver_kwargs)
     solver.verbose_plot = verbose_plot
 
@@ -228,8 +231,10 @@ def block_tddmrgm(dt: float, ncomps: int, A_mats: dict[tuple[int, int], Sequence
                   constraint_vals: dict[int, 'qtn.MatrixProductState'] = None,
                   shared_projs: list[set] = None,
                   backward_weights: dict[tuple[int, int], float]=None,
-                  te_order=4, grid=None, return_info=False, verbose_plot=False, **solver_kwargs):
-    print('BLOCK TD-DMRG-MIXED 3')
+                  te_order=4, grid=None, return_info=False, verbose_plot=False, verbose=0, **solver_kwargs):
+
+    if verbose:
+        print('BLOCK TD-DMRG-MIXED 3')
 
     # x_vecs_ = {}
     # for k, v in x_vecs.items():
@@ -266,13 +271,14 @@ def block_tddmrgm(dt: float, ncomps: int, A_mats: dict[tuple[int, int], Sequence
                                               direction=init_direction * -1,
                                               compress_opts={'max_bond': solver_kwargs.get('max_bond', None),
                                                              'cutoff': solver_kwargs.get('cutoff', CUTOFF)}, )
-                    print('expanded x vec', helper_quimb.max_inner_bond(x_vecs[k]))
+                    if verbose > 0:
+                        print('expanded x vec', helper_quimb.max_inner_bond(x_vecs[k]))
 
 
     solver = BlockTDDMRGMSolver(ncomps, x_vecs, sources=b_vecs, operators=A_mats, masks=masks,
                                 te_order=te_order, direction=init_direction,
                                 constraints=constraints, constraint_vals=constraint_vals,
-                                grid=grid,
+                                grid=grid, verbose=verbose,
                                 **solver_kwargs)
     solver.verbose_plot = verbose_plot
 
@@ -308,7 +314,7 @@ class BlockTimeIntegrator:
                  max_wrong_iter=DEFAULT_MAX_WRONG_ITER,
                  direction=SweepDirection.RIGHT,
                  te_order=4, max_bond=None, cutoff=None,
-                 grid: 'Grid1D'=None, verbose=False,
+                 grid: 'Grid1D'=None, verbose=0,
                  solver=None,
                  backward_weights: dict[tuple[int, int], Sequence[float]] = None,
                  expand_kets: bool=False,
@@ -366,7 +372,8 @@ class BlockTimeIntegrator:
                 x_state = {}
 
             i = 0 if self.direction == SweepDirection.RIGHT else self.L - 1
-            print('target canon', i)
+            if self.verbose > 1:
+                print('target canon', i)
 
             ## add bras where expected
             zeros = {}
@@ -378,7 +385,7 @@ class BlockTimeIntegrator:
                         ops = self.operators[(oo,ii)]
                         zero_oo += [helper.apply_zipup(op, x) for op in ops]
                         # zero_oo += [x_state[ii]]
-                        print('adding bra where expected', oo, ii)
+                        # print('adding bra where expected', oo, ii)
                     zeros[oo] = zero_oo
                     # if len(zero_oo) > 0:
                     #     new_oo = helper_quimb.add_MPS_list(zero_oo, update_with_zero=True)
@@ -386,7 +393,7 @@ class BlockTimeIntegrator:
 
             ref_mps = x_state[next(iter(x_state))]
             for oo, zero_oo in zeros.items():
-                print('oo', len(zero_oo))
+                # print('oo', len(zero_oo))
                 if len(zero_oo) > 0:
                     new_oo = helper_quimb.add_MPS_list(zero_oo, update_with_zero=True, direction=self.direction * -1,
                                                        norm_cutoff=np.sqrt(cutoff))  ## should ideally divide by dt
@@ -405,7 +412,8 @@ class BlockTimeIntegrator:
 
             ### expand basis of initial state using masks
             if masks is not None and (self.term_class is Term_DMRG):
-                print('expand initial state with masks')
+                if verbose > 0:
+                    print('expand initial state with masks')
                 for k, msk_kets in masks.items():     ## a list of MPS
                     x_ket = x_state.get(k, None)
                     if x_ket is not None:
@@ -415,10 +423,12 @@ class BlockTimeIntegrator:
             # ref_init_x = x_state[next(iter(x_state))]
 
             if not expand_kets:
-                print('canonize (no expand)')
+                if verbose > 0:
+                    print('canonize (no expand)')
                 self.canonize(i)
             else:
-                print('expand ket')
+                if verbose > 0:
+                    print('expand ket')
                 x_state = self.expand_kets(i, x_state, operators, sources=sources, max_bond=max_bond, cutoff=cutoff)
                 # self.verbose = True
                 # try:
@@ -1055,7 +1065,8 @@ class BlockTimeIntegrator:
 
         # print('update 2 site', left_site_pos)
         at_end = (left_site_pos == self.L - 2) if direction > 0 else (left_site_pos == 0)
-        print('at end TD-DMRG', left_site_pos, direction, at_end)
+        if self.verbose > 1:
+            print('at end TD-DMRG', left_site_pos, direction, at_end)
 
 
         ## update self.current_state
@@ -1256,7 +1267,8 @@ class BlockTimeIntegrator:
             ## for backward time integration
             if negative_dt and self.backward_weights is not None:
                 weights = self.backward_weights.get((oo, ii), [])
-                print('negative dt weights', ii, oo, weights)
+                if self.verbose > 2:
+                    print('negative dt weights', ii, oo, weights)
                 for coeff, Ax_eff in zip(weights, Ax_effs):
                     Ax_eff.modify(apply=lambda x: x * coeff)
 
@@ -2350,9 +2362,10 @@ class BlockTimeIntegrator:
             # ### left to right sweep
             # self.take_time_step_l2r(dt / 2, grid=grid, do_adapt=do_adapt, canonize=False, build_envs=False, **kwargs)
 
-        print('done sweep')
-        for k, v in self.states_dict.items():
-            print('k', k, helper_quimb.inner_bond_sizes(v))
+        if self.verbose:
+            print('done sweep')
+            for k, v in self.states_dict.items():
+                print('k', k, helper_quimb.inner_bond_sizes(v))
 
         return self.kets
 
@@ -2363,8 +2376,8 @@ class BlockTimeIntegrator:
         """
         L = self.L
         max_bond = self.max_bond
-        # do_adapt = False
-        print('l2r block tddmrg', dt, 'do adapt', do_adapt)
+        if self.verbose:
+            print('l2r block tddmrg', dt, 'do adapt', do_adapt)
         # print('ket L', L)
         # print('self.ket norm', helper.norm(self.ket), self.ket.exponent)
 
@@ -2418,7 +2431,7 @@ class BlockTimeIntegrator:
             cur_orthog = site_ind + nsites - 1
             site_ind = site_ind + nsites - 1 if nsites > 1 else site_ind + nsites
 
-        print('done left to right sweep')
+        # print('done left to right sweep')
         return self.ket
 
 
@@ -2430,8 +2443,8 @@ class BlockTimeIntegrator:
         L = self.L
         # do_adapt = False
         max_bond = self.max_bond
-        print('r2l', dt, 'do adapt', do_adapt)
-        # print('self.ket norm', helper.norm(self.ket), self.ket.exponent)
+        if self.verbose:
+            print('r2l', dt, 'do adapt', do_adapt)
 
         if canonize:
             self.direction = SweepDirection.LEFT
@@ -2479,7 +2492,7 @@ class BlockTimeIntegrator:
 
             site_ind = site_ind - nsites + 1 if nsites > 1 else site_ind - nsites
 
-        print('done right to left sweep')
+        # print('done right to left sweep')
         return self.ket
 
 
@@ -2523,7 +2536,7 @@ class BlockTDDMRGXSolver(BlockTimeIntegrator):
         return [self.term_class(init_x, init_bra, operators=[A], num_tiers=1) for A in As]
 
     def _get_mask_terms(self, init_bra, bs):
-        print('interpolative mask')
+        # print('interpolative mask')
         return [self.term_class(b, init_bra, num_tiers=1) for b in bs]
 
     def _update_1site(self, i: int, site_i_dict: dict[int, 'qtn.Tensor'], direction: 'SweepDirection'):
@@ -2639,12 +2652,14 @@ class BlockTDDMRGXSolver(BlockTimeIntegrator):
             ## for backward time integration
             if negative_dt and self.backward_weights is not None:
                 weights = self.backward_weights.get((oo, ii), [])
-                print('negative dt weights', ii, oo, weights)
+                if self.verbose > 2:
+                    print('negative dt weights', ii, oo, weights)
                 for coeff, Ax_eff in zip(weights, Ax_effs):
                     Ax_eff.modify(apply=lambda x: x * coeff)
 
             ## apply mask d/dt x = c * A * x
-            print('interpolative mask application', oo)
+            if self.verbose > 2:
+                print('interpolative mask application', oo)
             c_terms = self.mask_terms.get(oo, None)
             if c_terms is not None:
                 ## c * Ax_effs
@@ -3039,7 +3054,8 @@ class BlockTDDMRGMSolver(BlockTDDMRGXSolver):
 
         ## update self.current_state
         for ii, ket in self.states_dict.items():
-            print('UPDATE 1SITE', ii)
+            if self.verbose > 2:
+                print('UPDATE 1SITE', ii)
             try:
                 new_ket_tens = site_i_dict[ii] # .copy()
 
@@ -3070,7 +3086,6 @@ class BlockTDDMRGMSolver(BlockTDDMRGXSolver):
                 #     new_ket_tens = new_ket_tens + mask_tens
 
 
-                print('update ket', self.max_bond, self.cutoff)
                 helper_mixed.update_ket(ket, new_ket_tens, i, 1, direction=direction,
                                         max_bond=self.max_bond, cutoff=self.cutoff,
                                         # decimate_only=(not at_end)
