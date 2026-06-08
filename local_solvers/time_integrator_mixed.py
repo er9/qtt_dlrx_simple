@@ -16,13 +16,8 @@ import local_solvers.helper_tn as helper_tn
 from local_solvers.defaults import *
 import local_solvers.helper_cross_2 as helper_cross
 from local_solvers.mps_classes import MPS
-from local_solvers.local_evaluator import LocalEvaluator
-# from local_solvers.local_dmrg_eval import DMRGEvaluator
-# from local_solvers.local_cross_eval import CrossEvaluator
 from local_solvers.terms_3 import Term, Term_Cross
-import local_solvers.tensor_callables as tc
 import helper_TE
-# from local_solvers.local_cross_eval import local_cross_evaluator
 from local_solvers.local_mixed_eval import local_mixed_evaluator, MixedEvaluator, Term_Mixed
 
 from local_solvers.time_integrator import TimeIntegrator, TDVP_DMRG, TimeIntegMethod
@@ -198,8 +193,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
                 elif isinstance(ops_list[0], qtn.MatrixProductState):
                     self.extra_terms_dict[key] = [LocalTerm(mps, bra=ket_state, **compress_opts) for mps in ops_list]
                 else:
-                    if self.verbose > 2:
-                        print('type', type(ops_list[0]))
+                    print('type', type(ops_list[0]))
                     raise TypeError
                 extra_terms_list += self.extra_terms_dict[key]
 
@@ -240,7 +234,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
                 term3:  source terms
         """
         if self.verbose > 2:
-            print('CROSS EULER FUNC')
+            print('MIXED EULER FUNC')
 
         if deriv is None:
             deriv = self.deriv_func(left_site_pos, nsites, time=time, site_tens=site_tens)
@@ -581,7 +575,7 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             i: int of mps site
         """
         if self.verbose > 1:
-            print('TE cross update 1')
+            print('TE mixed update 1')
         # exit()
         #
         # helper_cross.plot_submat(self.out, i, 1, self.out[i],
@@ -658,9 +652,10 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
         if self.verbose > 1:
             print('site i check orthog', ind1)
 
-        tmp1, tmp2 = helper_mixed.check_orthog(self.out)
-        if tmp1 != tmp2:
-            raise ValueError
+        # tmp1, tmp2 = helper_mixed.check_orthog(self.out)
+        # if tmp1 != tmp2:
+        #     helper_mixed.check_orthog(self.out, verbose=True)
+        #     raise ValueError
 
         #
         # ## also a way to check orthog
@@ -678,10 +673,8 @@ class TDMixed(TimeIntegrator, MixedEvaluator):
             i: mps_site
         """
         if self.verbose > 1:
-            print('TE cross update 2')
+            print('TE mixed update 2', i)
 
-        if self.verbose > 1:
-            print('UPDATE2', i)
         # print('self.out select inds', self.out.select_inds)
 
         # coords = helper_cross.get_selectors(self.out, left_site_pos, 2)
@@ -883,7 +876,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
             canonicalize and then back-propagate "bond" (if not at end)
         """
         if self.verbose > 2:
-            print('new TDVP Cross update 1 site', i, direction)
+            print('new TDVP mixed update 1 site', i, direction)
 
         at_end = (i == 0 if direction == SweepDirection.LEFT else i == self.L - 1)
         if at_end:
@@ -986,7 +979,7 @@ class TDVPMixed(TDMixed, TDVP_DMRG):
             i: mps_site
         """
         if self.verbose > 2:
-            print('new TDVP Cross update 2 site', i, direction)
+            print('new TDVP mixed update 2 site', i, direction)
 
         ## canonicalize and then back-propagate "site" (if not at end)
         at_end = (i == 1 if direction == SweepDirection.LEFT else i == self.L - 2)

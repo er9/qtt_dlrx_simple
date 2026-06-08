@@ -917,6 +917,8 @@ def check_left_orthog(mpx: Union[Sequence, 'TN1Type'], right_ancillas: tuple[str
     """
     L = len(mpx) if isinstance(mpx, (list, tuple)) else mpx.L
     for i in range(L):
+        if verbose:
+            print('check left orthog', i)
         tens = mpx[i]
         tens_conj = tens.conj()
         out_inds = None
@@ -979,6 +981,9 @@ def check_right_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas: tuple[str
     """
     L = len(mpx) if isinstance(mpx, (list, tuple)) else mpx.L
     for i in range(L - 1, -1, -1):
+        if verbose:
+            print('check right orthog', i)
+
         tens = mpx[i]
         tens_conj = tens.conj()
         out_inds = None
@@ -1040,8 +1045,8 @@ def check_orthog(mpx: Union[Sequence, 'TN1Type'], left_ancillas=None, right_anci
     """
     if verbose:
         print('DMRG check orthog')
-    left = check_left_orthog(mpx, right_ancillas=right_ancillas)
-    right = check_right_orthog(mpx, left_ancillas=left_ancillas)
+    left = check_left_orthog(mpx, right_ancillas=right_ancillas, verbose=verbose)
+    right = check_right_orthog(mpx, left_ancillas=left_ancillas, verbose=verbose)
     return left, right
 
 
@@ -1790,6 +1795,7 @@ def apply_zipup(mpo1: 'MPOType', mpx2: Union['MPSType', 'MPOType'],
     MPSType or MPOType or None
         The contracted result, or ``None`` if a zero norm is encountered.
     """
+    mpx2 = mpx2.copy()
     mpo1.site_tag_id = mpx2.site_tag_id
 
     if compress_opts is None:
@@ -3436,10 +3442,9 @@ def conservative_compress(mps: MPSType, bases: Sequence['qtn.MatrixProductState'
         print('remainder max bond', remainder_mps.max_bond())
 
     ## check
-    for b in bases:
-        if verbose:
+    if verbose:
+        for b in bases:
             print('b max bond', b.max_bond())
-        if verbose:
             print('still orthogonal?', ovlp(b, remainder_mps))
 
     mps_list = [remainder_mps]

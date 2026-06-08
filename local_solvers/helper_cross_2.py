@@ -310,13 +310,15 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
 
     mpx = mpx.copy()
     if verbose:
-        print('check center')
+        print('cross check center orthog')
 
     select_inds = mpx.select_inds
     site_ind_ids = [mpx.site_ind_id]
 
     tens_left = None
     for i in range(cur_orthog):
+        if verbose:
+            print('check left i', i)
         tens = mpx[i].copy()
         if tens_left is not None:
             tens_ = qtn.tensor_contract(tens, tens_left)
@@ -342,6 +344,9 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
 
     tens_right = None
     for i in range(mpx.L-1, cur_orthog, -1):
+        if verbose:
+            print('check right i', i)
+
         tens = mpx[i].copy()
         if tens_right is not None:
             tens_ = qtn.tensor_contract(tens, tens_right)
@@ -382,6 +387,7 @@ def check_center_orthog(mpx: Union['qtn.MatrixProductState', 'MPS'], cur_orthog:
     proj_tens.transpose_like(ref_tens, inplace=True)
     diff_tens = helper_quimb.add_tensors(proj_tens * -1, ref_tens)
     if verbose:
+        print('ref tens', ref_tens.data, ref_tens.norm())
         print('difference norm', diff_tens.norm() / ref_tens.norm() )
 
     return diff_tens.norm() / ref_tens.norm() < 1.0e-13

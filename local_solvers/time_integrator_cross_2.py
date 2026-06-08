@@ -15,11 +15,8 @@ import local_solvers.helper_tn as helper_tn
 from local_solvers.defaults import *
 import local_solvers.helper_cross_2 as helper_cross
 from local_solvers.mps_classes import MPS
-from local_solvers.local_evaluator import LocalEvaluator
-from local_solvers.local_dmrg_eval import DMRGEvaluator
 from local_solvers.local_cross_eval import CrossEvaluator
 from local_solvers.terms_3 import Term, Term_Cross
-import local_solvers.tensor_callables as tc
 import helper_TE
 from local_solvers.local_cross_eval import local_cross_evaluator
 

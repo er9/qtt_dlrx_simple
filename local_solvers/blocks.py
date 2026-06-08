@@ -1392,7 +1392,6 @@ class BlockPowerOpKet_DMRG(BlockPowerKet_DMRG):
         """
         if getattr(self, 'verbose', 0):
             print('PowerOpKet get projected')
-        if getattr(self, 'verbose', 0):
             print(self.ket.exponent, self.operator_k.exponent)
 
         site_inds = list(range(left_site_pos, left_site_pos + nsites))

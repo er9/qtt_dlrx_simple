@@ -104,7 +104,6 @@ def check_left_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int,
         if err > 1.0e-8 or err1 > 1.0e-08:
             if verbose:
                 print('check sel inds not left orthog', i, err) #, env)
-            if verbose:
                 print('inverse issues', i, err1)
             if err > 1.0e-5 or err1 > 1.0e-05:
                 break
@@ -155,7 +154,6 @@ def check_right_select_inds(mpx: 'qtn.MatrixProductState', select_inds: dict[int
         if err > 1.0e-8 or err1 > 1.0e-08:
             if verbose:
                 print('check sel inds not right orthog', i, err)  # , env)
-            if verbose:
                 print('inverse issues', i, err1)
             if err > 1.0e-5 or err1 > 1.0e-5:
                 break
@@ -260,9 +258,7 @@ def update_1site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
     from local_solvers.helper_dmrg_loc import update_1site as update_1site_dmrg
     if verbose:
         print('cutoff', cutoff)
-    if verbose:
         print('left site pos', left_site_pos)
-    if verbose:
         print('check orthog', check_orthog(mps))
     update_1site_dmrg(mps, left_site_pos, site_i, direction=direction, max_bond=max_bond, cutoff=cutoff)
     out = mps
@@ -328,7 +324,6 @@ def update_2site(mps: MPS, left_site_pos: int, site_i: Sequence['qtn.Tensor'], d
 
     if verbose:
         print('version', version)
-    if verbose:
         print('update 2 site', site_i)
 
     copy_mps = mps.copy()
@@ -793,15 +788,24 @@ def check_orthog(mps: 'MPS', verbose=False):
         ind1 = mps.cur_orthog
         ref_tens = convert_basis_to_elementwise(mps, mps[ind1], ind1, 1)
         ref_tens.reindex( {ind: ind[:-2] for ind in ref_tens.inds if ind[-1] == 'x'} , inplace=True)
-        is_canon = helper_cross.check_center_orthog(mps, mps.cur_orthog, ref_tens=ref_tens)
+        is_canon = helper_cross.check_center_orthog(mps, mps.cur_orthog, ref_tens=ref_tens, verbose=verbose)
         indL1, indR1 = (ind1, ind1) if is_canon else (-1, mps.L)
     except KeyError:
+        if verbose:
+            print('check select inds')
         indL1, indR1 = mps.check_select_inds()
+
     if verbose:
         print('check G orthog')
-    indL2, indR2 = helper_quimb.check_orthog(mps)
+    indL2, indR2 = helper_quimb.check_orthog(mps, verbose=verbose)
     indL = min(indL1, indL2)
     indR = max(indR1, indR2)
+
+    if verbose:
+        print('indL1', indL1, 'indL2', indL2)
+        print('indR1', indR1, 'indR2', indR2)
+        print('indL', indL, 'indR', indR)
+
     return indL, indR
 
 

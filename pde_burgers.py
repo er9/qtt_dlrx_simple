@@ -1114,7 +1114,6 @@ class Burgers(PDE_system):
         # solver_type = LocalSolverType.TDCross
         if self.verbose:
             print('te order', te_order)
-        if self.verbose:
             print('solver type', solver_type)
 
         # out = self._get_nonlinear_value(solver_type)[0]
@@ -1154,7 +1153,6 @@ class Burgers(PDE_system):
 
                 if self.verbose:
                     print('internal evals', dist_gtn.info.get('num_evals'), 'max', 2**dist_gtn.L)
-                if self.verbose:
                     print('internal rank', dist_gtn.info.get('internal_rank'))
                 # pdb.set_trace()
 

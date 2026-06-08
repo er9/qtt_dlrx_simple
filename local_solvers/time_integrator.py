@@ -1532,11 +1532,12 @@ class TDDMRG_mod1(TimeIntegrator, DMRGEvaluator):
             ## out and psi33 are the same thing, but psi33 is scaled
             # print('norms', psi03.norm(), psi13.norm(), psi23.norm(), psi33.norm())
 
-            # print('classic TD-DMRG')
-            # return out, (psi03, psi13, psi23, psi33)
             if self.verbose > 1:
-                print('only 0, dt target')
-            return out, (psi03, psi33)
+                print('classic TD-DMRG')
+            return out, (psi03, psi13, psi23, psi33)
+            # if self.verbose > 1:
+            #     print('only 0, dt target')
+            # return out, (psi03, psi33)
             # print('only 0, 2 dt/3 target')
             # return out, (psi03, psi23)
 

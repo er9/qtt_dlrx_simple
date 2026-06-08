@@ -711,8 +711,6 @@ class LocalEvaluator:
         if self.verbose:
             print('solve', self.terms)
         for term in self.terms:
-            if self.verbose:
-                print('local_evaluator solve: term check orthog')
             if term is not None:
                 term.check_orthog()
             # if self.term_class() is Term_DMRG:
@@ -753,8 +751,6 @@ class LocalEvaluator:
         # self.max_tot_iter = 1  # 10
 
         # min_ket, min_err = self.ket, err
-        if self.verbose:
-            print('self copy before', self.terms)
         min_solver, min_err = self.copy(), err
         # direction = self.direction
         if self.verbose:
@@ -843,10 +839,9 @@ class LocalEvaluator:
                 min_err = err if not np.isnan(err) else min_err
                 num_wrong_it = 0
             else:
-                if self.verbose:
-                    print('Warning: solve error went up', err, min_err)
                 num_wrong_it += 1
                 if self.verbose:
+                    print('Warning: solve error went up', err, min_err)
                     print('num wrong', num_wrong_it, self.max_wrong_iter)
 
         # conv = min_err < conv_tol

@@ -125,8 +125,6 @@ save_data = True
 load_data = False
 restart = False
 restart_from_T = 0  ## to restart from an output file (vs a saved restart file)
-is_sqrt = True
-is_darwin = False
 
 if restart or save_data or save_figs:
     # sdir = '/pool001/erikaye/tns_pde_v2/data15-2/VM12-test/'
@@ -157,7 +155,7 @@ Lbox = 1.0
 run = 2
 ## 1: cosine, 2: shock propagation, 3: rarefaction
 
-# flags['x_version'] = 'proj'  ## burgers uses 'proj' interpolation at both extend_env sites (default elsewhere: 'select')
+flags['x_version'] = 'proj'  ## burgers uses 'proj' interpolation at both extend_env sites (default elsewhere: 'select')
 
 print('upwind?', upwind)
 
@@ -261,7 +259,7 @@ print('init bond dims', init_u_gtn.max_bond())
 max_bond_fe = [init_u_gtn.max_bond()]
 max_bond_fe_glob = [init_u_gtn.max_bond()]
 
-norm_u = init_u_gtn.norm(is_sqrt=is_sqrt)  ## compute ||u||^2
+norm_u = init_u_gtn.norm(is_sqrt=True)  ## compute ||u||^2
 print('field norm', norm_u)
 
 from pde_burgers import Burgers, Burgers_FV
@@ -272,7 +270,7 @@ bg_sys = Burgers(init_u_field, dissip_coeff=nu/2 if te_order in [61, 66] else nu
                  normalize=False, zipup=True, te_order=te_order,
                  upwind=upwind)
 bg_sys_global = Burgers(init_u_field.copy(), dissip_coeff=nu, flux_coeff=flux_coeff, power=2,
-                    normalize=False, zipup=True, te_order=1 if te_order in [81, 61, 86, 66] else 4,
+                    normalize=False, zipup=True, te_order=1 if te_order in [81, 61, 86, 66, 96, 91] else 4,
                     upwind=False)
 print('initialized Burgers')
 
@@ -296,7 +294,7 @@ internal_num_evals = [np.nan]
 internal_ranks = [init_u_gtn.max_bond()]
 
 print('starting time evolution')
-while ts[-1] < T:
+while nt < 80: # ts[-1] < T:
 
     dt_ = (dt * 0.1) if nt == 0 else dt
 

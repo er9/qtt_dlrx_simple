@@ -670,8 +670,6 @@ class Term(ABC):
             plt.plot(self.ket.to_dense(), label='ket')
             plt.plot(self.bra.to_dense(), label='bra/out')
             if self.num_tiers > 1:
-                if getattr(self, 'verbose', 0):
-                    print(len(self._intermediate_kets))
                 plt.plot(self.get_intermediate_ket(0).to_dense(), label='inter')
 
             plt.title('init get evaluated site')

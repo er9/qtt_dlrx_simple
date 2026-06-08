@@ -880,8 +880,7 @@ class PDE_system:
                                                  compress_level_2=4, **kwargs)
 
         else:
-            if self.verbose:
-                print('te order', te_order)
+            print('te order', te_order)
             raise NotImplementedError
 
         if state_t.do_normalization:
