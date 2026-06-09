@@ -1092,7 +1092,8 @@ class VlasovMaxwell(Vlasov):
                                                        compress=comp1, compress1=comp4, compress2=comp5)
 
             ## current at t = n + 1/2
-            print('update j')
+            if self.verbose:
+                print('update j')
             j = state0.compute_current(compress=comp2)
             # print('update j', j.norm())
             state0.EM_sys.current_density = j
@@ -1113,7 +1114,7 @@ class VlasovMaxwell(Vlasov):
                                                        background_force=background_force, internal_force=internal_force)
                 state0.sys_fi.set_force_term(force_term, background_force=background_force, internal_force=internal_force)
 
-            print('tdmrg')
+            # print('vlasovEM tdvp new')
             dt_ = dt / 2 if is_last_time_step else dt
             state1 = super(type(state0), state0).tdvp_new(dt_, te_order=te_order,
                                                            inplace=True, do_adapt=do_adapt,
@@ -1134,10 +1135,13 @@ class VlasovMaxwell(Vlasov):
             Ex0, omega = 0.9, 0.4567
             time_mpos = {}
 
-            print('calc time deriv (tdvp new)', self.time)
+
             new_Ex = Ex0 * np.cos(omega * self.time)
             self.EM_sys.E[X].data = new_Ex
-            print('new Ex', self.EM_sys.E[X].data)
+            if self.verbose:
+                print('calc time deriv (tdvp new)', self.time)
+                print('new Ex', self.EM_sys.E[X].data)
+
             force_term = self.compute_force_term()
             self.set_force_term(force_term)
 
@@ -1323,11 +1327,14 @@ class VlasovMaxwell(Vlasov):
 
                 if te_order in [3, 4]:
                     time = self.time + dt/2
-                    print('calc time deriv (tdmrg new)', time, self.time)
-                    print('old Ex', state0.EM_sys.E[X].data)
+
                     new_Ex = Ex0 * np.cos(omega * time)
                     state0.EM_sys.E[X].data = new_Ex
-                    print('new Ex', state0.EM_sys.E[X].data)
+                    if self.verbose:
+                        print('calc time deriv (tdmrg new) + dt/2', time, self.time)
+                        print('old Ex', state0.EM_sys.E[X].data)
+                        print('new Ex', state0.EM_sys.E[X].data)
+
                     force_term = state0.compute_force_term()
                     state0.set_force_term(force_term)
 
@@ -1335,10 +1342,12 @@ class VlasovMaxwell(Vlasov):
                     time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt2]
 
                     time = self.time + dt
-                    print('calc time deriv (tdmrg new)', time, self.time)
                     new_Ex = Ex0 * np.cos(omega * time)
                     state0.EM_sys.E[X].data = new_Ex
-                    print('new Ex', state0.EM_sys.E[X].data)
+                    if self.verbose:
+                        print('calc time deriv (tdmrg new) +dt', time, self.time)
+                        print('new Ex', state0.EM_sys.E[X].data)
+
                     force_term = state0.compute_force_term()
                     state0.set_force_term(force_term)
 
@@ -1346,10 +1355,12 @@ class VlasovMaxwell(Vlasov):
                     time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt4]
 
                 ## reset to original ##
-                print('calc time deriv (tdmrg new)', self.time)
                 new_Ex = Ex0 * np.cos(omega * self.time)
                 state0.EM_sys.E[X].data = new_Ex
-                print('new Ex', state0.EM_sys.E[X].data)
+                if self.verbose:
+                    print('calc time deriv (tdmrg new) +0', self.time)
+                    print('new Ex', state0.EM_sys.E[X].data)
+
                 force_term = state0.compute_force_term()
                 state0.set_force_term(force_term)
                 # else:
@@ -1363,12 +1374,12 @@ class VlasovMaxwell(Vlasov):
 
             elif solver_type == LocalSolverType.TDCross:
 
-                print('here X time dmrg')
+                # print('here X time dmrg')
 
                 X, Y, Z = state0.coords_x.coords
                 Ex0, omega = 0.9, 0.4567
                 state0.sys_fe.time = self.time
-                print('sys fe time', state0.sys_fe.time)
+                # print('sys fe time', state0.sys_fe.time)
 
                 time_mpos = {}
 
@@ -1376,7 +1387,10 @@ class VlasovMaxwell(Vlasov):
                     time = state0.time + dt / 2
                     new_Ex = Ex0 * np.cos(omega * time)
                     state0.EM_sys.E[X].data = new_Ex
-                    print('new Ex', state0.EM_sys.E[X].data, 'time', time)
+
+                    if self.verbose:
+                        print('new Ex (tdmrg-x) + dt/2', state0.EM_sys.E[X].data, 'time', time)
+
                     force_term = state0.compute_force_term()
                     state0.set_force_term(force_term, time=(time if self.upwind else None), reset=True)
                     if not self.upwind:
@@ -1386,7 +1400,8 @@ class VlasovMaxwell(Vlasov):
                     time = state0.time + dt
                     new_Ex = Ex0 * np.cos(omega * time)
                     state0.EM_sys.E[X].data = new_Ex
-                    print('new Ex', state0.EM_sys.E[X].data, 'time', time)
+                    if self.verbose:
+                        print('new Ex (tdmrg-x) +dt', state0.EM_sys.E[X].data, 'time', time)
                     force_term = state0.compute_force_term()
                     state0.set_force_term(force_term, time=(time if self.upwind else None), reset=False)
 
@@ -1399,7 +1414,8 @@ class VlasovMaxwell(Vlasov):
                 time = state0.time
                 new_Ex = Ex0 * np.cos(omega * time)
                 state0.EM_sys.E[X].data = new_Ex
-                print('new Ex', state0.EM_sys.E[X].data, 'time', time)
+                if self.verbose:
+                    print('new Ex (tdmrg-x) +0', state0.EM_sys.E[X].data, 'time', time)
                 force_term = state0.compute_force_term()
                 state0.set_force_term(force_term, time=(time if self.upwind else None), reset=False)
 
@@ -1467,7 +1483,8 @@ class VlasovMaxwell(Vlasov):
                                                        compress=comp1, compress1=comp4, compress2=comp5)
 
             ## current at t = n + 1/2
-            print('update j')
+            if self.verbose:
+                print('update j')
             j = state0.compute_current(compress=comp2)
             # print('update j', j.norm())
             state0.EM_sys.current_density = j
@@ -1487,7 +1504,6 @@ class VlasovMaxwell(Vlasov):
                                                    background_force=background_force, internal_force=internal_force)
             state0.sys_fi.set_force_term(force_term, background_force=background_force, internal_force=internal_force)
 
-            print('tdmrg')
             dt_ = dt / 2 if is_last_time_step else dt
             state1 = super(type(state0), state0).time_local_global(dt_, te_order=te_order,
                                                                    inplace=True, do_adapt=do_adapt,

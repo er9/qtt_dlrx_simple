@@ -67,7 +67,7 @@ def maxwellian_k(vs, vth2=1.0, density=1.0, flow=0.0, is_sqrt=False):
     else:
         ref = density * np.sqrt(1. / 2 / np.pi / vth2) ** K * np.exp(-(xs - flow) ** 2 / 2 / vth2)
     out = out * (np.max(ref) / np.max(check))
-    print('maxwellian k check', np.max(check), np.max(ref))
+    # print('maxwellian k check', np.max(check), np.max(ref))
     # exit()
 
     # import matplotlib.pyplot as plt

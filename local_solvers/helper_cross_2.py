@@ -2,6 +2,7 @@
     this is a cleaner version + elemental multiplication of f(x) * g(y)
     where f, g are element-wise operations
 """
+import numpy as np
 import helper_quimb
 from setup_.configs import *
 import time

@@ -447,7 +447,8 @@ class Vlasov(PDE_system):
                                  compress=comp1, compress1=comp3, compress2=comp5,)
 
         ## include collisions (cross ion/elc collisions)
-        print('collisions', self.collision.coll_type)
+        if self.verbose:
+            print('collisions', self.collision.coll_type)
         if self.collision.coll_type is not None:
             # raise NotImplementedError('collisions not implemented')
             # deriv_coll_e, deriv_coll_i = state0.get_collision_term(v_grads=v_grads, v_axes=v_axes)
@@ -460,7 +461,8 @@ class Vlasov(PDE_system):
             state0 = state0.euler(dt, deriv0=dFdt_coll, compress_level=comp2)
 
         ## update V or EM sys
-        print('update EM sys')
+        if self.verbose:
+            print('update EM sys')
         state0.update_EM_sys(dt, inplace=True, compress=comp1)
 
         # plt.figure()
@@ -563,10 +565,12 @@ class Vlasov(PDE_system):
         state0 = self if inplace else self.copy()
 
         split_order = 3 if self.semiimplicit_force else split_order
-        print('split order vlasov', split_order)
+        if self.verbose:
+            print('split order vlasov', split_order)
 
         #### elecs ###
-        print('compute force')
+        if self.verbose:
+            print('compute force')
         if str(self.te_order)[0] == '4':    # background field is treated separately
             if self.semiimplicit_force:
                 dt_ = dt if self.te_order == 415 else dt / 2
@@ -575,10 +579,12 @@ class Vlasov(PDE_system):
             else:
                 force_bg = state0.compute_force_term_bg(is_ion=False, compress_level1=compress1, compress_level2=0)
 
-            print('set elc force')
+            if self.verbose:
+                print('set elc force')
             state0.set_force_term(force_bg, is_ion=False, background_force=True, internal_force=False)
 
-            print('compute nobg force')
+            if self.verbose:
+                print('compute nobg force')
             force_in = state0.compute_force_term_nobg(is_ion=False, compress_level1=compress1, compress_level2=0)
             state0.set_force_term(force_in, is_ion=False, background_force=False, internal_force=True)
 
@@ -595,11 +601,13 @@ class Vlasov(PDE_system):
             force_term = state0.compute_force_term(is_ion=False,
                                                    background_force=background_force, internal_force=internal_force,
                                                    compress_level1=compress1, compress_level2=0)
-            print('set elc force')
+            if self.verbose:
+                print('set elc force')
             state0.set_force_term(force_term, is_ion=False,
                                   background_force=background_force, internal_force=internal_force)
 
-        print('elc force adv')
+        if self.verbose:
+            print('elc force adv')
         state0.sys_fe = state0.sys_fe.get_force_advection(dt, inplace=True, method=method,
                                                           background_force=background_force,
                                                           internal_force=internal_force, compress=compress,
@@ -616,7 +624,8 @@ class Vlasov(PDE_system):
                 else:
                     force_bg = state0.compute_force_term_bg(is_ion=True, compress_level1=compress1, compress_level2=0)
 
-                print('set ion force')
+                if self.verbose:
+                    print('set ion force')
                 state0.set_force_term(force_bg, is_ion=True, background_force=True, internal_force=False)
 
                 force_in = state0.compute_force_term_nobg(is_ion=True, compress_level1=compress1, compress_level2=0)
@@ -631,7 +640,8 @@ class Vlasov(PDE_system):
                                                        background_force=background_force, internal_force=internal_force,
                                                        compress_level1=compress1, compress_level2=0)
                 # print('ion force advec', background_force, internal_force)
-                print('set ion force')
+                if self.verbose:
+                    print('set ion force')
                 state0.set_force_term(force_term, is_ion=True,
                                       background_force=background_force, internal_force=internal_force,)
 
@@ -844,14 +854,16 @@ class Vlasov(PDE_system):
 
         # state1.sys_fe.force_term = self.compute_force_term(is_ion=False, compress_level=compress_level,
         #                                                    compress_level1=compress_level1, compress_level2=0)
-        print('euler fe', state1.sys_fe.f.max_bond(), compress_level)
+        if self.verbose:
+            print('euler fe', state1.sys_fe.f.max_bond(), compress_level)
         state1.sys_fe.euler(dt, deriv0=deriv0.sys_fe, inplace=True, compress_level=compress_level,
                             compress_level1=compress_level1, compress_level2=compress_level2,
                             verbose_plot=verbose_plot)
 
         # state1.sys_fi.force_term = self.compute_force_term(is_ion=True, compress_level=compress_level,
         #                                                    compress_level1=compress_level1, compress_level2=0)
-        print('euler fi', state1.sys_fi.f.max_bond())
+        if self.verbose:
+            print('euler fi', state1.sys_fi.f.max_bond())
         state1.sys_fi.euler(dt, deriv0=deriv0.sys_fi, inplace=True, compress_level=compress_level,
                             compress_level1=compress_level1, compress_level2=compress_level2,
                             verbose_plot=verbose_plot)
@@ -927,7 +939,8 @@ class Vlasov(PDE_system):
                                              internal_force=internal_force, **kwargs)
 
         if np.abs(state1.elc_params.e) > 0 and do_update_V:
-            print('updating V')
+            if self.verbose:
+                print('updating V')
             state1.update_EM_sys(dt, inplace=True, compress=compress_level, compress1=compress_level_2)
 
         return state1
@@ -970,7 +983,8 @@ class Vlasov(PDE_system):
                                              internal_force=internal_force, **kwargs)
 
         if np.abs(state1.elc_params.e) > 0 and do_update_V:
-            print('updating EM sys')
+            if self.verbose:
+                print('updating EM sys')
             state1.update_EM_sys(dt, inplace=True, compress=compress_level, compress1=compress_level_2)
 
         return state1
@@ -1002,7 +1016,8 @@ class Vlasov(PDE_system):
                 state1.sys_fi.set_force_term(force_term, background_force=background_force, internal_force=internal_force)
 
         if state1.sys_fe is not None:
-            print('vlasov time dmrg', solver_type)
+            if self.verbose:
+                print('vlasov time dmrg', solver_type)
             state1.sys_fe.time_dmrg(dt, te_order=te_order, do_adapt=do_adapt, inplace=True,
                                     direction=direction, compress_level=compress_level,
                                     advec_axes=advec_axes, background_force=background_force,
@@ -1015,7 +1030,8 @@ class Vlasov(PDE_system):
                                     internal_force=internal_force, solver_type=solver_type, **kwargs)
 
         if np.abs(state1.elc_params.e) > 0 and do_update_V:
-            print('updating EM sys')
+            if self.verbose:
+                print('updating EM sys')
             state1.update_EM_sys(dt, inplace=True, compress=compress_level, compress1=compress_level_2)
 
         return state1
@@ -1068,7 +1084,8 @@ class Vlasov(PDE_system):
                                         internal_force=internal_force, solver_type=solver_type, **kwargs)
 
         if np.abs(state1.elc_params.e) > 0 and do_update_V:
-            print('updating EM sys')
+            if self.verbose:
+                print('updating EM sys')
             state1.EM_sys.time = time
             state1.update_EM_sys(dt, inplace=True, compress=compress_level, compress1=compress_level_2)
 
@@ -1105,7 +1122,8 @@ class Vlasov(PDE_system):
 
         if state1.sys_fe is not None:
             state1.sys_fe.time = time
-            print('pde vlasov sys fe time', state1.sys_fe.time)
+            if self.verbose:
+                print('pde vlasov td-dmrg sys fe time', state1.sys_fe.time)
             state1.sys_fe.time_dmrg_new(dt, te_order=te_order, do_adapt=do_adapt, inplace=True,
                                         direction=direction, compress_level=compress_level,
                                         advec_axes=advec_axes, background_force=background_force,
@@ -1113,13 +1131,16 @@ class Vlasov(PDE_system):
 
         if self.evolve_ion and state1.sys_fi is not None and state1.fi.component is not None and state1.fi.component.data is not None:
             state1.sys_fi.time = time
+            if self.verbose:
+                print('pde vlasov td-dmrg sys fi time', state1.sys_fi.time)
             state1.sys_fi.time_dmrg_new(dt, te_order=te_order, do_adapt=do_adapt, inplace=True,
                                         direction=direction, compress_level=compress_level,
                                         advec_axes=advec_axes, background_force=background_force,
                                         internal_force=internal_force, solver_type=solver_type, **kwargs)
 
         if np.abs(state1.elc_params.e) > 0 and do_update_V:
-            print('updating EM sys')
+            if self.verbose:
+                print('updating EM sys')
             state1.EM_sys.time = time
             state1.update_EM_sys(dt, inplace=True, compress=compress_level, compress1=compress_level_2)
 

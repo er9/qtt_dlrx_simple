@@ -559,7 +559,7 @@ while ts[-1] < T:
         new_Ex.data = Ex(x_vals, ts[-1] + dt_ / 2)
         vm_sys.time = ts[-1] + dt_ / 2
         vm_sys.sys_fe.time = ts[-1] + dt_ / 2
-        print('dt+2 to time', vm_sys.time, vm_sys.sys_fe.time, ts[-1], dt_ / 2)
+        # print('dt+2 to time', vm_sys.time, vm_sys.sys_fe.time, ts[-1], dt_ / 2)
     else:
         new_Ex.data = Ex(x_vals, ts[-1])  # + dt_/2)
     new_Ex.is_constant = (k == 0.)
