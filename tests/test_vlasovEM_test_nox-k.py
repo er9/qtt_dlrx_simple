@@ -555,7 +555,7 @@ while ts[-1] < T:
 
     ## manually update E
     new_Ex = grid_X.make_empty_gridTN()
-    if 60 <= te_order < 70 or te_order in [80, 85, 87]:
+    if 60 <= te_order < 70 or te_order in [80, 85, 95] or 90 <= te_order < 95:
         new_Ex.data = Ex(x_vals, ts[-1] + dt_ / 2)
         vm_sys.time = ts[-1] + dt_ / 2
         vm_sys.sys_fe.time = ts[-1] + dt_ / 2
