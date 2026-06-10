@@ -1372,7 +1372,7 @@ class VlasovMaxwell(Vlasov):
 
                 #######################
 
-            elif solver_type == LocalSolverType.TDCross:
+            elif solver_type in [LocalSolverType.MIXED, LocalSolverType.TDCross]:
 
                 # print('here X time dmrg')
 

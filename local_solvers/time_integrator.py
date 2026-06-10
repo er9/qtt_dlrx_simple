@@ -1239,7 +1239,7 @@ class TimeIntegrator(LocalEvaluator, ABC):
         output_to_input_inds = self.terms[0].projected_bra_to_ket(left_site_pos, nsites)
 
         rhs = helper_tn.sum_tens(rhs)
-        solve_cgd = tc.get_cgd_func(has_constraints=(len(self.constraint_terms) > 0))
+        solve_cgd = tc.get_cgd_func(has_constraints=(len(self.constraint_terms) > 0), conv_tol=1.0e-10, )
 
         constraint_vals = []
         for cv in self.constraint_vals:

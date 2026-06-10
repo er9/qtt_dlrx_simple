@@ -860,7 +860,7 @@ class PDE_system:
                                        is_first_time_step=is_first_time_step, is_last_time_step=is_last_time_step, )
             else:
                 if 90 <= te_order < 95:
-                    if order_ == 3:
+                    if order_ == 0:
                         order_ = 223
                     state_t = self.tdvp_new(dt, inplace=False, te_order=order_, do_adapt=True,
                                                  is_first_time_step=is_first_time_step,
@@ -871,6 +871,8 @@ class PDE_system:
                                                  compress_level_2=4)
                 else:
                     order_ -= 5  ## 6:  order_ = 1; 5: order_ = 0; 9: order_ = 4
+                    if order_ == 0:
+                        order_ = 223
                     state_t = self.time_dmrg_new(dt, inplace=False, te_order=order_, do_adapt=True,
                                                  is_first_time_step=is_first_time_step,
                                                  is_last_time_step=is_last_time_step,
