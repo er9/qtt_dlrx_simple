@@ -6,7 +6,7 @@ operators in 2-D on a quantized-tensor-train grid.
 import sys
 sys.path.append('../')
 
-from setup.defaults import *
+from setup_.defaults import *
 import numpy as np
 import matplotlib.pyplot as plt
 

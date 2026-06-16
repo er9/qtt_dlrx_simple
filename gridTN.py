@@ -7,7 +7,7 @@ Provides the static creation helpers and the common tensor-network interface use
 :mod:`field` and the PDE solvers.
 """
 
-import pickle
+import tt_io
 
 import helper_dmrg
 from setup_.configs import *
@@ -264,23 +264,23 @@ class GridTN:
         raise NotImplementedError
 
     def save_data(self, fstr):
-        """Pickle the underlying data to ``<fstr>.pkl``.
+        """Save the underlying data to ``<fstr>.npz`` as numpy arrays (no pickle).
 
         Parameters
         ----------
         fstr : str
-            Path prefix; the ``.pkl`` extension is appended.
+            Path prefix; the ``.npz`` extension is appended.
         """
-        pickle.dump(self.data, open(fstr + '.pkl', 'wb'))
-        print('saved data', fstr + '.pkl')
+        tt_io.tn1d_to_npz(self.data, fstr)
+        print('saved data', fstr + '.npz')
 
     def reload_data(self, fstr, ax_deriv_configs=None):
-        """Reload pickled data into this GridTN via the grid loader.
+        """Reload saved data into this GridTN via the grid loader.
 
         Parameters
         ----------
         fstr : str
-            Path prefix of the pickle file to load.
+            Path prefix of the ``.npz`` file to load.
         ax_deriv_configs : dict[Axis, DerivativeConfiguration], optional
             Per-Axis finite-difference configs to attach to the loaded field.
 
@@ -294,14 +294,14 @@ class GridTN:
 
     @classmethod
     def load_data(cls, grid: 'Grid', fstr, ax_deriv_configs=None):
-        """Construct a new GridTN from pickled data on a given grid.
+        """Construct a new GridTN from saved data on a given grid.
 
         Parameters
         ----------
         grid : Grid
             Grid on which to build the loaded field.
         fstr : str
-            Path prefix of the pickle file to load.
+            Path prefix of the ``.npz`` file to load.
         ax_deriv_configs : dict[Axis, DerivativeConfiguration], optional
             Per-Axis finite-difference configs to attach to the new field.
 

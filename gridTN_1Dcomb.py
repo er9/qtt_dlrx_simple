@@ -9,7 +9,7 @@ this layout.
 from setup_.configs import *
 from setup_.quimb_TN1D import MatrixProductStateUSVT as MPS_USVT
 from setup_.quimb_TN1D import MatrixProductStateTN, MatrixProductOperatorTN
-import pickle
+import tt_io
 import helper_quimb as helper
 import helper_dmrg
 import helper_dmrg_2
@@ -380,9 +380,8 @@ class GridTN1DComb(GridTN_Composite):
             else:
                 branch_data += [None]
 
-        data = (self._exponent, self._sign, self.spine, branch_data)
-        pickle.dump(data, open(fstr + '.pkl', 'wb'))
-        print('saved data', fstr + '.pkl')
+        tt_io.comb_to_npz(self._exponent, self._sign, self.spine, branch_data, fstr)
+        print('saved data', fstr + '.npz')
 
     def max_bond(self) -> int:
         max_bonds = [b.max_bond() for b in self.active_branches]

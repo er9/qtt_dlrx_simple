@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from setup_.configs import *
 
-import pickle
+import tt_io
 import helper_quimb as helper
 # import helper_inverse as helper_inv
 from axis import Axis
@@ -297,15 +297,12 @@ class Grid:
                       safe_pass=False):
         """ load data from fstr, put into gtn (or empty GridTN)
         """
-        # print('loading data', fstr + '.pkl')
-        # gtn_data = pickle.load(open(fstr + '.pkl', 'rb'))
-        # print('found data')
         try:
-            print('loading data', fstr + '.pkl')
-            gtn_data = pickle.load(open(fstr + '.pkl', 'rb'))
+            print('loading data', fstr + '.npz')
+            gtn_data = tt_io.tn1d_from_npz(fstr)
             print('found data')
         except IOError:
-            print('data not found', fstr + '.pkl')
+            print('data not found', fstr + '.npz')
             if not safe_pass:
                 raise IOError
             return None
@@ -313,7 +310,7 @@ class Grid:
         if gtn is None:
             gtn = self.make_empty_gridTN(ax_deriv_configs=ax_deriv_configs)
         gtn.data = gtn_data
-        print('loaded data', fstr + '.pkl')
+        print('loaded data', fstr + '.npz')
         return gtn
 
     def load_field_data(self, fstr, field_obj: 'Field', compIDs: Optional[list['Coordinate']] = None,

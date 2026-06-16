@@ -38,6 +38,8 @@ evolve_ion = flags.get('evolve_ion', True)
 branch = flags.get('branch', 0)
 dissipation = flags.get('dissipation', 0.0)
 
+flags['x_version'] = 'proj'
+
 is_darwin = False
 
 print('do tt', do_tt)

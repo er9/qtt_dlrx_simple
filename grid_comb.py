@@ -7,7 +7,7 @@ the comb tensor network and exposes the multidimensional operators on this layou
 
 from setup_.configs import *
 
-import pickle
+import tt_io
 import helper_quimb as helper
 from axis import Axis
 from grid import Grid
@@ -60,18 +60,17 @@ class GridsComb(CompositeGrid):
 
     def load_gtn_data(self, fstr, gtn=None, ax_deriv_configs=None, safe_pass=False) -> 'GridTN1DComb':
         try:
-            print('comb loading data', fstr + '.pkl')
-            gtn_data = pickle.load(open(fstr + '.pkl', 'rb'))
-            print('comb loaded data', fstr + '.pkl')
+            print('comb loading data', fstr + '.npz')
+            exponent, sign, spine, branch_data = tt_io.comb_from_npz(fstr)
+            print('comb loaded data', fstr + '.npz')
         except IOError:
-            print('data not found', fstr + '.pkl')
+            print('data not found', fstr + '.npz')
             if not safe_pass:
                 raise IOError
             return None
 
         if gtn is None:
             gtn = self.make_empty_gridTN(ax_deriv_configs=ax_deriv_configs)
-        exponent, sign, spine, branch_data = pickle.load(open(fstr + '.pkl', 'rb'))
 
         gtn._exponent = exponent
         gtn._sign = sign
@@ -86,7 +85,7 @@ class GridsComb(CompositeGrid):
         # gtn.spine = spine
         # gtn.branches = branches
         gtn.data = (branches, spine)
-        print('loaded data', fstr + '.pkl')
+        print('loaded data', fstr + '.npz')
 
         # print('loaded branches', branches)
         # print('loaded spine', spine)

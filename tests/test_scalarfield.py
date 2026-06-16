@@ -7,7 +7,7 @@ against findiff references for different MPS layouts.
 import sys
 sys.path.append('../')
 
-from setup.configs import *
+from setup_.configs import *
 # from enums import *
 
 import numpy as np

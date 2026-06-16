@@ -433,7 +433,7 @@ class LocalEvaluator:
         """
         raise NotImplementedError
 
-    def solve_l2r_adapt(self, canonize=True, verbose=False, filter_bases=False, **kwargs):
+    def solve_l2r_adapt(self, canonize=True, filter_bases=False, **kwargs):
 
         # print('solve l2r adapt', self.max_bond)
 
@@ -498,7 +498,7 @@ class LocalEvaluator:
         return self.out, tot_err
 
 
-    def solve_r2l_adapt(self, canonize=True, verbose=False, filter_bases=False, **kwargs):
+    def solve_r2l_adapt(self, canonize=True, filter_bases=False, **kwargs):
 
         # print('solve r2l adapt', self.max_bond)
 
@@ -564,13 +564,13 @@ class LocalEvaluator:
         return self.out, tot_err
 
 
-    def solve_l2r(self, nsites: int, canonize=True, verbose=False, filter_bases=False, **kwargs):
+    def solve_l2r(self, nsites: int, canonize=True, filter_bases=False, **kwargs):
 
         if self.verbose:
             print("SOLVE L2R")
 
         if nsites > 2:
-            return self.solve_l2r_adapt(canonize=canonize, verbose=verbose, filter_bases=filter_bases, **kwargs)
+            return self.solve_l2r_adapt(canonize=canonize, filter_bases=filter_bases, **kwargs)
 
         # print('solve l2r', self.max_bond, 'nsites', nsites)
 
@@ -627,13 +627,13 @@ class LocalEvaluator:
         return self.out, tot_err
 
 
-    def solve_r2l(self, nsites: int, canonize=True, verbose=False, filter_bases=False, **kwargs):
+    def solve_r2l(self, nsites: int, canonize=True, filter_bases=False, **kwargs):
 
         if self.verbose:
             print('SOLVE R2L')
 
         if nsites > 2:
-            return self.solve_r2l_adapt(canonize=canonize, verbose=verbose, filter_bases=filter_bases, **kwargs)
+            return self.solve_r2l_adapt(canonize=canonize, filter_bases=filter_bases, **kwargs)
 
         # print('solve r2l', self.max_bond)
 
@@ -683,7 +683,7 @@ class LocalEvaluator:
         return self.out, tot_err
 
 
-    def solve(self, nsites: int, conv_tol=0, verbose=False, **kwargs):
+    def solve(self, nsites: int, conv_tol=0, **kwargs):
         """ iterative solver for entire MPS
             minimize || Ax-b ||_2 = <Ax|Ax> + <b|b> - <Ax|b> - <b|Ax>
             sweep through sites i:
@@ -701,7 +701,6 @@ class LocalEvaluator:
                 can be written as a sum of MPSs (scaling included in the MPS; not kept track of separately)
             x: self.ket (updated in place)
         """
-        verbose = True
         conv_tol = self.conv_tol if conv_tol == 0 else conv_tol
 
         L = self.out.L
@@ -763,7 +762,7 @@ class LocalEvaluator:
 
             ## right sweep
             if self.direction == SweepDirection.RIGHT:
-                _, err = self.solve_l2r(nsites, canonize=False, verbose=verbose)
+                _, err = self.solve_l2r(nsites, canonize=False)
 
                 # for i in range(L - nsites + 1):
                 #     site_i, site_err = self._site_solve(i, nsites)
@@ -791,7 +790,7 @@ class LocalEvaluator:
             else:
 
                 ## left sweep
-                _, err = self.solve_r2l(nsites, canonize=False, verbose=verbose)
+                _, err = self.solve_r2l(nsites, canonize=False)
 
                 # ## left sweep
                 # for i in range(L - 1, nsites - 2, -1):
@@ -821,7 +820,7 @@ class LocalEvaluator:
             self.err = err
             self.is_conv = err < self.conv_tol
 
-            if verbose:
+            if self.verbose:
                 print('err', it, self.max_iter, err)
                 # print('err np', self.check_err_np())
 
