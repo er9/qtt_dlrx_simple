@@ -3,15 +3,27 @@ type definitions, default compression cutoffs and bond dimensions, default bound
 conditions and finite-difference settings, plus command-line input-flag parsing."""
 from typing import Union, Optional, Sequence, Any, Iterable, Type, Callable, Literal
 from setup_.enums import *
-import sys, getopt
+import sys, getopt, os
+import importlib.util
 import pdb
 
 import numpy as np
 import scipy.sparse
 
-# import matplotlib
-# matplotlib.use('TkAgg')     ## Qt... doesn't work after updating packages...
+import matplotlib
+
+def _configure_matplotlib_backend():
+    # Respect user choice if they explicitly set a backend.
+    if os.environ.get("MPLBACKEND"):
+        return
+    # If tkinter isn't available (common for minimal Python installs), avoid
+    # defaulting to Tk-based interactive backends.
+    if importlib.util.find_spec("tkinter") is None:
+        matplotlib.use("Agg")
+
+_configure_matplotlib_backend()
 import matplotlib.pyplot as plt
+
 
 import quimb.tensor as qtn
 from setup_.quimb_TN1D import MatrixProductTensor

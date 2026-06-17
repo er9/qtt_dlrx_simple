@@ -1,16 +1,47 @@
 """Numpy-based serialization for tensor-train (quimb 1-D TN) data.
 
 Replaces the previous pickle-based persistence of :class:`~gridTN.GridTN` /
-:class:`~gridTN_1D.GridTN1D` data with self-contained ``.npz`` archives. Per-site
-tensor arrays are stored as individual array entries (so ``np.load`` runs with
-``allow_pickle=False``); all reconstruction metadata (index labels, tags, id
-patterns, the carried ``exponent`` magnitude, the concrete class, and the
-:class:`~setup_.enums.DataType`) is stored as a single JSON string entry.
-
-The serializer round-trips plain quimb ``MatrixProductState`` / ``MatrixProductOperator``
+:class:`~gridTN_1D.GridTN1D` data with self-contained ``.npz`` archives. The
+serializer round-trips plain quimb ``MatrixProductState`` / ``MatrixProductOperator``
 / generic ``TensorNetwork1D`` objects, the custom ``MatrixProductTensor`` (extra physical
-legs) and ``MatrixProductStateUSVT`` (canonical-S form), and bare numeric scalars
-(``DataType.Num``).
+legs) and ``MatrixProductStateUSVT`` (canonical-S form), bare numeric scalars
+(``DataType.Num``), and the comb-layout tuple ``(exponent, sign, spine, branch_data)``.
+
+On-disk format
+--------------
+Every save writes a single compressed archive via
+``np.savez_compressed(<fstr>.npz, meta=<json>, <core arrays...>)``:
+
+- ``meta`` -- a JSON string (stored as a 0-d numpy string array) holding *all*
+  reconstruction metadata. The tensor cores are **never** put in the JSON; they are
+  stored as separate numeric array entries. Keeping the only structured data in a plain
+  JSON string is what lets the loader run with ``allow_pickle=False`` (no pickle, and the
+  archive is portable / human-inspectable).
+- Tensor cores -- one ndarray entry per core, keyed by position (see below).
+
+``meta['data_type']`` selects one of three layouts:
+
+1. ``'TN'`` -- a single MPS / MPO / MPX / TN3 / USVT. ``meta`` holds:
+   ``format_version``, ``class_module`` + ``class_name`` (the concrete quimb class to
+   reinstantiate), ``L`` (number of cores), ``cyclic``, ``exponent`` (the carried base-10
+   log magnitude; not part of quimb's array data, so saved explicitly), ``site_tag_id``,
+   and ``sites`` -- a length-``L`` list of ``{'inds': [...], 'tags': [...]}`` giving each
+   core's index labels and tags. The site-index id pattern is stored as ``site_ind_id``
+   for MPS-like networks, or ``upper_ind_id`` + ``lower_ind_id`` for MPO-like networks;
+   ``extra_ind_ids`` is added for ``MatrixProductTensor`` and ``canon_site`` for
+   ``MatrixProductStateUSVT``. Core ``i`` is stored under key ``arr_{i}`` for
+   ``i = 0 .. L-1``.
+2. ``'Num'`` -- a bare scalar. ``meta`` holds ``value_real`` and ``value_imag``; there
+   are no core-array entries. (A purely real value loads back as a Python ``float``.)
+3. ``'Comb'`` -- the comb tuple ``(exponent, sign, spine, branch_data)``. ``meta`` holds
+   ``exponent``, ``sign`` as ``[real, imag]``, ``n_branches``, ``has_spine``, ``branches``
+   (a list of per-branch ``'TN'``-style meta blocks, with ``null`` for inactive branches),
+   and ``spine`` (a ``'TN'``-style meta block, or ``null``). Branch ``i``'s core ``k`` is
+   stored under ``branch{i}__arr_{k}``; the spine's core ``k`` under ``spine__arr_{k}``.
+
+On load, each core is rebuilt as ``qtn.Tensor(array, inds, tags)``; the cores are wrapped
+in a ``TensorNetwork``, viewed/instantiated as the recorded class with the saved id
+patterns, and the ``exponent`` is restored.
 """
 
 import json

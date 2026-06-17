@@ -42,6 +42,10 @@ dependencies = [
     "sympy",
 ]
 
+[project.optional-dependencies]
+# Install with:  pip install -e ".[test]"
+test = ["pytest"]
+
 [project.urls]
 "Source" = "https://github.com/er9/qtt_dlrx_simple"
 "Paper" = "https://arxiv.org/abs/2512.15703"

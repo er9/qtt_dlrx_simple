@@ -9,3 +9,5 @@ scipy
 matplotlib
 findiff
 sympy
+# Test runner for the installation-verification suite (tests/test_install_xfunc.py).
+pytest

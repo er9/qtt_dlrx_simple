@@ -40,16 +40,42 @@ pip install -e .
 Installing the package in editable mode (`pip install -e .`) puts the modules on your
 `sys.path`, so the test scripts no longer rely on `sys.path.append('../')`.
 
+### Verify your installation
+
+`tests/test_install_xfunc.py` is a fast, headless check that the core stack (the `GridTN1D`
+data model, the DMRG / cross / mixed local solvers, and the quimb wiring) is installed and
+numerically sound. It approximates several target functions as QTTs and asserts each solver
+converges to the direct-SVD reference at full bond dimension.
+
+Install the test extra (adds `pytest`) and run it either way:
+
+```bash
+pip install -e ".[test]"          # or: pip install pytest
+
+# as a pytest suite:
+cd tests && python -m pytest test_install_xfunc.py -v
+
+# or as a plain script (prints PASS/FAIL per case, exits non-zero on failure):
+cd tests && python test_install_xfunc.py
+```
+
+All four cases should report `PASS`.
+
 ## Quickstart
 
-The repository uses **separate git branches** for the main test cases (a known quirk—each
-branch configures a different problem):
+All of the main test cases run from a **single unified branch**—each has its own entry
+script under `tests/`:
 
-| Branch    | Test case                                          | Entry script                              |
-|-----------|----------------------------------------------------|-------------------------------------------|
-| `EM2D`    | 2-D Maxwell simulation of a wavepacket in a cavity | `tests/test_EM2.py`                       |
-| `advec`   | Advection test problem in Fourier space            | `tests/test_vlasovEM_test_nox-k.py`       |
-| `burgers` | Upwind Burgers test case                           | `tests/test_burgers_1D.py`                |
+| Test case                                          | Entry script                              |
+|----------------------------------------------------|-------------------------------------------|
+| 2-D Maxwell simulation of a wavepacket in a cavity | `tests/test_EM2.py`                       |
+| Advection test problem in Fourier space            | `tests/test_vlasovEM_test_nox-k.py`       |
+| Upwind Burgers test case                           | `tests/test_burgers_1D.py`                |
+
+Jupyter notebooks of these tests replicating results of the associated paper are also provided.
+
+(Historically each problem lived on its own branch—`EM2D`, `advec`, `burgers`—which still
+exist for reference, but the current branch runs all three.)
 
 General tensor-network operations (addition, element-wise multiplication, function
 evaluation, etc.) are demonstrated in `tests/test_xfunc_v3_mixed.py`.
@@ -133,7 +159,9 @@ Sub-packages:
   dimensions kept factorized), `ParallelG` (interleaved, dimensions contracted).
 - `local_solvers/` — the current modular solver stack (Block / Term / Evaluator /
   TimeIntegrator) for local tensor-network updates.
-- `tests/` — runnable example scripts (run directly, not via pytest).
+- `tests/` — runnable example scripts (run directly, e.g. `python tests/test_burgers_1D.py`).
+  The exception is `tests/test_install_xfunc.py`, an installation-verification suite that runs
+  under `pytest` (or directly as a script).
 
 ### Solver stacks — current vs. legacy
 
@@ -159,6 +187,10 @@ consistent with this convention.
 If you use this software, please cite both the software and the paper. Citation metadata is
 provided in [`CITATION.cff`](CITATION.cff) and [`codemeta.json`](codemeta.json). The paper is
 arXiv:2512.15703 (https://arxiv.org/abs/2512.15703).
+
+## Support 
+
+To report issues or for support, email erikaye@lbl.gov
 
 ## License
 
