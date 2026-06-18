@@ -3663,14 +3663,14 @@ class GridTN1D(GridTN):
                 print('TDVP post compress bonds', helper.inner_bond_sizes(solver.out))
 
         else:
-            if te_order == 3:   ## 68
-                solver_type = LocalSolverType.MIXED
-                # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
-                te_order = 4
-            elif te_order == 2:   ## 67
-                solver_type = LocalSolverType.MIXED
-                # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
-                te_order = 223
+            # if te_order == 3:   ## 68
+            #     solver_type = LocalSolverType.MIXED
+            #     # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
+            #     te_order = 4
+            # elif te_order == 2:   ## 67
+            #     solver_type = LocalSolverType.MIXED
+            #     # from local_solvers.time_integrator_mixed import TDVPMixed as TimeInteg
+            #     te_order = 223
             # else:   ## 65, 69
             #     from local_solvers.time_integrator_cross_2 import TDVPCross as TimeInteg
 
@@ -3965,13 +3965,13 @@ class GridTN1D(GridTN):
             # gtn.data = solver.out
         else:
 
-            ## for advection problem?
-            if te_order == 3:   ## 88
-                solver_type = LocalSolverType.MIXED
-                te_order = 4
-            elif te_order == 2:   ## 87
-                solver_type = LocalSolverType.MIXED
-                te_order = 0
+            # ## for advection problem?
+            # if te_order == 3:   ## 88
+            #     solver_type = LocalSolverType.MIXED
+            #     te_order = 4
+            # elif te_order == 2:   ## 87
+            #     solver_type = LocalSolverType.MIXED
+            #     te_order = 0
             # else:   ## 85, 89
             #     from local_solvers.time_integrator_cross_2 import TDCross as TimeInteg
 

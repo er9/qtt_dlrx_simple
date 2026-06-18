@@ -82,6 +82,13 @@ class VlasovMaxwell(Vlasov):
         self.EM_sys = EM_sys
         self.evolve_EM = evolve_EM
 
+        # Optional prescribed (time-dependent) E-field drive: a dict mapping a spatial
+        # Coordinate -> callable f(t) -> scalar/ndarray. When set (opt-in, e.g. by a
+        # prescribed-field advection test), the integrator evaluates it at each sub-step
+        # time and writes the value into EM_sys.E[coord] before computing force terms /
+        # time-evolution MPOs. Left None for self-consistent EM problems (no override).
+        self.E_drive = None
+
         # self._x_advection = True
         # self._v_advection = True
 
@@ -221,6 +228,7 @@ class VlasovMaxwell(Vlasov):
         new_system.field_names = self.field_names
         new_system.names = self.names
         new_system.evolve_EM = self.evolve_EM
+        new_system.E_drive = self.E_drive
 
         if self.sys_fe is not None and new_system.sys_fe is not None:
             new_system.sys_fe.background_force_neg = self.sys_fe.background_force_neg
@@ -234,6 +242,32 @@ class VlasovMaxwell(Vlasov):
         new_system.EM_sys = self.EM_sys.copy()
         ## update EM saved fields?
         return new_system
+
+    def _apply_E_drive(self, state, t):
+        """Write any prescribed time-dependent E-field into ``state`` at time ``t``.
+
+        Evaluates each registered :attr:`E_drive` callable at ``t`` and stores the value on
+        the corresponding ``state.EM_sys.E`` component. Used by the time integrators to set
+        an externally prescribed (non-self-consistent) field at integrator sub-step times.
+
+        Parameters
+        ----------
+        state : VlasovMaxwell
+            The system whose ``EM_sys.E`` is updated in place (``self`` or a copy ``state0``).
+        t : Numeric
+            The (sub-step) time at which to evaluate the prescribed field.
+
+        Returns
+        -------
+        bool
+            True if a prescribed field was applied; False if :attr:`E_drive` is None
+            (in which case the existing E state is left untouched).
+        """
+        if self.E_drive is None:
+            return False
+        for coord, f in self.E_drive.items():
+            state.EM_sys.E[coord].data = f(t)
+        return True
 
     def get_time_derivative_operator(self, compress=1, is_ion=False):
         """ dF/dt = G[f(t)].  Returns G
@@ -1130,17 +1164,13 @@ class VlasovMaxwell(Vlasov):
 
         else:
 
-            #### jank fix ####
-            X, Y, Z = self.coords_x.coords
-            Ex0, omega = 0.9, 0.4567
             time_mpos = {}
 
-
-            new_Ex = Ex0 * np.cos(omega * self.time)
-            self.EM_sys.E[X].data = new_Ex
+            # Apply any externally prescribed E-field at this step's time before building
+            # the time-evolution MPOs (no-op for self-consistent EM problems).
+            self._apply_E_drive(self, self.time)
             if self.verbose:
                 print('calc time deriv (tdvp new)', self.time)
-                print('new Ex', self.EM_sys.E[X].data)
 
             force_term = self.compute_force_term()
             self.set_force_term(force_term)
@@ -1152,72 +1182,6 @@ class VlasovMaxwell(Vlasov):
             time_mpos[np.round(self.time + dt / 2, 10)] = [m.data for m in mpo_list_dt0]
             time_mpos[np.round(self.time + dt * 3 / 4, 10)] = [m.data for m in mpo_list_dt0]
             time_mpos[np.round(self.time + dt, 10)] = [m.data for m in mpo_list_dt0]
-
-            # ###################
-            # ## need 1/4 increments because sweeps left and right
-            # ## dt/4
-            # time = self.time + dt / 4
-            # print('calc time deriv', time, self.time)
-            # print('old Ex', self.EM_sys.E[X].data)
-            # new_Ex = Ex0 * np.cos(omega * time)
-            # self.EM_sys.E[X].data = new_Ex
-            # print('new Ex', self.EM_sys.E[X].data)
-            # force_term = self.compute_force_term()
-            # self.set_force_term(force_term)
-            #
-            # mpo_list_dt1 = self.sys_fe._get_time_evolution_mpos()
-            # time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt1]
-            #
-            # ## dt/2
-            # time = self.time + dt / 2
-            # print('calc time deriv', time, self.time)
-            # print('old Ex', self.EM_sys.E[X].data)
-            # new_Ex = Ex0 * np.cos(omega * time)
-            # self.EM_sys.E[X].data = new_Ex
-            # print('new Ex', self.EM_sys.E[X].data)
-            # force_term = self.compute_force_term()
-            # self.set_force_term(force_term)
-            #
-            # mpo_list_dt2 = self.sys_fe._get_time_evolution_mpos()
-            # time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt2]
-            #
-            # ## 3 dt/4
-            # time = self.time + 3 * dt / 4
-            # print('calc time deriv', time, self.time)
-            # print('old Ex', self.EM_sys.E[X].data)
-            # new_Ex = Ex0 * np.cos(omega * time)
-            # self.EM_sys.E[X].data = new_Ex
-            # print('new Ex', self.EM_sys.E[X].data)
-            # force_term = self.compute_force_term()
-            # self.set_force_term(force_term)
-            #
-            # mpo_list_dt3 = self.sys_fe._get_time_evolution_mpos()
-            # time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt3]
-            #
-            # ## dt
-            # time = self.time + dt
-            # print('calc time deriv', time, self.time)
-            # new_Ex = Ex0 * np.cos(omega * time)
-            # self.EM_sys.E[X].data = new_Ex
-            # print('new Ex', self.EM_sys.E[X].data)
-            # force_term = self.compute_force_term()
-            # self.set_force_term(force_term)
-            #
-            # mpo_list_dt4 = self.sys_fe._get_time_evolution_mpos()
-            # time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt4]
-            #
-            # ## 0
-            # ## reset to original ##
-            # print('calc time deriv', time, self.time)
-            # new_Ex = Ex0 * np.cos(omega * self.time)
-            # self.EM_sys.E[X].data = new_Ex
-            # print('new Ex', self.EM_sys.E[X].data)
-            # force_term = self.compute_force_term()
-            # self.set_force_term(force_term)
-            #
-            # mpo_list_dt0 = self.sys_fe._get_time_evolution_mpos()
-            # time_mpos[np.round(self.time,10)] = [m.data for m in mpo_list_dt0]
-            # #######################
 
             state1 = super(type(state0), state0).tdvp_new(dt, te_order=te_order,
                                                            inplace=True, do_adapt=do_adapt,
@@ -1318,109 +1282,40 @@ class VlasovMaxwell(Vlasov):
 
         else:
 
-            if solver_type == LocalSolverType.TDDMRG:
+            time_mpos = {}
+            # Prescribed E-field drive at integrator sub-step times (no-op if E_drive
+            # is None). Builds the time->MPO lookup the solver consumes downstream.
 
-                #### jank fix ####
-                X, Y, Z = self.coords_x.coords
-                Ex0, omega = 0.9, 0.4567
-                time_mpos = {}
-
-                if te_order in [3, 4]:
-                    time = self.time + dt/2
-
-                    new_Ex = Ex0 * np.cos(omega * time)
-                    state0.EM_sys.E[X].data = new_Ex
-                    if self.verbose:
-                        print('calc time deriv (tdmrg new) + dt/2', time, self.time)
-                        print('old Ex', state0.EM_sys.E[X].data)
-                        print('new Ex', state0.EM_sys.E[X].data)
-
-                    force_term = state0.compute_force_term()
-                    state0.set_force_term(force_term)
-
-                    mpo_list_dt2 = state0.sys_fe._get_time_evolution_mpos()
-                    time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt2]
-
-                    time = self.time + dt
-                    new_Ex = Ex0 * np.cos(omega * time)
-                    state0.EM_sys.E[X].data = new_Ex
-                    if self.verbose:
-                        print('calc time deriv (tdmrg new) +dt', time, self.time)
-                        print('new Ex', state0.EM_sys.E[X].data)
-
-                    force_term = state0.compute_force_term()
-                    state0.set_force_term(force_term)
-
-                    mpo_list_dt4 = state0.sys_fe._get_time_evolution_mpos()
-                    time_mpos[np.round(time,10)] = [m.data for m in mpo_list_dt4]
-
-                ## reset to original ##
-                new_Ex = Ex0 * np.cos(omega * self.time)
-                state0.EM_sys.E[X].data = new_Ex
+            if te_order in [3, 4]:
+                time = state0.time + dt / 2
+                state0._apply_E_drive(state0, time)
                 if self.verbose:
-                    print('calc time deriv (tdmrg new) +0', self.time)
-                    print('new Ex', state0.EM_sys.E[X].data)
+                    print('new Ex (tdmrg-?) + dt/2', 'time', time)
 
                 force_term = state0.compute_force_term()
-                state0.set_force_term(force_term)
-                # else:
-                #     ## use provided Ex
-                #     print('calc time deriv (tdmrg new)', self.time)
-                #     print('use old Ex', state0.EM_sys.E[X].data)
-                #     force_term = state0.compute_force_term()
-                #     state0.set_force_term(force_term)
+                state0.set_force_term(force_term, time=(time if self.upwind else None), reset=True)
+                if not self.upwind:
+                    mpo_list_dt2 = state0.sys_fe._get_time_evolution_mpos()
+                    time_mpos[np.round(time, 10)] = [m.data for m in mpo_list_dt2]
 
-                #######################
-
-            elif solver_type in [LocalSolverType.MIXED, LocalSolverType.TDCross]:
-
-                # print('here X time dmrg')
-
-                X, Y, Z = state0.coords_x.coords
-                Ex0, omega = 0.9, 0.4567
-                state0.sys_fe.time = self.time
-                # print('sys fe time', state0.sys_fe.time)
-
-                time_mpos = {}
-
-                if te_order in [3, 4]:
-                    time = state0.time + dt / 2
-                    new_Ex = Ex0 * np.cos(omega * time)
-                    state0.EM_sys.E[X].data = new_Ex
-
-                    if self.verbose:
-                        print('new Ex (tdmrg-x) + dt/2', state0.EM_sys.E[X].data, 'time', time)
-
-                    force_term = state0.compute_force_term()
-                    state0.set_force_term(force_term, time=(time if self.upwind else None), reset=True)
-                    if not self.upwind:
-                        mpo_list_dt2 = state0.sys_fe._get_time_evolution_mpos()
-                        time_mpos[np.round(time, 10)] = [m.data for m in mpo_list_dt2]
-
-                    time = state0.time + dt
-                    new_Ex = Ex0 * np.cos(omega * time)
-                    state0.EM_sys.E[X].data = new_Ex
-                    if self.verbose:
-                        print('new Ex (tdmrg-x) +dt', state0.EM_sys.E[X].data, 'time', time)
-                    force_term = state0.compute_force_term()
-                    state0.set_force_term(force_term, time=(time if self.upwind else None), reset=False)
-
-                    if not self.upwind:
-                        mpo_list_dt4 = state0.sys_fe._get_time_evolution_mpos()
-                        time_mpos[np.round(time, 10)] = [m.data for m in mpo_list_dt4]
-
-
-                ## reset to original ##
-                time = state0.time
-                new_Ex = Ex0 * np.cos(omega * time)
-                state0.EM_sys.E[X].data = new_Ex
+                time = state0.time + dt
+                state0._apply_E_drive(state0, time)
                 if self.verbose:
-                    print('new Ex (tdmrg-x) +0', state0.EM_sys.E[X].data, 'time', time)
+                    print('new Ex (tdmrg-?) +dt', 'time', time)
                 force_term = state0.compute_force_term()
                 state0.set_force_term(force_term, time=(time if self.upwind else None), reset=False)
 
+                if not self.upwind:
+                    mpo_list_dt4 = state0.sys_fe._get_time_evolution_mpos()
+                    time_mpos[np.round(time, 10)] = [m.data for m in mpo_list_dt4]
 
-
+            ## reset to original ##
+            time = state0.time
+            state0._apply_E_drive(state0, time)
+            if self.verbose:
+                print('new Ex (tdmrg-?) +0', 'time', time)
+            force_term = state0.compute_force_term()
+            state0.set_force_term(force_term, time=(time if self.upwind else None), reset=False)
 
             state1 = super(type(state0), state0).time_dmrg_new(dt, te_order=te_order,
                                                                inplace=True, do_adapt=do_adapt,
@@ -2225,15 +2120,11 @@ class VlasovMaxwell(Vlasov):
 
             note:  div(E)=rho/eps0, div(B)=0 must be satisfied with initial definitions of E, B
         """
-        ### jank correction for advection test ####
-        print('calc time deriv', time, self.time)
-        X, Y, Z = self.coords_x.coords
-        print('old Ex', self.EM_sys.E[X].data)
-        Ex0, omega = 0.9, 0.4567
-        new_Ex = Ex0 * np.cos(omega * time)
-        self.EM_sys.E[X].data = new_Ex
-        print('new Ex', self.EM_sys.E[X].data)
-        update_force = True
+        # Apply any externally prescribed E-field at this time (no-op if E_drive is None).
+        if self._apply_E_drive(self, time):
+            update_force = True
+            if self.verbose:
+                print('calc time deriv (E_drive)', time, self.time)
 
         dFdt = super().calculate_time_derivative(time=time, compress_level=compress_level,
                                                  compress_level1=compress_level1, compress_level2=compress_level2,
@@ -2276,19 +2167,12 @@ class VlasovMaxwell(Vlasov):
 
             note:  div(E)=rho/eps0, div(B)=0 must be satisfied with initial definitions of E, B
         """
-        ### jank correction for advection test ####
-        # self.time = None
-        # update_force = False
-        print('calc time deriv (upwind)', time, self.time)
         time = self.time if time is None else time
-
-        X, Y, Z = self.coords_x.coords
-        print('old Ex', self.EM_sys.E[X].data)
-        Ex0, omega = 0.9, 0.4567
-        new_Ex = Ex0 * np.cos(omega * time)
-        self.EM_sys.E[X].data = new_Ex
-        print('new Ex', self.EM_sys.E[X].data)
         update_force = True
+
+        # Apply any externally prescribed E-field at this time (no-op if E_drive is None).
+        if self._apply_E_drive(self, time) and self.verbose:
+            print('calc time deriv (upwind, E_drive)', time, self.time)
 
         dFdt = super().deriv_upwind_global(time=None,
                                            do_x_advection=do_x_advection, do_v_advection=do_v_advection,

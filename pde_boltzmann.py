@@ -848,7 +848,7 @@ class Boltzmann(PDE_system):
 
         ## gradient of state along x
         deriv_config = state.f.component.ax_deriv_configs[ax].copy()
-        deriv_config.update(order=0)  # 1st order accurate. kind of jank implementation
+        deriv_config.update(order=0)  # 1st order accurate
 
         if advec_coeffs is None:  ## no advection occurs
             if self.verbose:
@@ -927,7 +927,7 @@ class Boltzmann(PDE_system):
 
         ## gradient of state along x
         deriv_config = new_ax_deriv_configs[ax]
-        deriv_config.update(order=0)  # 1st order accurate. kind of jank implementation
+        deriv_config.update(order=0)  # 1st order accurate
 
         # if advec_coeffs is None:
         #     # v_ax = self.coords_v.get_axis(ax.coordinate.type)

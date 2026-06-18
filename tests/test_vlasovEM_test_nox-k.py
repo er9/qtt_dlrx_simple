@@ -53,8 +53,8 @@ if restart or save_data or save_figs:
     ## 84: AP DLR-G + RK4, 80: PS DLR-G + CN
     ## 69: PS DLR-X + RK4, 65: PS DLR-X + CN
     ## 89: AP DLR-X + RK4, 85: PS DLR-X + CN
-    ## 68: PS DLR-P + RK4, 67: PS DLR-P + CN
-    ## 88: AP DLR-P + RK4, 87: AP DLR-P + CN
+    ## 94: PS DLR-P + RK4, 90: PS DLR-P + CN
+    ## 99: AP DLR-P + RK4, 95: AP DLR-P + CN
     cutoff = flags.get('cutoff', CUTOFF)
     DMAX = flags.get('DMAX', None)
     fnum = '251103/'
@@ -484,6 +484,11 @@ vm_sys = VlasovMaxwell(init_fe_field, init_fi_field, em_sys,
                        )
 print('initialized vm_sys')
 
+# Register the prescribed (time-dependent) driving E-field with the solver. The integrator
+# evaluates this at its internal sub-step times (t, t+dt/2, t+dt, ...) instead of carrying a
+# hardcoded analytic field. Keyed by spatial coordinate; here only the X component is driven.
+vm_sys.E_drive = {X: lambda t: Ex(x_vals, t)}
+
 vm_sys.time = ts[-1]
 vm_sys.semiimplicit_force = do_semiimplicit
 
@@ -557,7 +562,7 @@ while ts[-1] < T:
 
     ## manually update E
     new_Ex = grid_X.make_empty_gridTN()
-    if 60 <= te_order < 70 or te_order in [80, 85, 95] or 90 <= te_order < 95:
+    if 60 <= te_order < 70 or te_order in [80, 85, 95] or 90 <= te_order < 95:  ## second order calculations
         new_Ex.data = Ex(x_vals, ts[-1] + dt_ / 2)
         vm_sys.time = ts[-1] + dt_ / 2
         vm_sys.sys_fe.time = ts[-1] + dt_ / 2
