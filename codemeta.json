@@ -4,6 +4,7 @@
   "name": "qtt_dlrx_simple",
   "description": "Research code implementing quantized tensor train (QTT) data structures and interpolative dynamical low-rank approximation (DLRA) time integrators for hyperbolic PDEs, including the Vlasov, Boltzmann, Burgers, and Maxwell equations.",
   "version": "0.1.0",
+  "identifier": "https://doi.org/10.5281/zenodo.20801130",
   "dateCreated": "2025-12-17",
   "datePublished": "2025-12-17",
   "license": "https://spdx.org/licenses/BSD-3-Clause",

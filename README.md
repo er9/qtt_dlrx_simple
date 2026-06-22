@@ -1,5 +1,7 @@
 # qtt_dlrx_simple
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20801130.svg)](https://doi.org/10.5281/zenodo.20801130)
+
 Research code for **quantized tensor trains (QTTs)** with **interpolative dynamical low-rank
 approximation (DLRA)** time integrators, applied to hyperbolic PDEs (Vlasov, Boltzmann,
 Burgers, and Maxwell equations).
@@ -186,7 +188,14 @@ consistent with this convention.
 
 If you use this software, please cite both the software and the paper. Citation metadata is
 provided in [`CITATION.cff`](CITATION.cff) and [`codemeta.json`](codemeta.json). The paper is
-arXiv:2512.15703 (https://arxiv.org/abs/2512.15703).
+arXiv:2512.15703 (https://arxiv.org/abs/2512.15703). Each release is archived on Zenodo; the
+DOI badge above is the *concept* DOI ([10.5281/zenodo.20801130](https://doi.org/10.5281/zenodo.20801130)),
+which always resolves to the latest release — cite it to refer to the software in general, or
+cite a specific version's DOI for a particular release.
+
+## Releases
+
+Version history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Support 
 

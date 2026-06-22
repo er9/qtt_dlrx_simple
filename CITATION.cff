@@ -30,6 +30,8 @@ keywords:
 license: BSD-3-Clause
 version: 0.1.0
 date-released: '2025-12-17'
+# Zenodo concept DOI (version-independent; resolves to the latest release).
+doi: 10.5281/zenodo.20801130
 preferred-citation:
   type: article
   title: >-
