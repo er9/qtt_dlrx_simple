@@ -4,7 +4,7 @@ Provides helper routines (e.g. constructing the v^2 multiplication MPO and
 assembling configured :class:`VlasovMaxwell` / :class:`VlasovPoisson` systems)
 used by the Vlasov test drivers. Not a standalone test itself.
 """
-import os, sys, pickle, time, glob
+import os, sys, time, glob
 import numpy as np
 
 sys.path.append('../')
@@ -65,28 +65,28 @@ def load_data_EM(VP_test,
         except IOError:
             pass
 
-        max_bond_fe = pickle.load(open(fdir + 'maxD_fe_' + fstr + '.pkl', 'rb'))
-        max_bond_fi = pickle.load(open(fdir + 'maxD_fi_' + fstr + '.pkl', 'rb')) if not only_elc else None
-        max_bond_E = pickle.load(open(fdir + 'maxD_E_' + fstr + '.pkl', 'rb')) if not only_elc else None
-        max_bond_B = pickle.load(open(fdir + 'maxD_B_' + fstr + '.pkl', 'rb')) if not only_elc else None
+        max_bond_fe = np.load(fdir + 'maxD_fe_' + fstr + '.npy', allow_pickle=False)
+        max_bond_fi = np.load(fdir + 'maxD_fi_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+        max_bond_E = np.load(fdir + 'maxD_E_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+        max_bond_B = np.load(fdir + 'maxD_B_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
         try:
-            max_bond_phi = pickle.load(open(fdir + 'maxD_phi_' + fstr + '.pkl', 'rb'))
-            max_bond_psi = pickle.load(open(fdir + 'maxD_psi_' + fstr + '.pkl', 'rb'))
+            max_bond_phi = np.load(fdir + 'maxD_phi_' + fstr + '.npy', allow_pickle=False)
+            max_bond_psi = np.load(fdir + 'maxD_psi_' + fstr + '.npy', allow_pickle=False)
         except IOError:
             max_bond_phi = [np.nan]
             max_bond_psi = [np.nan]
        
-        nrg_fe_ts = pickle.load(open(fdir + 'nrg_e_' + fstr + '.pkl', 'rb'))
-        nrg_fi_ts = pickle.load(open(fdir + 'nrg_i_' + fstr + '.pkl', 'rb')) if not only_elc else None
-        nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb')) if not only_elc else None
-        nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb')) if not only_elc else None
-        ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+        nrg_fe_ts = np.load(fdir + 'nrg_e_' + fstr + '.npy', allow_pickle=False)
+        nrg_fi_ts = np.load(fdir + 'nrg_i_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+        nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+        nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+        ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
 
         tmp_data = None
         if other_data is not None:
             tmp_data = []
             for data_name in other_data:
-                tmp_data += [pickle.load(open(fdir + str(data_name) + fstr + '.pkl', 'rb'))]
+                tmp_data += [np.load(fdir + str(data_name) + fstr + '.npy', allow_pickle=False)]
 
         print('loaded data')
 
@@ -103,28 +103,28 @@ def load_data_EM(VP_test,
             except IOError:
                 pass
 
-            max_bond_fe = pickle.load(open(fdir + 'maxD_fe_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_fi = pickle.load(open(fdir + 'maxD_fi_' + restart_fstr + '.pkl', 'rb')) if not only_elc else None
-            max_bond_E = pickle.load(open(fdir + 'maxD_E_' + restart_fstr + '.pkl', 'rb')) if not only_elc else None
-            max_bond_B = pickle.load(open(fdir + 'maxD_B_' + restart_fstr + '.pkl', 'rb')) if not only_elc else None
+            max_bond_fe = np.load(fdir + 'maxD_fe_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_fi = np.load(fdir + 'maxD_fi_' + restart_fstr + '.npy', allow_pickle=False) if not only_elc else None
+            max_bond_E = np.load(fdir + 'maxD_E_' + restart_fstr + '.npy', allow_pickle=False) if not only_elc else None
+            max_bond_B = np.load(fdir + 'maxD_B_' + restart_fstr + '.npy', allow_pickle=False) if not only_elc else None
             try:
-                max_bond_psi = pickle.load(open(fdir + 'maxD_psi_' + restart_fstr + '.pkl', 'rb'))
-                max_bond_phi = pickle.load(open(fdir + 'maxD_phi_' + restart_fstr + '.pkl', 'rb'))
+                max_bond_psi = np.load(fdir + 'maxD_psi_' + restart_fstr + '.npy', allow_pickle=False)
+                max_bond_phi = np.load(fdir + 'maxD_phi_' + restart_fstr + '.npy', allow_pickle=False)
             except IOError:
                 max_bond_phi = [np.nan]
                 max_bond_psi = [np.nan]
 
-            nrg_fe_ts = pickle.load(open(fdir + 'nrg_e_' + fstr + '.pkl', 'rb'))
-            nrg_fi_ts = pickle.load(open(fdir + 'nrg_i_' + fstr + '.pkl', 'rb')) if not only_elc else None
-            nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb')) if not only_elc else None
-            nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb')) if not only_elc else None
-            ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+            nrg_fe_ts = np.load(fdir + 'nrg_e_' + fstr + '.npy', allow_pickle=False)
+            nrg_fi_ts = np.load(fdir + 'nrg_i_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+            nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+            nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False) if not only_elc else None
+            ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
 
             tmp_data = None
             if other_data is not None:
                 tmp_data = []
                 for data_name in other_data:
-                    tmp_data += [pickle.load(open(fdir + f'{data_name}_' + fstr + '.pkl', 'rb'))]
+                    tmp_data += [np.load(fdir + f'{data_name}_' + fstr + '.npy', allow_pickle=False)]
 
             print('restarting from ', restart_fstr)
             ts = list(ts)
@@ -135,7 +135,7 @@ def load_data_EM(VP_test,
             re_fstr = fstr
             print(re_fstr)
 
-            restart_fstrs = glob.glob(sdir + 'restart/fe_' + re_fstr + '-nt*.pkl')
+            restart_fstrs = glob.glob(sdir + 'restart/fe_' + re_fstr + '-nt*.npz')
             print(sdir + 'restart/')
             print('restart?', len(restart_fstrs))
             nts = []
@@ -150,7 +150,7 @@ def load_data_EM(VP_test,
                 print('max nt', nt)
 
                 ### check that energy matches this
-                nrg_fe_ts = pickle.load(open(sdir + 'restart/nrg_e_' + re_fstr + f'.pkl', 'rb'))
+                nrg_fe_ts = np.load(sdir + 'restart/nrg_e_' + re_fstr + '.npy', allow_pickle=False)
                 nt_ = len(nrg_fe_ts) - 1
                 print('nrg len nt', nt_)
 
@@ -169,7 +169,7 @@ def load_data_EM(VP_test,
                     # if nt_ > nt or nt_ % save_every_nt != 0:
                     if nt_ % save_every_nt != 0:
                         print('removing restart', nt_)
-                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.pkl')
+                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.npz')
                         for f in restart_files:  os.remove(f)
             except NameError:
                 pass
@@ -186,21 +186,21 @@ def load_data_EM(VP_test,
                     print('phi, psi not found')
                     pass
 
-            max_bond_fe = pickle.load(open(sdir + 'restart/maxD_fe_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_fi = pickle.load(open(sdir + 'restart/maxD_fi_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
-            max_bond_E = pickle.load(open(sdir + 'restart/maxD_E_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
-            max_bond_B = pickle.load(open(sdir + 'restart/maxD_B_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
+            max_bond_fe = np.load(sdir + 'restart/maxD_fe_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_fi = np.load(sdir + 'restart/maxD_fi_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
+            max_bond_E = np.load(sdir + 'restart/maxD_E_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
+            max_bond_B = np.load(sdir + 'restart/maxD_B_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
             try:
-                max_bond_phi = pickle.load(open(sdir + 'restart/maxD_phi_' + re_fstr + f'.pkl', 'rb'))
-                max_bond_psi = pickle.load(open(sdir + 'restart/maxD_psi_' + re_fstr + f'.pkl', 'rb'))
+                max_bond_phi = np.load(sdir + 'restart/maxD_phi_' + re_fstr + '.npy', allow_pickle=False)
+                max_bond_psi = np.load(sdir + 'restart/maxD_psi_' + re_fstr + '.npy', allow_pickle=False)
             except IOError:
                 max_bond_phi = [np.nan]
                 max_bond_psi = [np.nan]
-            nrg_fe_ts = pickle.load(open(sdir + 'restart/nrg_e_' + re_fstr + f'.pkl', 'rb'))
-            nrg_fi_ts = pickle.load(open(sdir + 'restart/nrg_i_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
-            nrg_E_ts = pickle.load(open(sdir + 'restart/nrg_E_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
-            nrg_B_ts = pickle.load(open(sdir + 'restart/nrg_B_' + re_fstr + f'.pkl', 'rb')) if not only_elc else []
-            ts = pickle.load(open(sdir + 'restart/ts_' + re_fstr + f'.pkl', 'rb'))
+            nrg_fe_ts = np.load(sdir + 'restart/nrg_e_' + re_fstr + '.npy', allow_pickle=False)
+            nrg_fi_ts = np.load(sdir + 'restart/nrg_i_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
+            nrg_E_ts = np.load(sdir + 'restart/nrg_E_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
+            nrg_B_ts = np.load(sdir + 'restart/nrg_B_' + re_fstr + '.npy', allow_pickle=False) if not only_elc else []
+            ts = np.load(sdir + 'restart/ts_' + re_fstr + '.npy', allow_pickle=False)
             ts = list(ts)
             print('loaded', nt, len(nrg_fe_ts))
 
@@ -208,7 +208,7 @@ def load_data_EM(VP_test,
             if other_data is not None:
                 tmp_data = []
                 for data_name in other_data:
-                    tmp_data += [pickle.load(open(sdir + f'restart/{data_name}_' + re_fstr + '.pkl', 'rb'))]
+                    tmp_data += [np.load(sdir + f'restart/{data_name}_' + re_fstr + '.npy', allow_pickle=False)]
 
 
         max_bond_fe = max_bond_fe[:nt + 1]
@@ -265,29 +265,29 @@ def save_data_EM(VP_test, vm_sys, fdir, extra_str='', add_fstr='',
             vm_sys.psi.save_data(fdir + 'psi_' + f_fstr)
 
     if not np.isnan(max_bond_fe[-1]):
-        pickle.dump(max_bond_fe, open(fdir + 'maxD_fe_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_fe_' + fstr + '.npy', np.array(max_bond_fe))
     if not only_elc:
         if not np.isnan(max_bond_fi[-1]):
-            pickle.dump(max_bond_fi, open(fdir + 'maxD_fi_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + 'maxD_fi_' + fstr + '.npy', np.array(max_bond_fi))
         if not all(np.isnan(max_bond_E[-1])):
-            pickle.dump(max_bond_E, open(fdir + 'maxD_E_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + 'maxD_E_' + fstr + '.npy', np.array(max_bond_E))
         if not all(np.isnan(max_bond_B[-1])):
-            pickle.dump(max_bond_B, open(fdir + 'maxD_B_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + 'maxD_B_' + fstr + '.npy', np.array(max_bond_B))
         if max_bond_phi is not None and not np.isnan(max_bond_phi[-1]):
-            pickle.dump(max_bond_phi, open(fdir + 'maxD_phi_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + 'maxD_phi_' + fstr + '.npy', np.array(max_bond_phi))
         if max_bond_psi is not None and not np.isnan(max_bond_psi[-1]):
-            pickle.dump(max_bond_psi, open(fdir + 'maxD_psi_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + 'maxD_psi_' + fstr + '.npy', np.array(max_bond_psi))
 
-    pickle.dump(nrg_fe_ts, open(fdir + 'nrg_e_' + fstr + '.pkl', 'wb'))
+    np.save(fdir + 'nrg_e_' + fstr + '.npy', np.array(nrg_fe_ts))
     if not only_elc:
-        pickle.dump(nrg_fi_ts, open(fdir + 'nrg_i_' + fstr + '.pkl', 'wb'))
-        pickle.dump(nrg_E_ts, open(fdir + 'nrg_E_' + fstr + '.pkl', 'wb'))
-        pickle.dump(nrg_B_ts, open(fdir + 'nrg_B_' + fstr + '.pkl', 'wb'))
-    pickle.dump(ts, open(fdir + 'ts_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'nrg_i_' + fstr + '.npy', np.array(nrg_fi_ts))
+        np.save(fdir + 'nrg_E_' + fstr + '.npy', np.array(nrg_E_ts))
+        np.save(fdir + 'nrg_B_' + fstr + '.npy', np.array(nrg_B_ts))
+    np.save(fdir + 'ts_' + fstr + '.npy', np.array(ts))
 
     if other_data is not None:
         for k, v in other_data.items():
-            pickle.dump(v, open(fdir + str(k) + '_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + str(k) + '_' + fstr + '.npy', np.array(v))
 
 
 def load_data_Maxwell(fstr,
@@ -311,24 +311,24 @@ def load_data_Maxwell(fstr,
         except (AttributeError, IOError):
             pass
 
-        max_bond_E = pickle.load(open(fdir + 'maxD_E_' + fstr + '.pkl', 'rb'))
-        max_bond_B = pickle.load(open(fdir + 'maxD_B_' + fstr + '.pkl', 'rb'))
+        max_bond_E = np.load(fdir + 'maxD_E_' + fstr + '.npy', allow_pickle=False)
+        max_bond_B = np.load(fdir + 'maxD_B_' + fstr + '.npy', allow_pickle=False)
         try:
-            max_bond_phi = pickle.load(open(fdir + 'maxD_phi_' + fstr + '.pkl', 'rb'))
-            max_bond_psi = pickle.load(open(fdir + 'maxD_psi_' + fstr + '.pkl', 'rb'))
+            max_bond_phi = np.load(fdir + 'maxD_phi_' + fstr + '.npy', allow_pickle=False)
+            max_bond_psi = np.load(fdir + 'maxD_psi_' + fstr + '.npy', allow_pickle=False)
         except IOError:
             max_bond_phi = [np.nan]
             max_bond_psi = [np.nan]
 
-        nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb'))
-        nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb'))
-        ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+        nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False)
+        nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False)
+        ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
 
         tmp_data = None
         if other_data is not None:
             tmp_data = []
             for data_name in other_data:
-                tmp_data += [pickle.load(open(fdir + str(data_name) + fstr + '.pkl', 'rb'))]
+                tmp_data += [np.load(fdir + str(data_name) + fstr + '.npy', allow_pickle=False)]
 
         print('loaded data')
 
@@ -343,24 +343,24 @@ def load_data_Maxwell(fstr,
             except IOError:
                 pass
 
-            max_bond_E = pickle.load(open(fdir + 'maxD_E_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_B = pickle.load(open(fdir + 'maxD_B_' + restart_fstr + '.pkl', 'rb'))
+            max_bond_E = np.load(fdir + 'maxD_E_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_B = np.load(fdir + 'maxD_B_' + restart_fstr + '.npy', allow_pickle=False)
             try:
-                max_bond_psi = pickle.load(open(fdir + 'maxD_psi_' + restart_fstr + '.pkl', 'rb'))
-                max_bond_phi = pickle.load(open(fdir + 'maxD_phi_' + restart_fstr + '.pkl', 'rb'))
+                max_bond_psi = np.load(fdir + 'maxD_psi_' + restart_fstr + '.npy', allow_pickle=False)
+                max_bond_phi = np.load(fdir + 'maxD_phi_' + restart_fstr + '.npy', allow_pickle=False)
             except IOError:
                 max_bond_phi = [np.nan]
                 max_bond_psi = [np.nan]
 
-            nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb'))
-            nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb'))
-            ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+            nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False)
+            nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False)
+            ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
 
             tmp_data = None
             if other_data is not None:
                 tmp_data = []
                 for data_name in other_data:
-                    tmp_data += [pickle.load(open(fdir + f'{data_name}_' + fstr + '.pkl', 'rb'))]
+                    tmp_data += [np.load(fdir + f'{data_name}_' + fstr + '.npy', allow_pickle=False)]
 
             print('restarting from ', restart_fstr)
             ts = list(ts)
@@ -371,7 +371,7 @@ def load_data_Maxwell(fstr,
             re_fstr = fstr
             print(re_fstr)
 
-            restart_fstrs = glob.glob(sdir + 'restart/E_' + re_fstr + '-nt*.pkl')
+            restart_fstrs = glob.glob(sdir + 'restart/E_' + re_fstr + '-nt*.npz')
             print('sdir', sdir + 'restart/')
             print('restart?', len(restart_fstrs))
             nts = []
@@ -386,7 +386,7 @@ def load_data_Maxwell(fstr,
                 print('max nt', nt)
 
                 ### check that energy matches this
-                nrg_fe_ts = pickle.load(open(sdir + 'restart/ts_' + re_fstr + f'.pkl', 'rb'))
+                nrg_fe_ts = np.load(sdir + 'restart/ts_' + re_fstr + '.npy', allow_pickle=False)
                 nt_ = len(nrg_fe_ts) - 1
                 print('nrg len nt', nt_)
 
@@ -405,7 +405,7 @@ def load_data_Maxwell(fstr,
                     # if nt_ > nt or nt_ % save_every_nt != 0:
                     if nt_ % save_every_nt != 0:
                         print('removing restart', nt_)
-                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.pkl')
+                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.npz')
                         for f in restart_files:  os.remove(f)
             except NameError:
                 pass
@@ -420,17 +420,17 @@ def load_data_Maxwell(fstr,
                     print('phi, psi not found')
                     pass
 
-            max_bond_E = pickle.load(open(sdir + 'restart/maxD_E_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_B = pickle.load(open(sdir + 'restart/maxD_B_' + re_fstr + f'.pkl', 'rb'))
+            max_bond_E = np.load(sdir + 'restart/maxD_E_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_B = np.load(sdir + 'restart/maxD_B_' + re_fstr + '.npy', allow_pickle=False)
             try:
-                max_bond_phi = pickle.load(open(sdir + 'restart/maxD_phi_' + re_fstr + f'.pkl', 'rb'))
-                max_bond_psi = pickle.load(open(sdir + 'restart/maxD_psi_' + re_fstr + f'.pkl', 'rb'))
+                max_bond_phi = np.load(sdir + 'restart/maxD_phi_' + re_fstr + '.npy', allow_pickle=False)
+                max_bond_psi = np.load(sdir + 'restart/maxD_psi_' + re_fstr + '.npy', allow_pickle=False)
             except IOError:
                 max_bond_phi = [np.nan]
                 max_bond_psi = [np.nan]
-            nrg_E_ts = pickle.load(open(sdir + 'restart/nrg_E_' + re_fstr + f'.pkl', 'rb'))
-            nrg_B_ts = pickle.load(open(sdir + 'restart/nrg_B_' + re_fstr + f'.pkl', 'rb'))
-            ts = pickle.load(open(sdir + 'restart/ts_' + re_fstr + f'.pkl', 'rb'))
+            nrg_E_ts = np.load(sdir + 'restart/nrg_E_' + re_fstr + '.npy', allow_pickle=False)
+            nrg_B_ts = np.load(sdir + 'restart/nrg_B_' + re_fstr + '.npy', allow_pickle=False)
+            ts = np.load(sdir + 'restart/ts_' + re_fstr + '.npy', allow_pickle=False)
             ts = list(ts)
             print('loaded', nt, len(nrg_E_ts))
 
@@ -438,7 +438,7 @@ def load_data_Maxwell(fstr,
             if other_data is not None:
                 tmp_data = []
                 for data_name in other_data:
-                    tmp_data += [pickle.load(open(sdir + f'restart/{data_name}_' + re_fstr + '.pkl', 'rb'))]
+                    tmp_data += [np.load(sdir + f'restart/{data_name}_' + re_fstr + '.npy', allow_pickle=False)]
 
         max_bond_E = max_bond_E[:nt + 1]
         max_bond_B = max_bond_B[:nt + 1]
@@ -485,21 +485,21 @@ def save_data_Maxwell(fstr, em_sys, fdir, extra_str='', add_fstr='',
         em_sys.psi.save_data(fdir + 'psi_' + f_fstr)
 
     if not all(np.isnan(max_bond_E[-1])):
-        pickle.dump(max_bond_E, open(fdir + 'maxD_E_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_E_' + fstr + '.npy', np.array(max_bond_E))
     if not all(np.isnan(max_bond_B[-1])):
-        pickle.dump(max_bond_B, open(fdir + 'maxD_B_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_B_' + fstr + '.npy', np.array(max_bond_B))
     if max_bond_phi is not None and not np.isnan(max_bond_phi[-1]):
-        pickle.dump(max_bond_phi, open(fdir + 'maxD_phi_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_phi_' + fstr + '.npy', np.array(max_bond_phi))
     if max_bond_psi is not None and not np.isnan(max_bond_psi[-1]):
-        pickle.dump(max_bond_psi, open(fdir + 'maxD_psi_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_psi_' + fstr + '.npy', np.array(max_bond_psi))
 
-    pickle.dump(nrg_E_ts, open(fdir + 'nrg_E_' + fstr + '.pkl', 'wb'))
-    pickle.dump(nrg_B_ts, open(fdir + 'nrg_B_' + fstr + '.pkl', 'wb'))
-    pickle.dump(ts, open(fdir + 'ts_' + fstr + '.pkl', 'wb'))
+    np.save(fdir + 'nrg_E_' + fstr + '.npy', np.array(nrg_E_ts))
+    np.save(fdir + 'nrg_B_' + fstr + '.npy', np.array(nrg_B_ts))
+    np.save(fdir + 'ts_' + fstr + '.npy', np.array(ts))
 
     if other_data is not None:
         for k, v in other_data.items():
-            pickle.dump(v, open(fdir + str(k) + '_' + fstr + '.pkl', 'wb'))
+            np.save(fdir + str(k) + '_' + fstr + '.npy', np.array(v))
 
 
 def load_data_ED(VD_test,
@@ -520,17 +520,17 @@ def load_data_ED(VD_test,
         init_EL_field = init_EL_field.reload_data(fdir + 'EL_' + fstr)
         init_B_field = init_B_field.reload_data(fdir + 'B_' + fstr)
 
-        max_bond_fe = pickle.load(open(fdir + 'maxD_fe_' + fstr + '.pkl', 'rb'))
-        max_bond_fi = pickle.load(open(fdir + 'maxD_fi_' + fstr + '.pkl', 'rb'))
-        max_bond_ET = pickle.load(open(fdir + 'maxD_ET_' + fstr + '.pkl', 'rb'))
-        max_bond_EL = pickle.load(open(fdir + 'maxD_EL_' + fstr + '.pkl', 'rb'))
-        max_bond_B = pickle.load(open(fdir + 'maxD_B_' + fstr + '.pkl', 'rb'))
+        max_bond_fe = np.load(fdir + 'maxD_fe_' + fstr + '.npy', allow_pickle=False)
+        max_bond_fi = np.load(fdir + 'maxD_fi_' + fstr + '.npy', allow_pickle=False)
+        max_bond_ET = np.load(fdir + 'maxD_ET_' + fstr + '.npy', allow_pickle=False)
+        max_bond_EL = np.load(fdir + 'maxD_EL_' + fstr + '.npy', allow_pickle=False)
+        max_bond_B = np.load(fdir + 'maxD_B_' + fstr + '.npy', allow_pickle=False)
 
-        nrg_fe_ts = pickle.load(open(fdir + 'nrg_e_' + fstr + '.pkl', 'rb'))
-        nrg_fi_ts = pickle.load(open(fdir + 'nrg_i_' + fstr + '.pkl', 'rb'))
-        nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb'))
-        nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb'))
-        ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+        nrg_fe_ts = np.load(fdir + 'nrg_e_' + fstr + '.npy', allow_pickle=False)
+        nrg_fi_ts = np.load(fdir + 'nrg_i_' + fstr + '.npy', allow_pickle=False)
+        nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False)
+        nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False)
+        ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
 
         print('loaded data')
 
@@ -543,17 +543,17 @@ def load_data_ED(VD_test,
             init_EL_field = init_EL_field.reload_data(fdir + 'EL_' + restart_fstr)
             init_B_field = init_B_field.reload_data(fdir + 'B_' + restart_fstr)
 
-            max_bond_fe = pickle.load(open(fdir + 'maxD_fe_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_fi = pickle.load(open(fdir + 'maxD_fi_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_ET = pickle.load(open(fdir + 'maxD_ET_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_EL = pickle.load(open(fdir + 'maxD_EL_' + restart_fstr + '.pkl', 'rb'))
-            max_bond_B = pickle.load(open(fdir + 'maxD_B_' + restart_fstr + '.pkl', 'rb'))
+            max_bond_fe = np.load(fdir + 'maxD_fe_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_fi = np.load(fdir + 'maxD_fi_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_ET = np.load(fdir + 'maxD_ET_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_EL = np.load(fdir + 'maxD_EL_' + restart_fstr + '.npy', allow_pickle=False)
+            max_bond_B = np.load(fdir + 'maxD_B_' + restart_fstr + '.npy', allow_pickle=False)
 
-            nrg_fe_ts = pickle.load(open(fdir + 'nrg_e_' + fstr + '.pkl', 'rb'))
-            nrg_fi_ts = pickle.load(open(fdir + 'nrg_i_' + fstr + '.pkl', 'rb'))
-            nrg_E_ts = pickle.load(open(fdir + 'nrg_E_' + fstr + '.pkl', 'rb'))
-            nrg_B_ts = pickle.load(open(fdir + 'nrg_B_' + fstr + '.pkl', 'rb'))
-            ts = pickle.load(open(fdir + 'ts_' + fstr + '.pkl', 'rb'))
+            nrg_fe_ts = np.load(fdir + 'nrg_e_' + fstr + '.npy', allow_pickle=False)
+            nrg_fi_ts = np.load(fdir + 'nrg_i_' + fstr + '.npy', allow_pickle=False)
+            nrg_E_ts = np.load(fdir + 'nrg_E_' + fstr + '.npy', allow_pickle=False)
+            nrg_B_ts = np.load(fdir + 'nrg_B_' + fstr + '.npy', allow_pickle=False)
+            ts = np.load(fdir + 'ts_' + fstr + '.npy', allow_pickle=False)
             print('restarting from ', restart_fstr)
             ts = list(ts)
             nt = len(ts) - 1
@@ -563,7 +563,7 @@ def load_data_ED(VD_test,
             re_fstr = fstr
             print(re_fstr)
 
-            restart_fstrs = glob.glob(sdir + 'restart/fe_' + re_fstr + '-nt*.pkl')
+            restart_fstrs = glob.glob(sdir + 'restart/fe_' + re_fstr + '-nt*.npz')
             print(sdir + 'restart/')
             print('restart?', len(restart_fstrs))
             nts = []
@@ -580,7 +580,7 @@ def load_data_ED(VD_test,
                 for nt_ in nts:  ## remove old restart files
                     if nt_ > nt or nt_ % save_every_nt != 0:
                         print('removing restart', nt_)
-                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.pkl')
+                        restart_files = glob.glob(sdir + 'restart/*' + re_fstr + f'-nt{nt_}.npz')
                         for f in restart_files:  os.remove(f)
             except NameError:
                 pass
@@ -591,17 +591,17 @@ def load_data_ED(VD_test,
             init_EL_field = init_EL_field.reload_data(sdir + 'restart/EL_' + re_fstr + f'-nt{nt}')
             init_B_field = init_B_field.reload_data(sdir + 'restart/B_' + re_fstr + f'-nt{nt}')
 
-            max_bond_fe = pickle.load(open(sdir + 'restart/maxD_fe_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_fi = pickle.load(open(sdir + 'restart/maxD_fi_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_ET = pickle.load(open(sdir + 'restart/maxD_ET_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_EL = pickle.load(open(sdir + 'restart/maxD_EL_' + re_fstr + f'.pkl', 'rb'))
-            max_bond_B = pickle.load(open(sdir + 'restart/maxD_B_' + re_fstr + f'.pkl', 'rb'))
+            max_bond_fe = np.load(sdir + 'restart/maxD_fe_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_fi = np.load(sdir + 'restart/maxD_fi_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_ET = np.load(sdir + 'restart/maxD_ET_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_EL = np.load(sdir + 'restart/maxD_EL_' + re_fstr + '.npy', allow_pickle=False)
+            max_bond_B = np.load(sdir + 'restart/maxD_B_' + re_fstr + '.npy', allow_pickle=False)
 
-            nrg_fe_ts = pickle.load(open(sdir + 'restart/nrg_e_' + re_fstr + f'.pkl', 'rb'))
-            nrg_fi_ts = pickle.load(open(sdir + 'restart/nrg_i_' + re_fstr + f'.pkl', 'rb'))
-            nrg_E_ts = pickle.load(open(sdir + 'restart/nrg_E_' + re_fstr + f'.pkl', 'rb'))
-            nrg_B_ts = pickle.load(open(sdir + 'restart/nrg_B_' + re_fstr + f'.pkl', 'rb'))
-            ts = pickle.load(open(sdir + 'restart/ts_' + re_fstr + f'.pkl', 'rb'))
+            nrg_fe_ts = np.load(sdir + 'restart/nrg_e_' + re_fstr + '.npy', allow_pickle=False)
+            nrg_fi_ts = np.load(sdir + 'restart/nrg_i_' + re_fstr + '.npy', allow_pickle=False)
+            nrg_E_ts = np.load(sdir + 'restart/nrg_E_' + re_fstr + '.npy', allow_pickle=False)
+            nrg_B_ts = np.load(sdir + 'restart/nrg_B_' + re_fstr + '.npy', allow_pickle=False)
+            ts = np.load(sdir + 'restart/ts_' + re_fstr + '.npy', allow_pickle=False)
             ts = list(ts)
             print('loaded', nt, len(nrg_fe_ts))
 
@@ -638,19 +638,19 @@ def save_data_ED(VP_test, vd_sys, fdir, extra_str='', add_fstr='',
     vd_sys.EL.save_data(fdir + 'EL_' + f_fstr)
     vd_sys.B.save_data(fdir + 'B_' + f_fstr)
     if not np.isnan(max_bond_fe[-1]):
-        pickle.dump(max_bond_fe, open(fdir + 'maxD_fe_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_fe_' + fstr + '.npy', np.array(max_bond_fe))
     if not np.isnan(max_bond_fi[-1]):
-        pickle.dump(max_bond_fi, open(fdir + 'maxD_fi_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_fi_' + fstr + '.npy', np.array(max_bond_fi))
     if not all(np.isnan(max_bond_ET[-1])):
-        pickle.dump(max_bond_ET, open(fdir + 'maxD_ET_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_ET_' + fstr + '.npy', np.array(max_bond_ET))
     if not all(np.isnan(max_bond_EL[-1])):
-        pickle.dump(max_bond_EL, open(fdir + 'maxD_EL_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_EL_' + fstr + '.npy', np.array(max_bond_EL))
     if not all(np.isnan(max_bond_B[-1])):
-        pickle.dump(max_bond_B, open(fdir + 'maxD_B_' + fstr + '.pkl', 'wb'))
-    pickle.dump(nrg_fe_ts, open(fdir + 'nrg_e_' + fstr + '.pkl', 'wb'))
-    pickle.dump(nrg_fi_ts, open(fdir + 'nrg_i_' + fstr + '.pkl', 'wb'))
-    pickle.dump(nrg_E_ts, open(fdir + 'nrg_E_' + fstr + '.pkl', 'wb'))
-    pickle.dump(nrg_B_ts, open(fdir + 'nrg_B_' + fstr + '.pkl', 'wb'))
-    pickle.dump(ts, open(fdir + 'ts_' + fstr + '.pkl', 'wb'))
+        np.save(fdir + 'maxD_B_' + fstr + '.npy', np.array(max_bond_B))
+    np.save(fdir + 'nrg_e_' + fstr + '.npy', np.array(nrg_fe_ts))
+    np.save(fdir + 'nrg_i_' + fstr + '.npy', np.array(nrg_fi_ts))
+    np.save(fdir + 'nrg_E_' + fstr + '.npy', np.array(nrg_E_ts))
+    np.save(fdir + 'nrg_B_' + fstr + '.npy', np.array(nrg_B_ts))
+    np.save(fdir + 'ts_' + fstr + '.npy', np.array(ts))
 
 

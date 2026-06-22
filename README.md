@@ -204,3 +204,9 @@ To report issues or for support, email erikaye@lbl.gov
 ## License
 
 BSD 3-Clause. See [`LICENSE`](LICENSE).
+
+## AI Usage
+
+Claude Opus was used to merge the three original branches (advec, Burgers, EM2D) into merge-unify,
+clean up the code (e.g., reduce verbosity), and updating the data saving from pickle to npz. 
+It was also used to generate metadata files.  

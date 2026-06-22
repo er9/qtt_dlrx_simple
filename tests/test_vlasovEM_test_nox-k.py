@@ -5,6 +5,8 @@ time-dependent electric field and fixed magnetic field, comparing tensor-train (
 Reference: http://ammar-hakim.org/sj/je/je32/je32-vlasov-test-ptcl.html
 """
 import os, sys, time
+import pdb
+
 sys.path.append('../')
 
 from setup_.paths import save_dir, main_dir
@@ -412,17 +414,42 @@ try:
 
     (init_fe_field, ts, nrg_fe_ts, max_bond_fe, max_bond_pre,) = out
 
+    nrg_fe_ts = list(nrg_fe_ts)
+    max_bond_fe = list(max_bond_fe)
+    max_bond_pre = list(max_bond_pre)
+
     nt = len(ts) - 1
     restarted = True
 
-    with open(sdir + 'errs_' + fstr + '.pkl', 'rb') as f:
-        ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass, \
-            errs_drift, errs_sigma2, errs_fitted, errs_deriv = pickle.load(f)
-        print('loaded', sdir + 'errs_' + fstr + '.pkl')
+    ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass, \
+        errs_drift, errs_sigma2, errs_fitted, errs_deriv = np.load(sdir + 'errs_' + fstr + '.npy')
 
-    with open(sdir + 'meas_' + fstr + '.pkl', 'rb') as f:
-        _, avg_vx_ts, avg_vy_ts = pickle.load(f)
-        print('loaded', sdir + 'errs_' + fstr + '.pkl')
+    _, avg_vx_ts, avg_vy_ts = np.load(sdir + 'meas_' + fstr + '.npy')
+
+    ts = list(ts)
+    errs_avg = list(errs_avg)
+    errs_dist = list(errs_dist)
+    errs_shape = list(errs_shape)
+    errs_norm = list(errs_norm)
+    errs_mass = list(errs_mass)
+    errs_drift = list(errs_drift)
+    errs_sigma2 = list(errs_sigma2)
+    errs_fitted = list(errs_fitted)
+    errs_deriv = list(errs_deriv)
+    avg_vx_ts = list(avg_vx_ts)
+    avg_vy_ts = list(avg_vy_ts)
+
+
+    print('ts[-1]', ts[-1])
+
+    # with open(sdir + 'errs_' + fstr + '.pkl', 'rb') as f:
+    #     ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass, \
+    #         errs_drift, errs_sigma2, errs_fitted, errs_deriv = pickle.load(f)
+    #     print('loaded', sdir + 'errs_' + fstr + '.pkl')
+    #
+    # with open(sdir + 'meas_' + fstr + '.pkl', 'rb') as f:
+    #     _, avg_vx_ts, avg_vy_ts = pickle.load(f)
+    #     print('loaded', sdir + 'errs_' + fstr + '.pkl')
 
     init_E_field[X].data = Ex(x_vals, ts[-1])
 
@@ -488,6 +515,8 @@ print('initialized vm_sys')
 # evaluates this at its internal sub-step times (t, t+dt/2, t+dt, ...) instead of carrying a
 # hardcoded analytic field. Keyed by spatial coordinate; here only the X component is driven.
 vm_sys.E_drive = {X: lambda t: Ex(x_vals, t)}
+
+print('init time', ts[-1])
 
 vm_sys.time = ts[-1]
 vm_sys.semiimplicit_force = do_semiimplicit
@@ -558,6 +587,7 @@ while ts[-1] < T:
     print('vm_sys.fe.norm', vm_sys.fe.norm(), norm_fe, vm_sys.fe.max_bond())
     # exit()
 
+    print('dt', dt)
     dt_ = (dt * 0.1) if nt == 0 else dt
 
     ## manually update E
@@ -621,8 +651,12 @@ while ts[-1] < T:
 
     nrg_fe_ts += [nrg_fe]
 
+    print('dt_', dt_, ts[-1], ts[-1] + dt_, len(ts))
     ts += [ts[-1] + dt_]
     nt += 1
+
+    # print('ts', ts[-1], len(ts))
+    # pdb.set_trace()
 
     # ## manually update E
     # # new_Ex = grid_X.map_state_to_mps(Ex(x_vals, ts[-1]))
@@ -675,6 +709,7 @@ while ts[-1] < T:
         vy_exact = - z ** 2 * Ex0 / 2 * ts[-1] * np.sin(ts[-1])
 
     errs_avg += [np.linalg.norm([px_e - vx_exact, py_e - vy_exact])]
+    print('vx exact', vx_exact, 'vy exact', vy_exact)
 
     ####
     fe1_kvx = helper_test.maxwellian_k(kvx_e_vals, vth2=vth_e ** 2, density=1.0, flow=vx_exact, is_sqrt=is_sqrt) * n0_e
@@ -901,14 +936,19 @@ while ts[-1] < T:
         plt.close()
 
         if save_data:
-            pickle.dump([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
-                         errs_drift, errs_sigma2, errs_fitted, errs_deriv],
-                        open(sdir + 'errs_' + fstr + '.pkl', 'wb'))
-            print('saved', sdir + 'errs_' + fstr + '.pkl')
+            # pickle.dump([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
+            #              errs_drift, errs_sigma2, errs_fitted, errs_deriv],
+            #             open(sdir + 'errs_' + fstr + '.pkl', 'wb'))
+            # pickle.dump([ts, avg_vx_ts, avg_vy_ts],
+            #             open(sdir + 'meas_' + fstr + '.pkl', 'wb'))
 
-            pickle.dump([ts, avg_vx_ts, avg_vy_ts],
-                        open(sdir + 'meas_' + fstr + '.pkl', 'wb'))
-            print('saved', sdir + 'meas_' + fstr + '.pkl')
+            np.save(sdir + 'errs_' + fstr + '.npy',
+                    np.array([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
+                              errs_drift, errs_sigma2, errs_fitted, errs_deriv]))
+            print('saved', sdir + 'errs_' + fstr + '.npy')
+            np.save(sdir + 'meas_' + fstr + '.npy',
+                    np.array([ts, avg_vx_ts, avg_vy_ts]),)
+            print('saved', sdir + 'meas_' + fstr + '.npy')
 
             if not os.path.exists(sdir + 'restart/'):
                 os.makedirs(sdir + 'restart/')
@@ -947,14 +987,22 @@ print('wall time', time.time() - time1)
 #     print('saved', fdir + 'errs_' + fstr + '.pkl')
 
 if save_data:
-    pickle.dump([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
-                 errs_drift, errs_sigma2, errs_fitted, errs_deriv],
-                open(fdir + 'errs_' + fstr + '.pkl', 'wb'))
-    print('saved', fdir + 'errs_' + fstr + '.pkl')
+    # pickle.dump([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
+    #              errs_drift, errs_sigma2, errs_fitted, errs_deriv],
+    #             open(fdir + 'errs_' + fstr + '.pkl', 'wb'))
+    # print('saved', fdir + 'errs_' + fstr + '.pkl')
+    #
+    # pickle.dump([ts, avg_vx_ts, avg_vy_ts],
+    #             open(fdir + 'meas_' + fstr + '.pkl', 'wb'))
+    # print('saved', fdir + 'meas_' + fstr + '.pkl')
 
-    pickle.dump([ts, avg_vx_ts, avg_vy_ts],
-                open(fdir + 'meas_' + fstr + '.pkl', 'wb'))
-    print('saved', fdir + 'meas_' + fstr + '.pkl')
+    np.save(sdir + 'errs_' + fstr + '.npy',
+            np.array([ts, errs_avg, errs_dist, errs_shape, errs_norm, errs_mass,
+                      errs_drift, errs_sigma2, errs_fitted, errs_deriv]))
+    print('saved', sdir + 'errs_' + fstr + '.npy')
+    np.save(sdir + 'meas_' + fstr + '.npy',
+            np.array([ts, avg_vx_ts, avg_vy_ts]), )
+    print('saved', sdir + 'meas_' + fstr + '.npy')
 
     if not os.path.exists(sdir + 'restart/'):
         os.makedirs(sdir + 'restart/')
