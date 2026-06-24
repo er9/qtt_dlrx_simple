@@ -10,11 +10,13 @@ channels:
 dependencies:
   - python=3.9
   - numpy
-  - scipy
+  - scipy=1.12.0
   - matplotlib
   - sympy
   - pytest
   - pip
   - pip:
+      - opt_einsum==3.4.0
+      - autoray==0.7.0
       - quimb==1.4.0
       - findiff

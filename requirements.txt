@@ -1,13 +1,16 @@
 # Runtime dependencies for qtt_dlrx_simple (pip-installable, platform-neutral).
 # For a reproducible conda environment, use environment.yml instead.
 #
+# Use Python 3.9
 # quimb is pinned to 1.4.0: later releases change the tensor-network API used
 # throughout this codebase.
 quimb==1.4.0
 numpy
-scipy
+scipy==1.12.0
 matplotlib
 findiff
 sympy
+opt_einsum==3.4.0
+autoray==0.7.0
 # Test runner for the installation-verification suite (tests/test_install_xfunc.py).
 pytest
